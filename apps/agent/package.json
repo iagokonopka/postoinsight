@@ -1,0 +1,27 @@
+{
+  "name": "agent",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "pkg": "tsc && yao-pkg dist/index.js --target node20-win-x64 --output dist/postoinsight-agent.exe",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@postoinsight/shared": "workspace:*",
+    "dotenv": "^16.4.0",
+    "mssql": "^10.0.0",
+    "ws": "^8.16.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/mssql": "^9.0.0",
+    "@types/node": "^20.0.0",
+    "@types/ws": "^8.5.0",
+    "@yao-pkg/pkg": "^6.17.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.0"
+  }
+}

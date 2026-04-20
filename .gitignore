@@ -1,0 +1,8 @@
+files/
+node_modules/
+dist/
+.env
+*.env.local
+.next/
+*.exe
+*.tsbuildinfo
