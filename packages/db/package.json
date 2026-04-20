@@ -4,9 +4,13 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "development": "./src/index.ts",
+      "default": "./dist/index.js"
+    }
   },
   "scripts": {
+    "build": "tsc",
     "generate": "drizzle-kit generate",
     "migrate": "tsx --env-file=.env src/migrate.ts",
     "seed": "tsx src/seed.ts",
