@@ -6,3 +6,4 @@ dist/
 .next/
 *.exe
 *.tsbuildinfo
+tokens_rede_jam.env

@@ -5,12 +5,9 @@ import { env } from './env.js'
 import { agentRoutes } from './routes/agent.js'
 
 const server = Fastify({
-  logger: {
-    level: env.NODE_ENV === 'development' ? 'info' : 'warn',
-    transport: env.NODE_ENV === 'development'
-      ? { target: 'pino-pretty' }
-      : undefined,
-  },
+  logger: env.NODE_ENV === 'development'
+    ? { level: 'info', transport: { target: 'pino-pretty' } }
+    : { level: 'warn' },
 })
 
 await server.register(cors, { origin: true })

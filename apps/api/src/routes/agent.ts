@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify'
-import type { WebSocket } from 'ws'
+import type { WebSocket } from '@fastify/websocket'
 import { eq } from 'drizzle-orm'
 import { db } from '../db.js'
 import { connectors } from '@postoinsight/db'
@@ -69,6 +69,6 @@ export const agentRoutes: FastifyPluginAsync = async (app) => {
     })
 
     // Heartbeat — responde pings do agente
-    socket.on('ping', () => socket.pong())
+    socket.on('ping', () => socket.ping())
   })
 }
