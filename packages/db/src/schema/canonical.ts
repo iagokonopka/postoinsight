@@ -43,14 +43,13 @@ export const dimProduto = canonicalSchema.table('dim_produto', {
   validTo:           date('valid_to'),
   isCurrent:         boolean('is_current').notNull().default(true),
   syncedAt:          timestamp('synced_at', { withTimezone: true }).notNull().defaultNow(),
-}, (t) => [
-  // Unique index: só uma versão atual por produto por tenant
-  index('idx_dim_produto_current')
+}, (t) => ({
+  idxDimProdutoCurrent: index('idx_dim_produto_current')
     .on(t.tenantId, t.source, t.sourceProdutoId)
     .where(sql`${t.isCurrent} = true`),
-  index('idx_dim_produto_lookup').on(t.tenantId, t.source, t.sourceProdutoId),
-  check('chk_segmento', sql`${t.segmento} IN ('combustivel','lubrificantes','servicos','conveniencia') OR ${t.segmento} IS NULL`),
-])
+  idxDimProdutoLookup: index('idx_dim_produto_lookup').on(t.tenantId, t.source, t.sourceProdutoId),
+  chkSegmento: check('chk_segmento', sql`${t.segmento} IN ('combustivel','lubrificantes','servicos','conveniencia') OR ${t.segmento} IS NULL`),
+}))
 
 export const fatoVenda = canonicalSchema.table('fato_venda', {
   id:                  uuid('id').primaryKey().defaultRandom(),
@@ -87,10 +86,10 @@ export const fatoVenda = canonicalSchema.table('fato_venda', {
   source:              text('source').notNull(),
   sourceId:            text('source_id').notNull(),
   syncedAt:            timestamp('synced_at', { withTimezone: true }).notNull().defaultNow(),
-}, (t) => [
-  unique('uq_fato_venda').on(t.tenantId, t.postoId, t.source, t.sourceId),
-  index('idx_fato_venda_tenant_data').on(t.tenantId, t.dataVenda),
-  index('idx_fato_venda_posto_data').on(t.postoId, t.dataVenda),
-  index('idx_fato_venda_segmento').on(t.tenantId, t.segmento, t.dataVenda),
-  check('chk_fato_segmento', sql`${t.segmento} IN ('combustivel','lubrificantes','servicos','conveniencia') OR ${t.segmento} IS NULL`),
-])
+}, (t) => ({
+  uqFatoVenda: unique('uq_fato_venda').on(t.tenantId, t.postoId, t.source, t.sourceId),
+  idxFatoVendaTenantData: index('idx_fato_venda_tenant_data').on(t.tenantId, t.dataVenda),
+  idxFatoVendaPostoData: index('idx_fato_venda_posto_data').on(t.postoId, t.dataVenda),
+  idxFatoVendaSegmento: index('idx_fato_venda_segmento').on(t.tenantId, t.segmento, t.dataVenda),
+  chkFatoSegmento: check('chk_fato_segmento', sql`${t.segmento} IN ('combustivel','lubrificantes','servicos','conveniencia') OR ${t.segmento} IS NULL`),
+}))

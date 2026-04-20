@@ -1,13 +1,13 @@
 import type { FastifyPluginAsync } from 'fastify'
-import type { WebSocket } from '@fastify/websocket'
+import type { SocketStream } from '@fastify/websocket'
 import { eq } from 'drizzle-orm'
 import { db } from '../db.js'
 import { connectors } from '@postoinsight/db'
 import type { AgentMessage } from '@postoinsight/shared'
 import { ingestBatch } from '../pipeline/ingest.js'
 
-// Mapa de conexões ativas: agentToken → WebSocket
-export const activeConnections = new Map<string, WebSocket>()
+// Mapa de conexões ativas: agentToken → SocketStream
+export const activeConnections = new Map<string, SocketStream>()
 
 export const agentRoutes: FastifyPluginAsync = async (app) => {
 
@@ -19,7 +19,7 @@ export const agentRoutes: FastifyPluginAsync = async (app) => {
     const token = authHeader?.replace('Bearer ', '').trim()
 
     if (!token) {
-      socket.close(4001, 'Missing authorization token')
+      socket.socket.close(4001, 'Missing authorization token')
       return
     }
 
@@ -30,7 +30,7 @@ export const agentRoutes: FastifyPluginAsync = async (app) => {
       .limit(1)
 
     if (!connector || !connector.active) {
-      socket.close(4003, 'Invalid or inactive token')
+      socket.socket.close(4003, 'Invalid or inactive token')
       return
     }
 
@@ -45,7 +45,7 @@ export const agentRoutes: FastifyPluginAsync = async (app) => {
 
     app.log.info({ connectorId: connector.id, postoId: connector.postoId }, 'Agent connected')
 
-    socket.on('message', async (raw) => {
+    socket.socket.on('message', async (raw) => {
       try {
         const msg: AgentMessage = JSON.parse(raw.toString())
 
@@ -63,12 +63,12 @@ export const agentRoutes: FastifyPluginAsync = async (app) => {
       }
     })
 
-    socket.on('close', () => {
+    socket.socket.on('close', () => {
       activeConnections.delete(token)
       app.log.info({ connectorId: connector.id }, 'Agent disconnected')
     })
 
     // Heartbeat — responde pings do agente
-    socket.on('ping', () => socket.ping())
+    socket.socket.on('ping', () => socket.socket.ping())
   })
 }

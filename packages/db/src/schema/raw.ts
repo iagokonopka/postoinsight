@@ -15,6 +15,6 @@ export const rawIngest = rawSchema.table('raw_ingest', {
   payload:     jsonb('payload').notNull(),
   processedAt: timestamp('processed_at', { withTimezone: true }),
   receivedAt:  timestamp('received_at', { withTimezone: true }).notNull().defaultNow(),
-}, (t) => [
-  index('idx_raw_ingest_unprocessed').on(t.processedAt).where(sql`${t.processedAt} IS NULL`),
-])
+}, (t) => ({
+  idxRawIngestUnprocessed: index('idx_raw_ingest_unprocessed').on(t.processedAt).where(sql`${t.processedAt} IS NULL`),
+}))
