@@ -6,7 +6,7 @@ export const rawSchema = pgSchema('raw')
 export const rawIngest = rawSchema.table('raw_ingest', {
   id:          uuid('id').primaryKey().defaultRandom(),
   tenantId:    uuid('tenant_id').notNull(),
-  postoId:     uuid('posto_id').notNull(),
+  locationId:  uuid('location_id').notNull(),
   connectorId: uuid('connector_id').notNull(),
   erpSource:   text('erp_source').notNull(),
   entity:      text('entity').notNull(),

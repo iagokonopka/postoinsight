@@ -1,4 +1,3 @@
-import 'dotenv/config'
 import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
 import { randomUUID } from 'crypto'
@@ -24,38 +23,36 @@ await db.insert(schema.tenants).values({
 console.log(`Tenant: Rede JAM (${tenantId})`)
 
 // ---------------------------------------------------------------------------
-// Postos operacionais
-// Cd_Estab 001/002/005/006 — CNAE 4731800 (comércio varejista de combustíveis)
-// Excluídos: 007 (escritório Imbé), 080 (centro de distribuição), 090 (matriz)
+// Locations (CD_ESTAB operacionais JAM)
+// Excluídos: 007 (escritório Imbé), 080 (CD), 090 (matriz)
 // ---------------------------------------------------------------------------
-const postosData = [
-  { sourcePostoId: '001', name: 'JAM Rota 1',    address: 'Rua Osmani Veras, 2660 — Terra de Areia/RS' },
-  { sourcePostoId: '002', name: 'JAM Torres',     address: 'Av. Castelo Branco, 1853 — Torres/RS'       },
-  { sourcePostoId: '005', name: 'JAM Imbé',       address: 'Av. Paraguassu, 3108 — Imbé/RS'             },
-  { sourcePostoId: '006', name: 'JAM Tramandaí',  address: 'Av. Fernandes Bastos, 281 — Tramandaí/RS'   },
+const locationsData = [
+  { sourceLocationId: '001', name: 'JAM Rota 1',   address: 'Rua Osmani Veras, 2660 — Terra de Areia/RS' },
+  { sourceLocationId: '002', name: 'JAM Torres',    address: 'Av. Castelo Branco, 1853 — Torres/RS'       },
+  { sourceLocationId: '005', name: 'JAM Imbé',      address: 'Av. Paraguassu, 3108 — Imbé/RS'             },
+  { sourceLocationId: '006', name: 'JAM Tramandaí', address: 'Av. Fernandes Bastos, 281 — Tramandaí/RS'   },
 ] as const
 
-const postoIds: Record<string, string> = {}
+const locationIds: Record<string, string> = {}
 
-for (const posto of postosData) {
-  const postoId = randomUUID()
-  postoIds[posto.sourcePostoId] = postoId
+for (const loc of locationsData) {
+  const locationId = randomUUID()
+  locationIds[loc.sourceLocationId] = locationId
 
-  await db.insert(schema.postos).values({
-    id:            postoId,
+  await db.insert(schema.locations).values({
+    id:               locationId,
     tenantId,
-    name:          posto.name,
-    address:       posto.address,
-    sourcePostoId: posto.sourcePostoId,
-    erpSource:     'status',
+    name:             loc.name,
+    address:          loc.address,
+    sourceLocationId: loc.sourceLocationId,
+    erpSource:        'status',
   }).onConflictDoNothing()
 
-  console.log(`  Posto: ${posto.name} (CD_ESTAB=${posto.sourcePostoId}) → ${postoId}`)
+  console.log(`  Location: ${loc.name} (CD_ESTAB=${loc.sourceLocationId}) → ${locationId}`)
 }
 
 // ---------------------------------------------------------------------------
-// Connectors + sync_state inicial (1 por posto)
-// Credenciais do SQL Server via env — preencher .env antes de rodar
+// Connectors + sync_state inicial
 // ---------------------------------------------------------------------------
 const sqlCreds = {
   host:     process.env['JAM_DB_HOST']     ?? 'PREENCHER',
@@ -65,34 +62,33 @@ const sqlCreds = {
   password: process.env['JAM_DB_PASSWORD'] ?? 'PREENCHER',
 }
 
-const agentTokens: Array<{ posto: string; token: string }> = []
+const agentTokens: Array<{ location: string; sourceLocationId: string; token: string }> = []
 
-for (const posto of postosData) {
-  const postoId = postoIds[posto.sourcePostoId]!
+for (const loc of locationsData) {
+  const locationId = locationIds[loc.sourceLocationId]!
   const agentToken = randomUUID()
-  agentTokens.push({ posto: posto.name, token: agentToken })
+  agentTokens.push({ location: loc.name, sourceLocationId: loc.sourceLocationId, token: agentToken })
 
   await db.insert(schema.connectors).values({
     tenantId,
-    postoId,
+    locationId,
     erpSource:   'status',
     agentToken,
     credentials: sqlCreds,
   }).onConflictDoNothing()
 
-  // sync_state inicial — watermark NULL = buscar histórico completo no backfill
   await db.insert(schema.syncState).values({
     tenantId,
-    postoId,
-    erpSource:  'status',
-    entity:     'fato_venda',
+    locationId,
+    erpSource: 'status',
+    entity:    'fato_venda',
   }).onConflictDoNothing()
 
   await db.insert(schema.syncState).values({
     tenantId,
-    postoId,
-    erpSource:  'status',
-    entity:     'dim_produto',
+    locationId,
+    erpSource: 'status',
+    entity:    'dim_produto',
   }).onConflictDoNothing()
 }
 
@@ -119,17 +115,13 @@ await db.insert(schema.tenantUsers).values({
 // ---------------------------------------------------------------------------
 console.log('\n─────────────────────────────────────────')
 console.log('Seed concluído com sucesso.')
-console.log('\nAGENT_TOKENs gerados (copiar para o .env de cada agente):')
-for (const { posto, token } of agentTokens) {
-  console.log(`  ${posto.padEnd(18)} → ${token}`)
+console.log('\nLOCATIONS env var (copiar para o .env do agente):')
+const locationsParts = agentTokens.map(({ sourceLocationId, token }) => `${sourceLocationId}:${token}`)
+console.log(`  LOCATIONS=${locationsParts.join(',')}`)
+console.log('\nTokens por location:')
+for (const { location, token } of agentTokens) {
+  console.log(`  ${location.padEnd(18)} → ${token}`)
 }
-console.log('\nVariáveis de ambiente necessárias no .env:')
-console.log('  JAM_DB_HOST=')
-console.log('  JAM_DB_PORT=1433')
-console.log('  JAM_DB_NAME=')
-console.log('  JAM_DB_USER=')
-console.log('  JAM_DB_PASSWORD=')
-console.log('  JAM_ADMIN_EMAIL=')
 console.log('─────────────────────────────────────────')
 
 await client.end()

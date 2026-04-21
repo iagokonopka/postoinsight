@@ -34,7 +34,7 @@ export async function ingestBatch(
   // 1. Persiste payload raw intocado
   const [record] = await db.insert(rawIngest).values({
     tenantId:    connector.tenantId,
-    postoId:     connector.postoId,
+    locationId:  connector.locationId,
     connectorId: connector.id,
     erpSource:   connector.erpSource,
     entity:      msg.entity,
@@ -55,7 +55,7 @@ export async function ingestBatch(
   await b.send(queue, {
     rawIngestId: record.id,
     tenantId:    connector.tenantId,
-    postoId:     connector.postoId,
+    locationId:  connector.locationId,
     entity:      msg.entity,
     jobId:       msg.job_id,
   }, {

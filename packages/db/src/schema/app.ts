@@ -1,8 +1,9 @@
-import { pgSchema, uuid, text, boolean, timestamp, jsonb, pgEnum } from 'drizzle-orm/pg-core'
+import { pgSchema, uuid, text, boolean, timestamp, jsonb } from 'drizzle-orm/pg-core'
 
 export const appSchema = pgSchema('app')
 
 export const userRoleEnum = appSchema.enum('user_role', ['owner', 'manager', 'viewer'])
+export const platformRoleEnum = appSchema.enum('platform_role', ['superadmin', 'support'])
 
 export const tenants = appSchema.table('tenants', {
   id:        uuid('id').primaryKey().defaultRandom(),
@@ -13,15 +14,15 @@ export const tenants = appSchema.table('tenants', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
-export const postos = appSchema.table('postos', {
-  id:            uuid('id').primaryKey().defaultRandom(),
-  tenantId:      uuid('tenant_id').notNull(),
-  name:          text('name').notNull(),
-  address:       text('address'),
-  sourcePostoId: text('source_posto_id').notNull(),
-  erpSource:     text('erp_source').notNull(),
-  active:        boolean('active').notNull().default(true),
-  createdAt:     timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+export const locations = appSchema.table('locations', {
+  id:               uuid('id').primaryKey().defaultRandom(),
+  tenantId:         uuid('tenant_id').notNull(),
+  name:             text('name').notNull(),
+  address:          text('address'),
+  sourceLocationId: text('source_location_id').notNull(),
+  erpSource:        text('erp_source').notNull(),
+  active:           boolean('active').notNull().default(true),
+  createdAt:        timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
 export const users = appSchema.table('users', {
@@ -67,22 +68,29 @@ export const tenantUsers = appSchema.table('tenant_users', {
   active:   boolean('active').notNull().default(true),
 })
 
+export const platformUsers = appSchema.table('platform_users', {
+  id:           uuid('id').primaryKey().defaultRandom(),
+  userId:       uuid('user_id').notNull().unique(),
+  platformRole: platformRoleEnum('platform_role').notNull(),
+  createdAt:    timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
 export const connectors = appSchema.table('connectors', {
-  id:          uuid('id').primaryKey().defaultRandom(),
-  tenantId:    uuid('tenant_id').notNull(),
-  postoId:     uuid('posto_id').notNull(),
-  erpSource:   text('erp_source').notNull(),
-  agentToken:  text('agent_token').notNull().unique(),
-  credentials: jsonb('credentials').notNull(),
-  active:      boolean('active').notNull().default(true),
-  lastSeenAt:  timestamp('last_seen_at', { withTimezone: true }),
-  createdAt:   timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  id:           uuid('id').primaryKey().defaultRandom(),
+  tenantId:     uuid('tenant_id').notNull(),
+  locationId:   uuid('location_id').notNull(),
+  erpSource:    text('erp_source').notNull(),
+  agentToken:   text('agent_token').notNull().unique(),
+  credentials:  jsonb('credentials').notNull(),
+  active:       boolean('active').notNull().default(true),
+  lastSeenAt:   timestamp('last_seen_at', { withTimezone: true }),
+  createdAt:    timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
 export const syncState = appSchema.table('sync_state', {
   id:                  uuid('id').primaryKey().defaultRandom(),
   tenantId:            uuid('tenant_id').notNull(),
-  postoId:             uuid('posto_id').notNull(),
+  locationId:          uuid('location_id').notNull(),
   erpSource:           text('erp_source').notNull(),
   entity:              text('entity').notNull(),
   lastSyncedAt:        timestamp('last_synced_at', { withTimezone: true }),
@@ -93,7 +101,7 @@ export const syncState = appSchema.table('sync_state', {
 export const syncJobs = appSchema.table('sync_jobs', {
   id:            uuid('id').primaryKey().defaultRandom(),
   tenantId:      uuid('tenant_id').notNull(),
-  postoId:       uuid('posto_id').notNull(),
+  locationId:    uuid('location_id').notNull(),
   erpSource:     text('erp_source').notNull(),
   entity:        text('entity').notNull(),
   jobType:       text('job_type').notNull(),

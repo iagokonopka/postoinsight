@@ -1,17 +1,20 @@
 import './env.js'
-import { connect } from './ws-client.js'
+import { parseLocations } from './env.js'
+import { connectLocation } from './ws-client.js'
 import { closePool } from './db.js'
 
-console.log('PostoInsight Agent starting...')
-connect()
+const locations = parseLocations()
+console.log(`PostoInsight Agent starting — ${locations.length} location(s): ${locations.map(l => l.sourceLocationId).join(', ')}`)
 
-process.on('SIGTERM', async () => {
+for (const location of locations) {
+  connectLocation(location)
+}
+
+async function shutdown() {
   console.log('Shutting down...')
   await closePool()
   process.exit(0)
-})
+}
 
-process.on('SIGINT', async () => {
-  await closePool()
-  process.exit(0)
-})
+process.on('SIGTERM', shutdown)
+process.on('SIGINT', shutdown)

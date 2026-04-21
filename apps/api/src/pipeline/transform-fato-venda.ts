@@ -30,9 +30,9 @@ export interface StatusVendaRow {
 }
 
 export interface FatoVendaInsert {
-  tenantId:            string
-  postoId:             string
-  sourcePostoId:       string
+  tenantId:         string
+  locationId:       string
+  sourceLocationId: string
   dataVenda:           string
   horaVenda:           string | null
   turno:               string | null
@@ -67,7 +67,7 @@ export interface FatoVendaInsert {
 export function transformStatusVenda(
   row: StatusVendaRow,
   tenantId: string,
-  postoId: string,
+  locationId: string,
 ): FatoVendaInsert {
   const categoriaCodigo = row.CODIGO_CATEGORIA_ITEM.trim().toUpperCase()
 
@@ -82,8 +82,8 @@ export function transformStatusVenda(
 
   return {
     tenantId,
-    postoId,
-    sourcePostoId:       row.CD_ESTAB.trim(),
+    locationId,
+    sourceLocationId:    row.CD_ESTAB.trim(),
     dataVenda:           row.DATA_EMISSAO.split('T')[0] ?? row.DATA_EMISSAO,
     horaVenda:           row.HORA_COMPLETA_EMISSAO?.trim() || null,
     turno:               row.TURNO?.trim() || null,

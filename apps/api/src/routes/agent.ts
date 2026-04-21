@@ -43,7 +43,7 @@ export const agentRoutes: FastifyPluginAsync = async (app) => {
       .set({ lastSeenAt: new Date() })
       .where(eq(connectors.agentToken, token))
 
-    app.log.info({ connectorId: connector.id, postoId: connector.postoId }, 'Agent connected')
+    app.log.info({ connectorId: connector.id, locationId: connector.locationId }, 'Agent connected')
 
     socket.socket.on('message', async (raw) => {
       try {

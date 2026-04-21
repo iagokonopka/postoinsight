@@ -3,7 +3,7 @@ import PgBoss from 'pg-boss'
 import { eq, and } from 'drizzle-orm'
 import { db } from './db.js'
 import { env } from './env.js'
-import { rawIngest, fatoVenda, postos, syncState } from '@postoinsight/db'
+import { rawIngest, fatoVenda, locations, syncState } from '@postoinsight/db'
 import { transformStatusVenda, type StatusVendaRow } from './pipeline/transform-fato-venda.js'
 import { transformDimProduto, type DimProdutoPayload } from './pipeline/transform-dim-produto.js'
 import { dimProduto } from '@postoinsight/db'
@@ -18,10 +18,10 @@ console.log('Worker started — listening for pipeline jobs')
 // pipeline:fato_venda
 // ---------------------------------------------------------------------------
 await boss.work('pipeline:fato_venda', { teamSize: 4, teamConcurrency: 4 }, async (job) => {
-  const { rawIngestId, tenantId, postoId } = job.data as {
+  const { rawIngestId, tenantId, locationId } = job.data as {
     rawIngestId: string
     tenantId: string
-    postoId: string
+    locationId: string
   }
 
   // 1. Busca o payload raw
@@ -35,14 +35,14 @@ await boss.work('pipeline:fato_venda', { teamSize: 4, teamConcurrency: 4 }, asyn
 
   const rows = record.payload as StatusVendaRow[]
 
-  // 2. Resolve posto_id → valida que existe no tenant
-  const [posto] = await db
-    .select({ id: postos.id })
-    .from(postos)
-    .where(and(eq(postos.id, postoId), eq(postos.tenantId, tenantId)))
+  // 2. Valida que a location existe no tenant
+  const [location] = await db
+    .select({ id: locations.id })
+    .from(locations)
+    .where(and(eq(locations.id, locationId), eq(locations.tenantId, tenantId)))
     .limit(1)
 
-  if (!posto) throw new Error(`Posto not found: postoId=${postoId} tenantId=${tenantId}`)
+  if (!location) throw new Error(`Location not found: locationId=${locationId} tenantId=${tenantId}`)
 
   // 3. Transforma
   let rejected = 0
@@ -50,7 +50,7 @@ await boss.work('pipeline:fato_venda', { teamSize: 4, teamConcurrency: 4 }, asyn
 
   for (const row of rows) {
     try {
-      const transformed = transformStatusVenda(row, tenantId, postoId)
+      const transformed = transformStatusVenda(row, tenantId, locationId)
 
       // Validações
       if (!transformed.dataVenda) { rejected++; continue }
@@ -85,7 +85,7 @@ await boss.work('pipeline:fato_venda', { teamSize: 4, teamConcurrency: 4 }, asyn
       .update(syncState)
       .set({ lastSyncedAt: new Date(maxDate), updatedAt: new Date() })
       .where(and(
-        eq(syncState.postoId, postoId),
+        eq(syncState.locationId, locationId),
         eq(syncState.entity, 'fato_venda'),
       ))
   }

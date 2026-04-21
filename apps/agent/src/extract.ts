@@ -1,6 +1,6 @@
 import { getPool } from './db.js'
 
-const FATO_VENDA_QUERY = `
+const FATO_VENDA_SYNC_QUERY = `
   SELECT
     CD_ESTAB, DATA_EMISSAO, HORA_COMPLETA_EMISSAO, TURNO,
     NR_NOTA, NR_VENDA_INTERNO, CODIGO_ITEM, DESCRICAO_ITEM,
@@ -12,7 +12,7 @@ const FATO_VENDA_QUERY = `
     BICO, BICO_COMBUSTIVEL, TANQUE,
     CODIGO_CLIENTE, CODIGO_VENDEDOR, FormasRecebimento
   FROM TMPBI_VENDA_DETALHADA
-  WHERE DATA_EMISSAO >= @watermark
+  WHERE CD_ESTAB = @cdEstab AND DATA_EMISSAO >= @watermark
   ORDER BY DATA_EMISSAO ASC
 `
 
@@ -28,11 +28,13 @@ const FATO_VENDA_BACKFILL_QUERY = `
     BICO, BICO_COMBUSTIVEL, TANQUE,
     CODIGO_CLIENTE, CODIGO_VENDEDOR, FormasRecebimento
   FROM TMPBI_VENDA_DETALHADA
-  WHERE DATA_EMISSAO >= @from AND DATA_EMISSAO <= @to
+  WHERE CD_ESTAB = @cdEstab AND DATA_EMISSAO >= @from AND DATA_EMISSAO <= @to
   ORDER BY DATA_EMISSAO ASC
 `
 
 export async function* extractFatoVenda(params: {
+  sourceLocationId: string
+} & ({
   mode: 'sync'
   watermark: string
   batchSize: number
@@ -42,14 +44,15 @@ export async function* extractFatoVenda(params: {
   to: string
   batchSize: number
   delayMs: number
-}): AsyncGenerator<unknown[]> {
+})): AsyncGenerator<unknown[]> {
   const pool = await getPool()
   const request = pool.request()
+  request.input('cdEstab', params.sourceLocationId)
 
   let query: string
   if (params.mode === 'sync') {
     request.input('watermark', params.watermark)
-    query = FATO_VENDA_QUERY
+    query = FATO_VENDA_SYNC_QUERY
   } else {
     request.input('from', params.from)
     request.input('to', params.to)
