@@ -96,7 +96,7 @@ await boss.work('pipeline:fato_venda', { teamSize: 4, teamConcurrency: 4 }, asyn
     .set({ processedAt: new Date() })
     .where(eq(rawIngest.id, rawIngestId))
 
-  console.log(`pipeline:fato_venda — inserted=${validRows.length} rejected=${rejected} postoId=${postoId}`)
+  console.log(`pipeline:fato_venda — inserted=${validRows.length} rejected=${rejected} locationId=${locationId}`)
 })
 
 // ---------------------------------------------------------------------------
