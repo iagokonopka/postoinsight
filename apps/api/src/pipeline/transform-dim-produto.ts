@@ -26,6 +26,7 @@ export interface DimProdutoPayload {
 export interface DimProdutoInsert {
   tenantId:           string
   source:             'status'
+  sourceLocationId:   string
   sourceProdutoId:    string
   nome:               string
   nomeResumido:       string | null
@@ -46,6 +47,7 @@ export interface DimProdutoInsert {
 export function transformDimProduto(
   payload: DimProdutoPayload,
   tenantId: string,
+  sourceLocationId: string,
   today: string,
 ): DimProdutoInsert[] {
   const catMap = new Map(payload.tcati.map((r) => [r.Cd_CatItem.trim().toUpperCase(), r.Descricao.trim()]))
@@ -59,6 +61,7 @@ export function transformDimProduto(
     return {
       tenantId,
       source:             'status',
+      sourceLocationId,
       sourceProdutoId:    row.Cd_Item.trim().toUpperCase(),
       nome:               row.Descricao.trim(),
       nomeResumido:       row.DescrRes?.trim() || null,

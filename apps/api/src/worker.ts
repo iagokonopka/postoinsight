@@ -103,7 +103,7 @@ await boss.work('pipeline:fato_venda', { teamSize: 4, teamConcurrency: 4 }, asyn
 // pipeline:dim_produto — SCD2
 // ---------------------------------------------------------------------------
 await boss.work('pipeline:dim_produto', { teamSize: 2, teamConcurrency: 2 }, async (job) => {
-  const { rawIngestId, tenantId } = job.data as { rawIngestId: string; tenantId: string }
+  const { rawIngestId, tenantId, locationId } = job.data as { rawIngestId: string; tenantId: string; locationId: string }
 
   const [record] = await db
     .select()
@@ -113,9 +113,17 @@ await boss.work('pipeline:dim_produto', { teamSize: 2, teamConcurrency: 2 }, asy
 
   if (!record) throw new Error(`raw_ingest not found: ${rawIngestId}`)
 
+  const [loc] = await db
+    .select({ sourceLocationId: locations.sourceLocationId })
+    .from(locations)
+    .where(eq(locations.id, locationId))
+    .limit(1)
+
+  if (!loc) throw new Error(`Location not found: ${locationId}`)
+
   const today = new Date().toISOString().split('T')[0]!
   const payload = record.payload as DimProdutoPayload
-  const rows = transformDimProduto(payload, tenantId, today)
+  const rows = transformDimProduto(payload, tenantId, loc.sourceLocationId, today)
 
   let inserted = 0
   let versioned = 0
