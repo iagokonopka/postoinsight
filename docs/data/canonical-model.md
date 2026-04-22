@@ -4,8 +4,8 @@
 > O pipeline, a API e o frontend operam exclusivamente sobre este modelo.
 > Todo conhecimento de ERP fica isolado no conector. A aplicação nunca conhece o schema de nenhum ERP.
 >
-> Status: 🔄 em construção
-> Última atualização: 2026-04-05
+> Status: ✅ completo para MVP
+> Última atualização: 2026-04-22
 
 ---
 
@@ -13,7 +13,7 @@
 
 1. **O modelo define o contrato.** Se um campo não está disponível em determinado conector hoje, ele fica NULL — mas o campo existe e será preenchido quando o endpoint correspondente for implementado.
 2. **Conectores são burros.** Extraem e enviam. Toda transformação, join, enriquecimento e cálculo é responsabilidade do pipeline.
-3. **source_id garante idempotência.** O pipeline usa `(tenant_id, posto_id, source, source_id)` para detectar duplicatas. Cada conector define a composição do source_id da sua entidade.
+3. **source_id garante idempotência.** O pipeline usa `(tenant_id, location_id, source, source_id)` para detectar duplicatas. Cada conector define a composição do source_id da sua entidade.
 4. **Nenhum campo é inventado.** Tudo mapeado para um campo real da fonte. Se o campo não existe ainda na fonte mapeada, está marcado como ⚠️ pendente com o caminho para obtê-lo.
 
 ---
@@ -36,8 +36,8 @@
 |-------|----------------|-------|-----------|
 | `id` | uuid | ✅ gerado | Surrogate key gerado pelo pipeline |
 | `tenant_id` | uuid | ✅ | Tenant do cliente |
-| `posto_id` | uuid | ✅ | FK para `app.postos` — resolvido pelo pipeline via `source_posto_id` |
-| `source_posto_id` | text | ✅ | ID do posto na fonte original |
+| `location_id` | uuid | ✅ | FK para `app.locations` — resolvido pelo pipeline via `source_location_id` |
+| `source_location_id` | text | ✅ | ID da location na fonte original (`CD_ESTAB` no Status) |
 | `data_venda` | date | ✅ | Data da venda (sem hora) |
 | `hora_venda` | time | nullable | Hora da venda |
 | `turno` | text | nullable | Código ou número do turno |
@@ -78,7 +78,7 @@
 
 | Campo canônico | Campo Status | Transformação / Observação |
 |----------------|-------------|---------------------------|
-| `source_posto_id` | `CD_ESTAB` | varchar(3) |
+| `source_location_id` | `CD_ESTAB` | varchar(3) |
 | `data_venda` | `DATA_EMISSAO` | datetime → extrair parte date |
 | `hora_venda` | `HORA_COMPLETA_EMISSAO` | varchar(8) ex: "06:10:10" → cast time |
 | `turno` | `TURNO` | varchar(1) ex: "1", "2", "3" |
@@ -123,7 +123,7 @@
 
 | Campo canônico | Campo WebPosto | Status hoje | Transformação / Observação |
 |----------------|---------------|------------|---------------------------|
-| `source_posto_id` | `empresaCodigo` | ✅ | integer → text |
+| `source_location_id` | `empresaCodigo` | ✅ | integer → text |
 | `data_venda` | `dataMovimento` | ✅ | string($date) → date |
 | `hora_venda` | `dataHoraMovimento` | ✅ | string($date-time) → extrair parte time |
 | `turno` | — | ⚠️ pendente | Não em VENDA_ITEM. Fonte: `GET /INTEGRACAO/VENDA` campo `turno`, join por `vendaCodigo` |
@@ -159,21 +159,23 @@
 
 | Regra | Consequência |
 |-------|-------------|
-| `source_posto_id` não resolve para posto no tenant | Registro rejeitado com alerta |
+| `source_location_id` não resolve para location no tenant | Registro rejeitado com alerta |
 | `data_venda` nula ou fora do range válido (> hoje + 1 dia) | Registro rejeitado |
 | `vlr_total < 0` | Registro rejeitado — devoluções não suportadas no MVP |
 | `qtd_venda <= 0` | Registro rejeitado |
 | `vlr_unitario` ou `vlr_total` nulos | Registro rejeitado |
 | `source_produto_id` ausente | Registro rejeitado |
-| Duplicata `(tenant_id, posto_id, source, source_id)` | Ignorado silenciosamente — idempotência |
+| Duplicata `(tenant_id, location_id, source, source_id)` | Ignorado silenciosamente — idempotência |
 
 ---
 
 ## dim_produto
 
-**Grão:** 1 linha = 1 versão de 1 produto (SCD2). Mudanças no cadastro criam nova versão — vendas históricas sempre referenciam a versão correta do produto.
+**Grão:** 1 linha = 1 versão de 1 produto em 1 location (SCD2). Mudanças no cadastro criam nova versão — vendas históricas sempre referenciam a versão correta do produto.
 
-**Chave natural:** `(tenant_id, source, source_produto_id)`
+**Chave natural:** `(tenant_id, source, source_location_id, source_produto_id)`
+
+**Importante:** produtos são por location — cada unidade pode ter catálogos diferentes. O campo `source_location_id` está no `dim_produto` para refletir isso.
 
 **Sync:** full sync ocasional (cadastro de produto muda raramente). Não incremental.
 
@@ -186,6 +188,7 @@
 | `id` | uuid | ✅ gerado | Surrogate key |
 | `tenant_id` | uuid | ✅ | Tenant |
 | `source` | text | ✅ | `"status"` ou `"webposto"` |
+| `source_location_id` | text | ✅ | ID da location na fonte — produtos são por unidade |
 | `source_produto_id` | text | ✅ | ID do produto na fonte |
 | `nome` | text | ✅ | Nome completo do produto |
 | `nome_resumido` | text | nullable | Nome resumido para exibição |

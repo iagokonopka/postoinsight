@@ -8,11 +8,12 @@
 
 ## 1. O Projeto
 
-**PostoInsight** é uma plataforma SaaS de Business Intelligence para redes de postos de combustível.
+**PostoInsight** é uma plataforma SaaS de Business Intelligence para redes de negócios multi-unidade — iniciando com postos de combustível, mas projetada para qualquer segmento.
 
 - Centraliza dados de ERPs (Status e WebPosto) em um modelo canônico
 - Expõe dashboards de vendas, análise por categoria e DRE mensal
-- Clientes são redes de postos (multi-tenant) — nunca postos individuais
+- Clientes são redes (multi-tenant) — nunca unidades individuais
+- Nomenclatura neutra de domínio: `locations` (unidades), `tenants` (redes) — ver ADR-008
 - Documento completo: `docs/product/PRD.md`
 
 ---
@@ -60,7 +61,7 @@
 | Jobs / Pipeline | pg-boss | latest |
 | Autenticação | Auth.js | v5 |
 | Banco de dados | PostgreSQL | 16+ |
-| Agente (Status) | Node.js + TypeScript → `.exe` via `pkg` | Node 20 |
+| Agente (Status) | Node.js + TypeScript → `.exe` via `@yao-pkg/pkg` | Node 20 |
 | Ambiente local | WSL Ubuntu + Docker Compose | — |
 | Produção MVP | Railway | — |
 
@@ -73,18 +74,18 @@
 ```
 postoinsight/
   apps/
-    web/                  ← Next.js frontend
-    api/                  ← Fastify backend
-    agent/                ← Agente Status (Node.js → .exe)
+    web/                  ← Next.js frontend (❌ não implementado ainda)
+    api/                  ← Fastify backend (✅ em produção no Railway)
+    agent/                ← Agente Status (Node.js → .exe via @yao-pkg/pkg) (✅ em produção)
   packages/
-    db/                   ← Drizzle schema + migrations
-    shared/               ← tipos e utilitários compartilhados
+    db/                   ← Drizzle schema + migrations (✅ implementado)
+    shared/               ← tipos e utilitários compartilhados (✅ implementado)
   docs/
     product/
       PRD.md              ← ✅ existe
     architecture/
       overview.md         ← ❌ legado, ignorar
-      decisions/          ← ✅ 7 ADRs escritos
+      decisions/          ← ✅ 8 ADRs escritos (incluindo ADR-008 nomenclatura neutra)
     data/
       canonical-model.md  ← ✅ completo para MVP
       inventory/
@@ -94,19 +95,20 @@ postoinsight/
       api.md              ← ❌ legado, ignorar
     specs/                ← ✅ 5 specs completas (sync-status, dashboard-vendas, dashboard-combustivel, dashboard-conveniencia, dre-mensal)
     db/
-      schema.sql          ← ✅ DDL completo com 4 MVs
-  docker-compose.yml      ← ⏳ a criar
+      schema.sql          ← ❌ desatualizado — schema real está no Drizzle
+  agent-envs/             ← .env files dos clientes (não comitar)
+  docker-compose.yml      ← ✅ existe (PostgreSQL local)
   CLAUDE.md               ← este arquivo
 ```
 
-> A fase de documentação está concluída. O projeto está na fase de implementação.
+> O projeto está na Fase 4 — implementação em andamento. Pipeline de ingestão operacional em produção (Rede JAM, 4 locations conectadas).
 
 ---
 
 ## 6. Banco de Dados — Schemas e Responsabilidades
 
 ```
-app        ← operacional: tenants, users, postos, connectors, sync_jobs
+app        ← operacional: tenants, platform_users, users, tenant_users, locations, connectors, sync_state, sync_jobs
 raw        ← bronze: raw_ingest (payload JSONB intocado do ERP)
 canonical  ← silver: fato_venda, dim_produto, dim_tempo
 analytics  ← gold: materialized views pré-agregadas para o frontend
@@ -136,12 +138,25 @@ Toda transformação acontece no pipeline, no nosso servidor.
 
 ---
 
-## 8. Multitenancy
+## 8. Multitenancy e Roles
 
-- Cada rede de postos é um `tenant` isolado
+- Cada rede de negócios é um `tenant` isolado
 - Todo dado analítico tem `tenant_id`
 - Dados **nunca cruzam entre tenants**
 - Toda query deve filtrar por `tenant_id` — sem exceção
+
+### Roles do sistema (platform_users)
+| Role | Quem é | Escopo |
+|------|--------|--------|
+| `superadmin` | Equipe PostoInsight — acesso total | Todos os tenants |
+| `support` | Suporte técnico — acesso de leitura | Todos os tenants (read-only) |
+
+### Roles de tenant (tenant_users)
+| Role | Quem é | Escopo |
+|------|--------|--------|
+| `owner` | Dono da rede | Todos os dados do tenant |
+| `manager` | Gerente de unidade | Dados da sua location |
+| `viewer` | Consultor externo | Acesso configurável |
 
 ---
 
@@ -241,8 +256,8 @@ Decisões já tomadas que devem ser respeitadas:
 **Da rede (1x):**
 - Nome da rede ex: "Rede JAM"
 
-**De cada posto:**
-- Nome do posto ex: "JAM Centro"
+**De cada location:**
+- Nome da location ex: "JAM Centro"
 - Endereço (opcional no MVP)
 - `CD_ESTAB` — obtido via SELECT em `TMPBI_VENDA_DETALHADA` com o acesso abaixo
 
@@ -255,29 +270,35 @@ Decisões já tomadas que devem ser respeitadas:
 
 Com as informações acima, o seed script cria:
 1. `app.tenants` — 1 registro da rede
-2. `app.postos` — 1 por `CD_ESTAB` encontrado
-3. `app.connectors` — `credentials: { host, port, database, user, password }`
+2. `app.locations` — 1 por `CD_ESTAB` encontrado (campo: `source_location_id`)
+3. `app.connectors` — 1 por location, `credentials: { host, port, database, user, password }`, gera token UUID
 4. `app.sync_state` — watermark inicial NULL (busca histórico completo)
 5. `app.users` + `app.tenant_users` — usuário admin do cliente com role `owner`
 
-Depois: instalar o agente `.exe` no RDP com o token gerado para o conector.
+O agente recebe os tokens como variável de ambiente `LOCATIONS=cdEstab:token,...` (uma entrada por location).
+
+Depois: instalar o agente `.exe` no RDP com o arquivo `.env` configurado.
 
 > Runbook completo: `docs/ops/onboarding.md`
 
 ---
 
-## 14. O que Ainda Não Existe
+## 14. Estado Atual da Implementação
 
-Os seguintes documentos são **pré-requisitos para implementação** e ainda estão sendo produzidos:
+### ✅ Implementado e em produção
+- `packages/db` — Drizzle schema completo, migrations, seed (Rede JAM)
+- `packages/shared` — tipos, `deriveSegmento()`
+- `apps/api` — Fastify + WebSocket `/agent/v1/connect`, pipeline pg-boss (`pipeline:fato_venda`, `pipeline:dim_produto`), `POST /admin/backfill`
+- `apps/agent` — Extração SQL Server, WebSocket client com reconexão, bundlado como `.exe`
+- Railway — API + PostgreSQL em produção, 4 locations da Rede JAM conectadas
 
-| Documento | Caminho | Status |
-|-----------|---------|--------|
-| Onboarding runbook | `docs/ops/onboarding.md` | ❌ pendente |
-| Design da API | `docs/api/api.md` | ❌ pendente (antigo é legado) |
-| Specs de feature | `docs/specs/` | ❌ pendente |
-
-**Não implemente nada que dependa destes documentos até que eles existam.**
+### ❌ Pendente
+- Worker rodando em Railway como segundo serviço (atualmente só o server.ts roda) ← próxima tarefa
+- Primeiro backfill real e verificação de dados em `canonical.fato_venda`
+- `apps/web` — Next.js frontend (autenticação + dashboards)
+- Endpoints de dashboard (`/api/v1/vendas`, etc.)
+- `docs/ops/onboarding.md` — runbook para novos clientes
 
 ---
 
-*Última atualização: 2026-04-05 — documento vivo, atualizado conforme o projeto evolui.*
+*Última atualização: 2026-04-22 — documento vivo, atualizado conforme o projeto evolui.*

@@ -1,14 +1,16 @@
 # PostoInsight — Product Requirements Document
 
-> Versão 1.0 · 2025
+> Versão 1.1 · 2026-04-22
 
 ---
 
 ## 1. Visão Geral do Produto
 
-O PostoInsight é uma plataforma SaaS de Business Intelligence desenvolvida especificamente para redes de postos de combustível. O produto centraliza dados operacionais provenientes dos ERPs utilizados pelos postos, transforma esses dados em um modelo analítico consistente e os apresenta através de dashboards e relatórios que permitem decisões rápidas e fundamentadas.
+O PostoInsight é uma plataforma SaaS de Business Intelligence para redes de negócios multi-unidade. O produto inicia com foco em redes de postos de combustível, mas é projetado com nomenclatura e arquitetura neutras de domínio — permitindo expansão para qualquer segmento (redes de varejo, farmácias, oficinas, etc.) sem reescrita.
 
-O cliente do PostoInsight é o dono ou gestor da rede — não o posto individualmente. A plataforma oferece visibilidade consolidada de toda a operação, com a capacidade de aprofundar a análise por posto, período, categoria e produto.
+O produto centraliza dados operacionais provenientes dos ERPs, transforma esses dados em um modelo analítico consistente e os apresenta através de dashboards e relatórios que permitem decisões rápidas e fundamentadas.
+
+O cliente do PostoInsight é o dono ou gestor da rede — não a unidade individualmente. A plataforma oferece visibilidade consolidada de toda a operação, com a capacidade de aprofundar a análise por unidade (location), período, categoria e produto.
 
 ---
 
@@ -41,17 +43,26 @@ Quando um gestor abre o PostoInsight pela manhã, ele precisa responder em menos
 
 ## 3. Usuários e Perfis de Acesso
 
+### Roles de plataforma (acesso interno PostoInsight)
+
+| Perfil | Quem é | Escopo |
+|--------|--------|--------|
+| `superadmin` | Equipe PostoInsight — acesso total | Todos os tenants |
+| `support` | Suporte técnico | Todos os tenants (read-only) |
+
+### Roles de tenant (acesso do cliente)
+
 | Perfil | Quem é | O que acessa | Escopo de dados |
 |--------|--------|--------------|-----------------|
-| Dono da rede | Proprietário ou sócio da rede de postos | Visão consolidada de todos os postos, DRE da rede | Todos os postos do tenant |
-| Gestor de posto | Gerente responsável por uma unidade específica | Dados operacionais do seu posto, análises de vendas | Somente o seu posto |
-| Consultor externo | Consultor que presta serviços à rede (ex: WM) | Acesso configurável conforme contrato com a rede | Configurável por tenant |
+| `owner` | Proprietário ou sócio da rede | Visão consolidada de toda a rede, DRE | Todas as locations do tenant |
+| `manager` | Gerente responsável por uma unidade | Dados operacionais da sua unidade | Somente a sua location |
+| `viewer` | Consultor externo (ex: WM) | Acesso configurável conforme contrato | Configurável por tenant |
 
 **Observações:**
 
-- O consultor externo acessa o sistema para realizar análises junto ao cliente, presencialmente ou remotamente
-- Cada tenant (rede) gerencia seus próprios usuários e permissões
-- Um usuário pode ter perfis diferentes em tenants diferentes
+- Um usuário pode ter roles diferentes em tenants diferentes
+- Cada tenant gerencia seus próprios usuários e permissões
+- O `viewer` acessa o sistema para análises junto ao cliente, presencialmente ou remotamente
 
 ---
 
@@ -138,7 +149,7 @@ O PostoInsight adota um modelo canônico de três níveis para classificação d
 
 ### 7.2 Identificação de Combustível
 
-Um item de venda é classificado como combustível quando possui `bico_codigo` preenchido. Vendas de loja convencional têm `bico_codigo` nulo. Essa distinção é fundamental para separar os segmentos no DRE e nos dashboards.
+Um item de venda é classificado como combustível quando `categoria_codigo IN ('CB', 'ARL')`. O campo `bico_codigo` é metadado do abastecimento — não é critério de classificação. Essa distinção é fundamental para separar os segmentos no DRE e nos dashboards.
 
 ### 7.3 Estrutura do DRE
 
@@ -169,9 +180,9 @@ O onboarding de um cliente Status é realizado pela equipe PostoInsight. O clien
 Os `CD_ESTAB` (identificadores de cada posto no Status) são obtidos diretamente via SELECT na view `TMPBI_VENDA_DETALHADA` usando o acesso fornecido — não precisam ser informados pelo cliente.
 
 **O que a equipe PostoInsight executa:**
-1. Seed script cria tenant, postos, conector e usuário admin no banco
-2. Agente `.exe` instalado no servidor RDP do cliente
-3. Primeira sync disparada manualmente para validar o fluxo completo
+1. Seed script cria tenant, locations, conectores e usuário admin no banco
+2. Agente `.exe` instalado no servidor RDP do cliente com `.env` configurado (`LOCATIONS=cdEstab:token,...`)
+3. Primeiro backfill disparado via `POST /admin/backfill` para validar o fluxo completo
 4. Cliente recebe link de acesso com o usuário admin criado
 
 ### 8.2 Escopo do MVP de onboarding
@@ -229,20 +240,20 @@ Self-service de onboarding é feature futura, a implementar quando o volume de c
 
 ---
 
-## 11. Próximos Passos
+## 11. Estado de Implementação
 
-| # | Etapa | Descrição |
-|---|-------|-----------|
-| 01 | Base documental | Definir e estruturar todos os documentos do projeto no repositório |
-| 02 | Revisão da arquitetura | Fechar gaps do architecture.md (frontend/BI e tradeoffs) |
-| 03 | Análise das fontes | Mapear schemas reais do Status (XLSX) e endpoints do WebPosto (DOCX) ✅ |
-| 04 | Canonical model detalhado | Campo a campo: origem → destino → tipo → regra → por quê |
-| 05 | ADRs | Documentar cada decisão técnica relevante com contexto e alternativas |
-| 06 | Modelagem do banco | DDL final baseado no canonical model validado |
-| 07 | Design da API | Contratos de endpoint por feature |
-| 08 | Specs de feature | Uma SPEC por feature antes de qualquer implementação |
-| 09 | Ambiente local | Setup do repositório, Docker Compose e estrutura de pastas |
-| 10 | Implementação MVP | Agente → Pipeline → API → Frontend, nessa ordem |
+| # | Etapa | Status |
+|---|-------|--------|
+| 01 | Base documental | ✅ Concluído |
+| 02–05 | Arquitetura, canonical model, ADRs, DDL | ✅ Concluído |
+| 06 | Specs de feature | ✅ 5 specs completas |
+| 07 | packages/db — schema + migrations | ✅ Em produção |
+| 08 | apps/agent — extração + WebSocket | ✅ Em produção (Rede JAM, 4 locations) |
+| 09 | apps/api — server + pipeline workers | ✅ Em produção (Railway) |
+| 10 | POST /admin/backfill | ✅ Implementado |
+| 11 | Worker no Railway (segundo serviço) | ❌ Próxima tarefa |
+| 12 | Backfill real + verificação em canonical.fato_venda | ❌ Aguardando worker |
+| 11 | apps/web — frontend Next.js | ❌ Não iniciado |
 
 ---
 

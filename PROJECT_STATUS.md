@@ -6,14 +6,14 @@
 ---
 
 ## Última atualização
-**Data:** 2026-04-06
-**Sessão:** Todas as specs MVP concluídas — dashboard-vendas, dashboard-combustivel, dashboard-conveniencia, dre-mensal
+**Data:** 2026-04-22
+**Sessão:** Documentação atualizada (ADR-008, locations, roles, canonical-model, PRD) + POST /admin/backfill implementado
 
 ---
 
 ## Contexto do Projeto
 
-PostoInsight é um SaaS de BI para redes de postos de combustível.
+PostoInsight é um SaaS de BI para redes de negócios multi-unidade — iniciando com postos de combustível, mas projetado para qualquer segmento.
 Centraliza dados de ERPs (Status e WebPosto) e expõe dashboards de vendas, análise por categoria e DRE mensal.
 
 **Repositório:** local em `\\wsl.localhost\Ubuntu\home\dev\postoinsight\`
@@ -26,19 +26,38 @@ Centraliza dados de ERPs (Status e WebPosto) e expõe dashboards de vendas, aná
 ### ✅ Fase 1 — Discovery
 Completa. Fontes de dados mapeadas, problema de negócio definido, stack decidida.
 
-### ✅ Fase 2 — Arquitetura (parcial)
+### ✅ Fase 2 — Arquitetura
 - ✅ `CLAUDE.md` — regras e stack definidas
-- ✅ Repositório + estrutura de pastas
-- ✅ ADRs em `docs/architecture/decisions/` — 7 ADRs escritos (incl. ADR-007 api/worker separation)
-- ❌ Diagrama `.excalidraw` — pendente
-- ❌ `docs/architecture/overview.md` — o arquivo existe mas é **legado** (versão antiga, ignorar)
+- ✅ Repositório + estrutura de pastas (monorepo pnpm workspaces)
+- ✅ ADRs em `docs/architecture/decisions/` — 8 ADRs escritos
+- ✅ ADR-008 — nomenclatura neutra de domínio (postos→locations, platform_users)
+- ❌ `docs/architecture/overview.md` — legado, ignorar
 
 ### ✅ Fase 3 — Dados
-- ✅ Inventário Status ERP (`docs/data/inventory/status-inventory.md`)
-- ✅ Inventário WebPosto ERP (`docs/data/inventory/webposto-inventory.md`)
-- ✅ Canonical model (`docs/data/canonical-model.md`) — **completo para o MVP**
+- ✅ Inventário Status ERP
+- ✅ Inventário WebPosto ERP
+- ✅ Canonical model completo para MVP
 
-### ❌ Fase 4 — Implementação (bloqueada: faltam ADRs e specs)
+### 🟡 Fase 4 — Implementação (em andamento)
+
+**Concluído:**
+- ✅ Docker Compose (PostgreSQL 16 local)
+- ✅ packages/db — Drizzle schema (app/raw/canonical), migrations, seed
+- ✅ packages/shared — tipos, `deriveSegmento()`
+- ✅ apps/api — Fastify server, WebSocket `/agent/v1/connect`, pipeline pg-boss
+- ✅ apps/api — Worker `pipeline:fato_venda` e `pipeline:dim_produto` (SCD2)
+- ✅ apps/agent — Extração SQL Server, WebSocket client, reconexão automática, empacotado como `.exe`
+- ✅ Deploy API no Railway (PostgreSQL Railway + URL pública)
+- ✅ Seed Rede JAM (4 locations, 4 connectors, tokens gerados)
+- ✅ Agente instalado e conectado no RDP da Rede JAM
+- ✅ Endpoint `POST /admin/backfill` implementado (`apps/api/src/routes/admin.ts`)
+- ✅ Toda documentação atualizada (CLAUDE.md, PRD, canonical-model, PROJECT_STATUS)
+
+**Pendente:**
+- ❌ Worker rodando em produção (Railway) — precisa de segundo serviço ← **próximo passo**
+- ❌ Primeiro backfill real e verificação de dados em `canonical.fato_venda`
+- ❌ apps/web — Next.js frontend (autenticação + dashboards)
+- ❌ Endpoints de dashboard (`/api/v1/vendas`, `/api/v1/combustivel`, etc.)
 
 ---
 
@@ -70,14 +89,14 @@ Completa. Fontes de dados mapeadas, problema de negócio definido, stack decidid
 
 | Documento | Caminho | Status |
 |-----------|---------|--------|
-| CLAUDE.md | `CLAUDE.md` | ✅ válido e atualizado |
-| PRD | `docs/product/PRD.md` | ✅ válido |
+| CLAUDE.md | `CLAUDE.md` | ⚠️ desatualizado — menciona `postos`, precisa refletir locations |
+| PRD | `docs/product/PRD.md` | ⚠️ desatualizado — ainda menciona postos, produto descrito como nichado |
 | Inventário Status | `docs/data/inventory/status-inventory.md` | ✅ válido |
 | Inventário WebPosto | `docs/data/inventory/webposto-inventory.md` | ✅ válido |
-| Canonical model | `docs/data/canonical-model.md` | ✅ completo para MVP |
+| Canonical model | `docs/data/canonical-model.md` | ⚠️ menciona `posto_id` — atualizar para `location_id` |
 | Architecture overview | `docs/architecture/overview.md` | ❌ legado — ignorar |
-| ADRs | `docs/architecture/decisions/` | ✅ 7 ADRs escritos |
-| DDL do banco | `docs/db/schema.sql` | ✅ completo (4 MVs incluídas) |
+| ADRs | `docs/architecture/decisions/` | ✅ 8 ADRs escritos |
+| DDL do banco | `docs/db/schema.sql` | ❌ desatualizado — schema real está no Drizzle |
 | API design | `docs/api/api.md` | ❌ legado — ignorar |
 | Onboarding runbook | `docs/ops/onboarding.md` | ❌ pendente |
 | Spec sync-status | `docs/specs/sync-status.md` | ✅ v1.1 completo |
