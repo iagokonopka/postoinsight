@@ -1,4 +1,3 @@
-import 'dotenv/config'
 import PgBoss from 'pg-boss'
 import { eq, and } from 'drizzle-orm'
 import { db } from './db.js'
