@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch --env-file=.env src/server.ts",
-    "build": "pnpm --filter @postoinsight/db build && tsc",
+    "build": "pnpm --filter @postoinsight/shared build && pnpm --filter @postoinsight/db build && tsc",
     "start": "node dist/server.js",
     "start:worker": "node dist/worker.js",
     "worker": "tsx watch src/worker.ts",
