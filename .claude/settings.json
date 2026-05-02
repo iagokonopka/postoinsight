@@ -1,0 +1,25 @@
+{
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  },
+  "effortLevel": "low",
+  "teammateMode": "tmux",
+  "agent": "lead",
+  "permissions": {
+    "allow": [
+      "Write(/home/dev/postoinsight/*)",
+      "Edit(/home/dev/postoinsight/*)",
+      "Bash(grep *)",
+      "Bash(find *)",
+      "Bash(cat *)",
+      "Bash(ls *)",
+      "Bash(sed *)",
+      "Bash(tsc *)",
+      "Bash(pnpm *)",
+      "Bash(cd *)",
+      "Bash(mkdir *)",
+      "Bash(cp *)",
+      "Bash(mv *)"
+    ]
+  }
+}

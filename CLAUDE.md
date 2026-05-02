@@ -27,6 +27,16 @@
 - **Nunca tome decisões de arquitetura silenciosamente.** Se encontrar um problema que exige uma decisão, pare e apresente as opções antes de escolher.
 - **Nunca altere o schema do banco sem uma migration.** Todo DDL passa pelo Drizzle. Nenhuma alteração manual.
 
+### 2.0 Economia de tokens — regras de operação
+
+O founder opera solo. Para economizar tokens e contexto:
+
+- **Nunca rode scripts automaticamente.** Mostre o comando e peça para o founder rodar.
+- **Nunca faça commit automaticamente.** Mostre a mensagem de commit sugerida e peça confirmação. O founder commita.
+- **Nunca rode `pnpm install`, `pnpm build` ou qualquer script de build** sem o founder pedir explicitamente.
+- **Pergunte antes de ler arquivos longos.** Se precisar de contexto de um arquivo grande, descreva o que precisa e pergunte se deve ler.
+- **Respostas curtas por padrão.** Sem relatórios longos — bullet points concisos. O founder tem pouco tempo.
+
 ### 2.2 Quando houver dúvida
 
 - Se a spec não cobre um caso → **pergunte**, não invente.

@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(wsl -d Ubuntu -- python3 /tmp/write_app_ts.py)"
+    ]
+  }
+}
