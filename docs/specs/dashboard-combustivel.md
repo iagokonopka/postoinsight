@@ -62,7 +62,7 @@ Mais fino que `mv_vendas_diario` porque inclui `qtd_total` (litros), essencial p
 CREATE MATERIALIZED VIEW analytics.mv_combustivel_diario AS
 SELECT
     fv.tenant_id,
-    fv.posto_id,
+    fv.location_id,
     fv.data_venda,
     dt.ano,
     dt.mes,
@@ -100,19 +100,19 @@ FROM canonical.fato_venda fv
 JOIN canonical.dim_tempo dt ON dt.data = fv.data_venda
 WHERE fv.segmento = 'combustivel'
 GROUP BY
-    fv.tenant_id, fv.posto_id, fv.data_venda,
+    fv.tenant_id, fv.location_id, fv.data_venda,
     dt.ano, dt.mes, dt.ano_mes, dt.semana_ano, dt.dia_semana, dt.is_fim_de_semana,
     fv.categoria_codigo, fv.grupo_id, fv.grupo_descricao
 WITH NO DATA;
 
 CREATE UNIQUE INDEX idx_mv_combustivel_diario_pk
-    ON analytics.mv_combustivel_diario(tenant_id, posto_id, data_venda, categoria_codigo, grupo_id);
+    ON analytics.mv_combustivel_diario(tenant_id, location_id, data_venda, categoria_codigo, grupo_id);
 
 CREATE INDEX idx_mv_combustivel_diario_tenant_data
     ON analytics.mv_combustivel_diario(tenant_id, data_venda DESC);
 
 CREATE INDEX idx_mv_combustivel_diario_posto_data
-    ON analytics.mv_combustivel_diario(tenant_id, posto_id, data_venda DESC);
+    ON analytics.mv_combustivel_diario(tenant_id, location_id, data_venda DESC);
 ```
 
 **Refresh:** junto com `mv_vendas_diario`, após cada sync bem-sucedida.
@@ -137,7 +137,7 @@ KPIs do período: totais de volume, receita e margem — consolidado e por produ
 |-------|------|-------|-----------|
 | `data_inicio` | date | ✅ | |
 | `data_fim` | date | ✅ | |
-| `posto_id` | uuid[] | — | Omitir = todos os postos |
+| `location_id` | uuid[] | — | Omitir = todos os postos |
 
 **Resposta:**
 
@@ -196,7 +196,7 @@ Evolução temporal de volume e receita — série para o gráfico.
 | `data_inicio` | date | ✅ | |
 | `data_fim` | date | ✅ | |
 | `granularidade` | enum | — | `dia` (default) \| `semana` \| `mes` |
-| `posto_id` | uuid[] | — | |
+| `location_id` | uuid[] | — | |
 | `grupo_id` | integer[] | — | Filtrar por produto(s) específico(s). Omitir = todos |
 
 **Resposta:**
@@ -314,6 +314,7 @@ Rota Next.js: `app/(dashboard)/dashboard/combustivel/page.tsx`
 
 | Dependência | Status |
 |-------------|--------|
-| `analytics.mv_combustivel_diario` criada e populada | ❌ migration pendente |
-| Campo `segmento` em `canonical.fato_venda` preenchido pelo pipeline | ❌ depende de sync-status impl. |
+| `analytics.mv_combustivel_diario` criada e populada | ❌ pendente |
+| Campo `segmento` em `canonical.fato_venda` (schema) | ✅ migration 0003 aplicada |
+| Pipeline preenche `segmento` via `deriveSegmento()` | ❌ pendente implementação |
 | Pelo menos 1 posto com dados de combustível no canonical | ❌ pendente backfill |

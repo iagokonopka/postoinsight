@@ -92,7 +92,7 @@ Grão: 1 linha = 1 mês × 1 posto × 1 segmento.
 CREATE MATERIALIZED VIEW analytics.mv_dre_mensal AS
 SELECT
     fv.tenant_id,
-    fv.posto_id,
+    fv.location_id,
     dt.ano,
     dt.mes,
     dt.ano_mes,                                    -- ex: '2026-04' — chave de período
@@ -115,19 +115,19 @@ FROM canonical.fato_venda fv
 JOIN canonical.dim_tempo dt ON dt.data = fv.data_venda
 WHERE fv.segmento IS NOT NULL
 GROUP BY
-    fv.tenant_id, fv.posto_id,
+    fv.tenant_id, fv.location_id,
     dt.ano, dt.mes, dt.ano_mes,
     fv.segmento
 WITH NO DATA;
 
 CREATE UNIQUE INDEX idx_mv_dre_mensal_pk
-    ON analytics.mv_dre_mensal(tenant_id, posto_id, ano_mes, segmento);
+    ON analytics.mv_dre_mensal(tenant_id, location_id, ano_mes, segmento);
 
 CREATE INDEX idx_mv_dre_mensal_tenant_periodo
     ON analytics.mv_dre_mensal(tenant_id, ano_mes DESC);
 
 CREATE INDEX idx_mv_dre_mensal_posto_periodo
-    ON analytics.mv_dre_mensal(tenant_id, posto_id, ano_mes DESC);
+    ON analytics.mv_dre_mensal(tenant_id, location_id, ano_mes DESC);
 ```
 
 **Refresh:** junto com as demais MVs, após cada sync.
@@ -153,7 +153,7 @@ Retorna os dados do DRE para os meses solicitados, organizados por `ano_mes` e `
 | Param | Tipo | Obrig | Descrição |
 |-------|------|-------|-----------|
 | `meses` | string[] | ✅ | Array de períodos no formato `YYYY-MM`. Mínimo 1, máximo 12 |
-| `posto_id` | uuid[] | — | Omitir = todos os postos |
+| `location_id` | uuid[] | — | Omitir = todos os postos |
 
 **Resposta:**
 
@@ -230,7 +230,7 @@ db.select({
 .where(and(
   eq(mv.tenant_id, tenantId),
   inArray(mv.ano_mes, meses),
-  postoIds ? inArray(mv.posto_id, postoIds) : undefined,
+  locationIds ? inArray(mv.location_id, locationIds) : undefined,
 ))
 .groupBy(mv.segmento, mv.ano_mes)
 ```
@@ -241,7 +241,7 @@ db.select({
 
 Lista os meses com dados disponíveis para o tenant. Usado para popular o seletor de período.
 
-**Query params:** `posto_id[]` opcional.
+**Query params:** `location_id[]` opcional.
 
 **Resposta:**
 
@@ -359,6 +359,7 @@ Rota Next.js: `app/(dashboard)/dashboard/dre/page.tsx`
 
 | Dependência | Status |
 |-------------|--------|
-| `analytics.mv_dre_mensal` criada e populada | ❌ migration pendente |
-| Campo `segmento` em `canonical.fato_venda` preenchido pelo pipeline | ❌ depende de sync-status impl. |
+| `analytics.mv_dre_mensal` criada e populada | ❌ pendente |
+| Campo `segmento` em `canonical.fato_venda` (schema) | ✅ migration 0003 aplicada |
+| Pipeline preenche `segmento` via `deriveSegmento()` | ❌ pendente implementação |
 | Pelo menos 2 meses de dados no canonical (para variação) | ❌ pendente backfill |

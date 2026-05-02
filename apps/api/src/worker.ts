@@ -6,7 +6,8 @@ import { rawIngest, fatoVenda, locations, syncState } from '@postoinsight/db'
 import { transformStatusVenda, type StatusVendaRow } from './pipeline/transform-fato-venda.js'
 import { transformDimProduto, type DimProdutoPayload } from './pipeline/transform-dim-produto.js'
 import { dimProduto } from '@postoinsight/db'
-import { sql } from 'drizzle-orm'
+import { refreshAnalyticsMvs } from './pipeline/refresh-analytics.js'
+import { enqueueAnalyticsRefresh } from './pipeline/ingest.js'
 
 const boss = new PgBoss(env.DATABASE_URL)
 await boss.start()
@@ -96,6 +97,22 @@ await boss.work('pipeline:fato_venda', { teamSize: 4, teamConcurrency: 4 }, asyn
     .where(eq(rawIngest.id, rawIngestId))
 
   console.log(`pipeline:fato_venda — inserted=${validRows.length} rejected=${rejected} locationId=${locationId}`)
+
+  // 7. Enfileira refresh das MVs de analytics (throttled — singleton 30s)
+  if (validRows.length > 0) {
+    await enqueueAnalyticsRefresh()
+  }
+})
+
+// ---------------------------------------------------------------------------
+// pipeline:refresh-analytics
+// REFRESH MATERIALIZED VIEW CONCURRENTLY nas 4 MVs do schema `analytics`.
+// Disparado após batches de fato_venda. Singleton 30s evita corrida.
+// ---------------------------------------------------------------------------
+await boss.work('pipeline:refresh-analytics', { teamSize: 1, teamConcurrency: 1 }, async () => {
+  const t0 = Date.now()
+  await refreshAnalyticsMvs()
+  console.log(`pipeline:refresh-analytics — refreshed in ${Date.now() - t0}ms`)
 })
 
 // ---------------------------------------------------------------------------

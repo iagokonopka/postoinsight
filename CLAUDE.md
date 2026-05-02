@@ -85,7 +85,7 @@ postoinsight/
       PRD.md              ← ✅ existe
     architecture/
       overview.md         ← ❌ legado, ignorar
-      decisions/          ← ✅ 8 ADRs escritos (incluindo ADR-008 nomenclatura neutra)
+      decisions/          ← ✅ 9 ADRs escritos (ADR-008 nomenclatura neutra, ADR-009 auditoria/BI)
     data/
       canonical-model.md  ← ✅ completo para MVP
       inventory/
@@ -108,7 +108,9 @@ postoinsight/
 ## 6. Banco de Dados — Schemas e Responsabilidades
 
 ```
-app        ← operacional: tenants, platform_users, users, tenant_users, locations, connectors, sync_state, sync_jobs
+app        ← operacional: tenants, platform_users, users, tenant_users, locations, connectors,
+             sync_state, sync_jobs, invitations, audit_log, login_history,
+             connector_events, sync_rejections, usage_events
 raw        ← bronze: raw_ingest (payload JSONB intocado do ERP)
 canonical  ← silver: fato_venda, dim_produto, dim_tempo
 analytics  ← gold: materialized views pré-agregadas para o frontend
@@ -155,8 +157,8 @@ Toda transformação acontece no pipeline, no nosso servidor.
 | Role | Quem é | Escopo |
 |------|--------|--------|
 | `owner` | Dono da rede | Todos os dados do tenant |
-| `manager` | Gerente de unidade | Dados da sua location |
-| `viewer` | Consultor externo | Acesso configurável |
+| `manager` | Gerente de unidade | Dados da location apontada por `tenant_users.location_id` |
+| `viewer` | Consultor externo | Acesso configurável — `location_id` NULL = tenant inteiro, ou restrito a 1 location |
 
 ---
 
@@ -262,9 +264,10 @@ Decisões já tomadas que devem ser respeitadas:
 - `CD_ESTAB` — obtido via SELECT em `TMPBI_VENDA_DETALHADA` com o acesso abaixo
 
 **Acesso ao banco (1x por instalação do agente):**
-- Host + porta do SQL Server
+- Host interno da rede (ex: IP local `192.168.x.x`) — **não o IP externo**
+- Porta dinâmica do SQL Server (verificar via registry: `HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\MSSQL16.{instância}\MSSQLServer\SuperSocketNetLib\Tcp\IPAll` → `TcpDynamicPorts`)
 - Nome do database
-- Usuário read-only + senha
+- Login SQL com `db_datareader` — **não Windows Authentication** (criar via SSMS se necessário)
 
 ### O que montar internamente
 
@@ -285,20 +288,32 @@ Depois: instalar o agente `.exe` no RDP com o arquivo `.env` configurado.
 
 ## 14. Estado Atual da Implementação
 
-### ✅ Implementado e em produção
-- `packages/db` — Drizzle schema completo, migrations, seed (Rede JAM)
+### ✅ Implementado e em produção (API + pipeline)
+- `packages/db` — Drizzle schema completo (app/raw/canonical/analytics), migrations aplicadas até `0003_little_zaladane` (47 alterações), seed (Rede JAM)
 - `packages/shared` — tipos, `deriveSegmento()`
 - `apps/api` — Fastify + WebSocket `/agent/v1/connect`, pipeline pg-boss (`pipeline:fato_venda`, `pipeline:dim_produto`), `POST /admin/backfill`
+- `apps/api` — 4 grupos de endpoints de dashboard: `/api/v1/vendas`, `/api/v1/combustivel`, `/api/v1/conveniencia`, `/api/v1/dre`
+- `apps/api/src/lib/auth.ts` — middleware `requireTenantSession` (Auth.js v5 JWE decode, impersonation para platform users)
+- `apps/api/src/pipeline/refresh-analytics.ts` — refresh das 4 MVs com CONCURRENTLY automático
 - `apps/agent` — Extração SQL Server, WebSocket client com reconexão, bundlado como `.exe`
-- Railway — API + PostgreSQL em produção, 4 locations da Rede JAM conectadas
+- Railway — API + worker (2 serviços) + PostgreSQL em produção
+- Rede JAM — 4 locations conectadas, pipeline end-to-end validado
+
+### ✅ Implementado (frontend — aguardando deploy)
+- `apps/web` — Next.js 14 App Router completo:
+  - Auth.js v5 com Credentials provider + DrizzleAdapter
+  - Middleware de proteção de rotas
+  - Dashboard layout com Sidebar
+  - Páginas: `/dashboard`, `/combustivel`, `/conveniencia`, `/dre`, `/sync`, `/settings`, `/login`
+  - Componentes: `KpiCard`, `SegmentoBreakdown`, `PeriodoSelector`, `DataTable`, `Sidebar`, `PlaceholderPage`
 
 ### ❌ Pendente
-- Worker rodando em Railway como segundo serviço (atualmente só o server.ts roda) ← próxima tarefa
-- Primeiro backfill real e verificação de dados em `canonical.fato_venda`
-- `apps/web` — Next.js frontend (autenticação + dashboards)
-- Endpoints de dashboard (`/api/v1/vendas`, etc.)
+- Deploy `apps/web` no Railway (configurar env vars e serviço)
+- Backfill completo das 4 locations (histórico completo)
+- Gráficos de evolução temporal (lib de charts não escolhida ainda)
+- Páginas `/sync` e `/settings` com conteúdo real
 - `docs/ops/onboarding.md` — runbook para novos clientes
 
 ---
 
-*Última atualização: 2026-04-22 — documento vivo, atualizado conforme o projeto evolui.*
+*Última atualização: 2026-05-02 — documento vivo, atualizado conforme o projeto evolui.*

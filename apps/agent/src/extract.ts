@@ -45,7 +45,9 @@ export async function* extractFatoVenda(params: {
   batchSize: number
   delayMs: number
 })): AsyncGenerator<unknown[]> {
+  console.log(`[extract] connecting to SQL Server...`)
   const pool = await getPool()
+  console.log(`[extract] connected — running query for ${params.sourceLocationId}`)
   const request = pool.request()
   request.input('cdEstab', params.sourceLocationId)
 

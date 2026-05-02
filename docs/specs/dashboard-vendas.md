@@ -114,23 +114,7 @@ function deriveSegmento(categoriaCodigo: string): string | null {
 
 ### 3.4 DDL — alterações necessárias
 
-Adicionar `segmento` ao schema canônico e à DDL:
-
-```sql
--- canonical.fato_venda: adicionar coluna
-ALTER TABLE canonical.fato_venda
-    ADD COLUMN segmento text
-        CHECK (segmento IN ('combustivel', 'lubrificantes', 'servicos', 'conveniencia'));
-
-CREATE INDEX idx_fato_venda_segmento ON canonical.fato_venda(tenant_id, segmento, data_venda DESC);
-
--- canonical.dim_produto: adicionar coluna
-ALTER TABLE canonical.dim_produto
-    ADD COLUMN segmento text
-        CHECK (segmento IN ('combustivel', 'lubrificantes', 'servicos', 'conveniencia'));
-```
-
-> Migration via Drizzle — nunca executar ALTER TABLE manualmente em produção.
+> **Status:** ✅ Já aplicadas via migration `0003_little_zaladane`. Os campos `segmento` em `fato_venda` e `dim_produto` estão no schema em produção. Nenhuma migration adicional necessária para esta spec.
 
 ---
 
@@ -146,7 +130,7 @@ ALTER TABLE canonical.dim_produto
 CREATE MATERIALIZED VIEW analytics.mv_vendas_diario AS
 SELECT
     fv.tenant_id,
-    fv.posto_id,
+    fv.location_id,
     fv.data_venda,
     dt.ano,
     dt.mes,
@@ -180,7 +164,7 @@ JOIN canonical.dim_tempo dt ON dt.data = fv.data_venda
 WHERE fv.segmento IS NOT NULL                   -- exclui categorias internas
 GROUP BY
     fv.tenant_id,
-    fv.posto_id,
+    fv.location_id,
     fv.data_venda,
     dt.ano,
     dt.mes,
@@ -197,13 +181,13 @@ WITH NO DATA;
 
 -- Índices na MV
 CREATE UNIQUE INDEX idx_mv_vendas_diario_pk
-    ON analytics.mv_vendas_diario(tenant_id, posto_id, data_venda, segmento, categoria_codigo, grupo_id);
+    ON analytics.mv_vendas_diario(tenant_id, location_id, data_venda, segmento, categoria_codigo, grupo_id);
 
 CREATE INDEX idx_mv_vendas_diario_tenant_data
     ON analytics.mv_vendas_diario(tenant_id, data_venda DESC);
 
 CREATE INDEX idx_mv_vendas_diario_posto_data
-    ON analytics.mv_vendas_diario(tenant_id, posto_id, data_venda DESC);
+    ON analytics.mv_vendas_diario(tenant_id, location_id, data_venda DESC);
 
 CREATE INDEX idx_mv_vendas_diario_segmento
     ON analytics.mv_vendas_diario(tenant_id, segmento, data_venda DESC);
@@ -229,7 +213,7 @@ Base path: `/api/v1/vendas`
 Todos os endpoints:
 - Requerem autenticação (Auth.js session)
 - Filtram por `tenant_id` derivado da sessão — nunca aceito como parâmetro externo
-- Aceitam `posto_id` opcional (array) — se omitido, retorna consolidado de todos os postos do tenant
+- Aceitam `location_id` opcional (array) — se omitido, retorna consolidado de todos os postos do tenant
 - Aceitam `data_inicio` e `data_fim` (formato `YYYY-MM-DD`)
 
 ---
@@ -244,7 +228,7 @@ Retorna os KPIs do período: totais de receita, CMV e margem por segmento.
 |-------|------|-------|-----------|
 | `data_inicio` | date | ✅ | Início do período |
 | `data_fim` | date | ✅ | Fim do período |
-| `posto_id` | uuid[] | — | Filtro por posto(s). Omitir = todos |
+| `location_id` | uuid[] | — | Filtro por posto(s). Omitir = todos |
 
 **Resposta:**
 
@@ -318,7 +302,7 @@ db.select({
   eq(mv.tenant_id, tenantId),
   gte(mv.data_venda, dataInicio),
   lte(mv.data_venda, dataFim),
-  postoIds ? inArray(mv.posto_id, postoIds) : undefined,
+  locationIds ? inArray(mv.location_id, locationIds) : undefined,
 ))
 .groupBy(mv.segmento)
 ```
@@ -336,7 +320,7 @@ Evolução temporal das vendas — série de pontos para o gráfico de linha/bar
 | `data_inicio` | date | ✅ | Início do período |
 | `data_fim` | date | ✅ | Fim do período |
 | `granularidade` | enum | — | `dia` (default) \| `semana` \| `mes` |
-| `posto_id` | uuid[] | — | Filtro por posto(s) |
+| `location_id` | uuid[] | — | Filtro por posto(s) |
 | `segmento` | enum | — | Filtrar por segmento específico. Omitir = total |
 
 **Resposta:**
@@ -383,7 +367,7 @@ Breakdown por grupo de produto dentro de um segmento. Usado no drill-down do pai
 | `data_inicio` | date | ✅ | |
 | `data_fim` | date | ✅ | |
 | `segmento` | enum | ✅ | Segmento a detalhar |
-| `posto_id` | uuid[] | — | |
+| `location_id` | uuid[] | — | |
 
 **Resposta:**
 
@@ -452,7 +436,7 @@ Rota Next.js: `app/(dashboard)/dashboard/page.tsx`
 | `SegmentoBreakdown` | `segmentos[]` | `/resumo` → `por_segmento` |
 | `GruposDrilldown` | `segmento`, `grupos[]` | `/grupos` (lazy — só ao clicar) |
 | `PeriodoSelector` | `value`, `onChange` | estado local |
-| `PostoSelector` | `postos[]`, `value`, `onChange` | `app.postos` (layout pai) |
+| `PostoSelector` | `postos[]`, `value`, `onChange` | `app.locations` (layout pai) |
 
 ### 6.3 Filtros e estado
 
@@ -501,10 +485,11 @@ Rota Next.js: `app/(dashboard)/dashboard/page.tsx`
 
 | Dependência | Status |
 |-------------|--------|
-| `canonical.fato_venda` com campo `segmento` | ❌ migration pendente |
-| `canonical.dim_produto` com campo `segmento` | ❌ migration pendente |
+| `canonical.fato_venda` com campo `segmento` | ✅ migration 0003 aplicada |
+| `canonical.dim_produto` com campo `segmento` | ✅ migration 0003 aplicada |
+| `canonical.fato_venda` com `raw_ingest_id`, `reprocessed_at`, `reprocess_count` | ✅ migration 0003 aplicada |
 | `analytics.mv_vendas_diario` criada e populada | ❌ pendente |
-| Pipeline Status preenche `segmento` via `deriveSegmento()` | ❌ pendente (sync-status.md a atualizar) |
+| Pipeline Status preenche `segmento` via `deriveSegmento()` | ❌ pendente |
 | Pelo menos um posto com dados no canonical (backfill concluído) | ❌ pendente |
 
 ---

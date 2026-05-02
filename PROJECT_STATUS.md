@@ -6,8 +6,8 @@
 ---
 
 ## Última atualização
-**Data:** 2026-04-22
-**Sessão:** Documentação atualizada (ADR-008, locations, roles, canonical-model, PRD) + POST /admin/backfill implementado
+**Data:** 2026-05-02
+**Sessão:** Migration 0003 — 47 alterações de schema (auditoria, soft-delete, rastreabilidade raw→canonical, novos enums)
 
 ---
 
@@ -51,13 +51,40 @@ Completa. Fontes de dados mapeadas, problema de negócio definido, stack decidid
 - ✅ Seed Rede JAM (4 locations, 4 connectors, tokens gerados)
 - ✅ Agente instalado e conectado no RDP da Rede JAM
 - ✅ Endpoint `POST /admin/backfill` implementado (`apps/api/src/routes/admin.ts`)
-- ✅ Toda documentação atualizada (CLAUDE.md, PRD, canonical-model, PROJECT_STATUS)
+- ✅ Worker rodando no Railway como segundo serviço (`postoinsight`)
+- ✅ Primeiro backfill real validado — 771 linhas em `canonical.fato_venda` (JAM Rota 1, 2026-04-27/28)
+- ✅ Diagnóstico e fix de conexão SQL Server — porta dinâmica 64051, login SQL `postoinsight` criado
+- ✅ **Analytics schema** — 4 MVs criadas (`mv_vendas_diario`, `mv_combustivel_diario`, `mv_conveniencia_diario`, `mv_dre_mensal`)
+- ✅ **Migration** `0002_create_analytics_mvs.sql` — DDL das 4 MVs + índices únicos para REFRESH CONCURRENTLY
+- ✅ **Migration** `0003_little_zaladane.sql` — 47 alterações: novas tabelas (audit_log, login_history, invitations, connector_events, sync_rejections, usage_events), soft-delete, enums, rastreabilidade raw→canonical
+- ✅ **packages/db** — tipos Drizzle das 4 MVs em `schema/analytics.ts`
+- ✅ **`refreshAnalyticsMvs()`** — pipeline de refresh com CONCURRENTLY automático (`apps/api/src/pipeline/refresh-analytics.ts`)
+- ✅ **Endpoints de dashboard** — todos implementados com `requireTenantSession` (tenant_id nunca aceito de parâmetro):
+  - `GET /api/v1/vendas/resumo`, `/evolucao`, `/segmentos`, `/grupos`
+  - `GET /api/v1/combustivel/resumo`, `/evolucao`, `/produtos`
+  - `GET /api/v1/conveniencia/resumo`, `/evolucao`, `/grupos`
+  - `GET /api/v1/dre/mensal`
+- ✅ **`apps/api/src/lib/auth.ts`** — middleware `requireTenantSession`: decode de JWE Auth.js v5 via cookie ou Bearer, suporte a impersonation via `x-tenant-id` para platform users
+- ✅ **`apps/api/src/lib/queryParsers.ts`** — parsers tipados para datas, UUIDs, enums
+- ✅ **`apps/web`** — Next.js 14 App Router completo:
+  - Auth.js v5 com Credentials provider + DrizzleAdapter (`apps/web/auth.ts`)
+  - Middleware de proteção de rotas (`apps/web/middleware.ts`)
+  - Layout de dashboard com Sidebar, proteção por sessão
+  - Páginas: `/dashboard` (vendas), `/combustivel`, `/conveniencia`, `/dre`, `/sync`, `/settings`
+  - Login page (`/login`)
+  - Componentes: `KpiCard`, `SegmentoBreakdown`, `PeriodoSelector`, `DataTable`, `Sidebar`, `PlaceholderPage`
+  - `lib/api.ts` — `apiFetch` com repasse de cookie de sessão servidor→API
+  - `lib/format.ts` — formatadores de moeda, porcentagem, número
+  - `lib/env.ts` — validação de env vars do frontend
 
 **Pendente:**
-- ❌ Worker rodando em produção (Railway) — precisa de segundo serviço ← **próximo passo**
-- ❌ Primeiro backfill real e verificação de dados em `canonical.fato_venda`
-- ❌ apps/web — Next.js frontend (autenticação + dashboards)
-- ❌ Endpoints de dashboard (`/api/v1/vendas`, `/api/v1/combustivel`, etc.)
+- ❌ Adaptar pipeline para gravar `raw_ingest_id` em `fato_venda` e rejeições em `sync_rejections`
+- ❌ Preencher `triggered_by`, `period_from`, `period_to` em `sync_jobs` no pipeline
+- ❌ Backfill completo das 4 locations (histórico completo)
+- ❌ Deploy `apps/web` no Railway (frontend ainda não está em produção)
+- ❌ Gráficos de evolução temporal nos dashboards (placeholder implementado — aguarda lib de charts)
+- ❌ Página `/sync` — conteúdo real (status de sync por location)
+- ❌ Página `/settings` — conteúdo real (perfil do usuário)
 
 ---
 
@@ -89,13 +116,13 @@ Completa. Fontes de dados mapeadas, problema de negócio definido, stack decidid
 
 | Documento | Caminho | Status |
 |-----------|---------|--------|
-| CLAUDE.md | `CLAUDE.md` | ⚠️ desatualizado — menciona `postos`, precisa refletir locations |
-| PRD | `docs/product/PRD.md` | ⚠️ desatualizado — ainda menciona postos, produto descrito como nichado |
+| CLAUDE.md | `CLAUDE.md` | ✅ atualizado |
+| PRD | `docs/product/PRD.md` | ✅ atualizado |
 | Inventário Status | `docs/data/inventory/status-inventory.md` | ✅ válido |
 | Inventário WebPosto | `docs/data/inventory/webposto-inventory.md` | ✅ válido |
-| Canonical model | `docs/data/canonical-model.md` | ⚠️ menciona `posto_id` — atualizar para `location_id` |
+| Canonical model | `docs/data/canonical-model.md` | ✅ atualizado |
 | Architecture overview | `docs/architecture/overview.md` | ❌ legado — ignorar |
-| ADRs | `docs/architecture/decisions/` | ✅ 8 ADRs escritos |
+| ADRs | `docs/architecture/decisions/` | ✅ 9 ADRs escritos (ADR-009 adicionado) |
 | DDL do banco | `docs/db/schema.sql` | ❌ desatualizado — schema real está no Drizzle |
 | API design | `docs/api/api.md` | ❌ legado — ignorar |
 | Onboarding runbook | `docs/ops/onboarding.md` | ❌ pendente |
@@ -113,21 +140,19 @@ Completa. Fontes de dados mapeadas, problema de negócio definido, stack decidid
 
 Todas as specs MVP estão escritas. Sync WebPosto pausado (não implementar agora).
 
-### 🔴 Agora — Implementação
+### 🔴 Agora — Fechar o loop até produção
 
-Ordem de execução:
+1. **Adaptar pipeline** para usar novas colunas da migration 0003: gravar `raw_ingest_id` em `fato_venda`, gravar rejeições em `sync_rejections`, preencher `triggered_by`/`period_from`/`period_to` em `sync_jobs`
+2. **Deploy `apps/web`** no Railway — configurar variáveis de ambiente (`AUTH_SECRET`, `NEXT_PUBLIC_API_URL`, `DATABASE_URL`)
+3. **Backfill completo** — rodar para as 4 locations com histórico completo e confirmar MVs populadas
+4. **Gráficos de evolução** — integrar lib de charts (Recharts ou similar) nos dashboards
+5. **Testar fluxo completo** — login → dashboard → dados reais da Rede JAM
 
-1. **Setup do ambiente local** — Docker Compose, monorepo (apps/web, apps/api, apps/agent, packages/db, packages/shared)
-2. **packages/db** — Drizzle schema + migrations (baseado em `docs/db/schema.sql`)
-3. **apps/agent** — Agente Status (Windows Service via `pkg` + NSSM, WebSocket, spec `sync-status.md`)
-4. **apps/api** — Fastify: endpoints `/agent/v1/connect` + `/agent/v1/ingest` + pipeline pg-boss
-5. **apps/api** — Endpoints de dashboard (`/api/v1/vendas`, `/api/v1/combustivel`, `/api/v1/conveniencia`, `/api/v1/dre`)
-6. **apps/web** — Next.js: autenticação (Auth.js v5) + dashboards
+### 🟡 Pendente secundário
 
-### 🟡 Antes de implementar
-
-- Onboarding runbook — `docs/ops/onboarding.md` (coletar dados do primeiro cliente piloto)
-- Diagrama `.excalidraw` da arquitetura
+- Páginas `/sync` e `/settings` com conteúdo real
+- Onboarding runbook — `docs/ops/onboarding.md`
+- Sync automático agendado (hoje só backfill manual)
 
 ---
 

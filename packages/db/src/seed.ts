@@ -3,6 +3,7 @@ import postgres from 'postgres'
 import { randomUUID } from 'crypto'
 import bcrypt from 'bcryptjs'
 import * as schema from './schema/index.js'
+import { eq } from 'drizzle-orm'
 
 const connectionString = process.env['DATABASE_URL']
 if (!connectionString) throw new Error('DATABASE_URL is required')
@@ -13,13 +14,21 @@ const db = drizzle(client, { schema })
 // ---------------------------------------------------------------------------
 // Tenant: Rede JAM
 // ---------------------------------------------------------------------------
-const tenantId = randomUUID()
+const [existingTenant] = await db
+  .select({ id: schema.tenants.id })
+  .from(schema.tenants)
+  .where(eq(schema.tenants.slug, 'rede-jam'))
+  .limit(1)
 
-await db.insert(schema.tenants).values({
-  id:   tenantId,
-  name: 'Rede JAM',
-  slug: 'rede-jam',
-}).onConflictDoNothing()
+const tenantId = existingTenant?.id ?? randomUUID()
+
+if (!existingTenant) {
+  await db.insert(schema.tenants).values({
+    id:   tenantId,
+    name: 'Rede JAM',
+    slug: 'rede-jam',
+  })
+}
 
 console.log(`Tenant: Rede JAM (${tenantId})`)
 
@@ -37,17 +46,25 @@ const locationsData = [
 const locationIds: Record<string, string> = {}
 
 for (const loc of locationsData) {
-  const locationId = randomUUID()
+  const [existingLocation] = await db
+    .select({ id: schema.locations.id })
+    .from(schema.locations)
+    .where(eq(schema.locations.sourceLocationId, loc.sourceLocationId))
+    .limit(1)
+
+  const locationId = existingLocation?.id ?? randomUUID()
   locationIds[loc.sourceLocationId] = locationId
 
-  await db.insert(schema.locations).values({
-    id:               locationId,
-    tenantId,
-    name:             loc.name,
-    address:          loc.address,
-    sourceLocationId: loc.sourceLocationId,
-    erpSource:        'status',
-  }).onConflictDoNothing()
+  if (!existingLocation) {
+    await db.insert(schema.locations).values({
+      id:               locationId,
+      tenantId,
+      name:             loc.name,
+      address:          loc.address,
+      sourceLocationId: loc.sourceLocationId,
+      erpSource:        'status',
+    })
+  }
 
   console.log(`  Location: ${loc.name} (CD_ESTAB=${loc.sourceLocationId}) → ${locationId}`)
 }
@@ -99,14 +116,27 @@ for (const loc of locationsData) {
 const adminEmail = process.env['JAM_ADMIN_EMAIL'] ?? 'admin@postosjam.com.br'
 const adminPassword = process.env['JAM_ADMIN_PASSWORD'] ?? 'admin123'
 const passwordHash = await bcrypt.hash(adminPassword, 12)
-const userId = randomUUID()
 
-await db.insert(schema.users).values({
-  id:           userId,
-  name:         'Admin JAM',
-  email:        adminEmail,
-  passwordHash,
-}).onConflictDoNothing()
+const [existingUser] = await db
+  .select({ id: schema.users.id })
+  .from(schema.users)
+  .where(eq(schema.users.email, adminEmail))
+  .limit(1)
+
+const userId = existingUser?.id ?? randomUUID()
+
+if (existingUser) {
+  await db.update(schema.users)
+    .set({ passwordHash })
+    .where(eq(schema.users.id, userId))
+} else {
+  await db.insert(schema.users).values({
+    id:           userId,
+    name:         'Admin JAM',
+    email:        adminEmail,
+    passwordHash,
+  })
+}
 
 await db.insert(schema.tenantUsers).values({
   tenantId,

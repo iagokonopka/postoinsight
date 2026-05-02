@@ -5,7 +5,7 @@
 > Todo conhecimento de ERP fica isolado no conector. A aplicação nunca conhece o schema de nenhum ERP.
 >
 > Status: ✅ completo para MVP
-> Última atualização: 2026-04-22
+> Última atualização: 2026-05-02
 
 ---
 
@@ -67,6 +67,9 @@
 | `source` | text | ✅ | Identificador do conector: `"status"` ou `"webposto"` |
 | `source_id` | text | ✅ | ID único do item na fonte — garante idempotência |
 | `synced_at` | timestamptz | ✅ gerado | Timestamp da ingestão no pipeline |
+| `raw_ingest_id` | uuid | nullable | FK para `raw.raw_ingest` — rastreabilidade do registro raw que originou esta linha |
+| `reprocessed_at` | timestamptz | nullable | Timestamp do último reprocessamento desta linha |
+| `reprocess_count` | integer | ✅ default 0 | Número de vezes que esta linha foi reprocessada |
 
 ---
 
@@ -200,6 +203,7 @@
 | `subgrupo_descricao` | text | nullable | Descrição do subgrupo |
 | `tipo_produto` | text | nullable | Código interno de tipo na fonte |
 | `unidade_venda` | text | nullable | Unidade de venda ex: "UN", "LT" |
+| `location_id` | uuid | nullable | FK para `app.locations` — resolvido pelo pipeline via `source_location_id` |
 | `is_combustivel` | boolean | ✅ | Derivado pelo pipeline via categoria |
 | `ativo` | boolean | ✅ | Se o produto está ativo |
 | `valid_from` | date | ✅ | Início de vigência desta versão |
@@ -283,14 +287,14 @@
 | Campo | Tipo PostgreSQL | Descrição |
 |-------|----------------|-----------|
 | `data` | date | PK — a data em si |
-| `ano` | integer | Ex: 2026 |
-| `trimestre` | integer | 1–4 |
-| `mes` | integer | 1–12 |
-| `mes_nome` | text | Ex: "Janeiro" |
-| `semana_ano` | integer | Semana ISO do ano (1–53) |
-| `dia_mes` | integer | 1–31 |
-| `dia_semana` | integer | 1=Segunda … 7=Domingo (ISO) |
-| `dia_semana_nome` | text | Ex: "Segunda-feira" |
-| `is_fim_de_semana` | boolean | Sábado ou Domingo |
-| `is_feriado_nacional` | boolean | Feriados nacionais brasileiros |
+| `ano` | smallint | Ex: 2026 |
+| `mes` | smallint | 1–12 |
+| `dia` | smallint | 1–31 |
 | `ano_mes` | text | Ex: "2026-03" — útil para agrupamentos mensais |
+| `trimestre` | smallint | 1–4 |
+| `semana_ano` | smallint | Semana ISO do ano (1–53) |
+| `dia_semana` | smallint | 1=Segunda … 7=Domingo |
+| `nome_dia_semana` | text | Ex: "Segunda-feira" |
+| `nome_mes` | text | Ex: "Janeiro" |
+| `is_fim_de_semana` | boolean | Sábado ou Domingo |
+| `is_feriado` | boolean | Feriado (default false) |

@@ -65,3 +65,19 @@ export async function ingestBatch(
     expireInSeconds: 300,
   })
 }
+
+/**
+ * Enfileira um refresh das materialized views de analytics.
+ * Throttling via singletonSeconds: no máximo 1 refresh a cada 30s,
+ * mesmo que muitos batches cheguem em rajada.
+ */
+export async function enqueueAnalyticsRefresh(): Promise<void> {
+  const b = await getBoss()
+  await b.send('pipeline:refresh-analytics', {}, {
+    singletonKey:    'refresh-analytics',
+    singletonSeconds: 30,
+    retryLimit:      2,
+    retryDelay:      30,
+    expireInSeconds: 600,
+  })
+}

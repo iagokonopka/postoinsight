@@ -205,7 +205,7 @@ O agente envia as 4 tabelas como payloads separados com `entity = 'dim_produto_t
 
 O pipeline recebe o payload raw de `raw.raw_ingest` e executa, nesta ordem:
 
-1. Resolver `source_posto_id` → `posto_id` (lookup em `app.postos`)
+1. Resolver `source_location_id` → `location_id` (lookup em `app.locations`)
 2. Transformar campos (tipos, nulls, derivações)
 3. Validar registros
 4. Upsert em `canonical.fato_venda`
@@ -216,8 +216,8 @@ O pipeline recebe o payload raw de `raw.raw_ingest` e executa, nesta ordem:
 
 | Campo canônico | Origem | Regra |
 |----------------|--------|-------|
-| `posto_id` | `CD_ESTAB` | Lookup: `SELECT id FROM app.postos WHERE source_posto_id = :CD_ESTAB AND tenant_id = :tenant_id` |
-| `source_posto_id` | `CD_ESTAB` | Direto |
+| `location_id` | `CD_ESTAB` | Lookup: `SELECT id FROM app.locations WHERE source_location_id = :CD_ESTAB AND tenant_id = :tenant_id` |
+| `source_location_id` | `CD_ESTAB` | Direto |
 | `data_venda` | `DATA_EMISSAO` | `datetime.date()` — apenas a parte date |
 | `hora_venda` | `HORA_COMPLETA_EMISSAO` | Cast para `time`. Se nulo → NULL |
 | `turno` | `TURNO` | Direto. Se nulo ou vazio → NULL |
@@ -254,20 +254,20 @@ Registros que falham em qualquer regra abaixo são **rejeitados** — não inser
 
 | Campo | Regra | Ação |
 |-------|-------|------|
-| `source_posto_id` | Deve resolver para um `posto_id` no tenant | Rejeitar + logar |
+| `source_location_id` | Deve resolver para um `location_id` no tenant | Rejeitar + logar |
 | `data_venda` | Não nula, não futura (> hoje + 1 dia) | Rejeitar + logar |
 | `vlr_total` | >= 0 (devoluções não suportadas no MVP) | Rejeitar + logar |
 | `qtd_venda` | > 0 | Rejeitar + logar |
 | `vlr_unitario` | Não nulo | Rejeitar + logar |
 | `source_produto_id` | Não vazio | Rejeitar + logar |
-| Duplicata | `(tenant_id, posto_id, source, source_id)` já existe | Ignorar silenciosamente |
+| Duplicata | `(tenant_id, location_id, source, source_id)` já existe | Ignorar silenciosamente |
 
 ### 5.4 Upsert
 
 ```sql
 INSERT INTO canonical.fato_venda (...)
 VALUES (...)
-ON CONFLICT (tenant_id, posto_id, source, source_id)
+ON CONFLICT (tenant_id, location_id, source, source_id)
 DO NOTHING
 ```
 
@@ -278,9 +278,9 @@ DO NOTHING
 Após processar todos os lotes com sucesso:
 
 ```sql
-INSERT INTO app.sync_state (tenant_id, posto_id, erp_source, entity, last_synced_at)
-VALUES (:tenant_id, :posto_id, 'status', 'fato_venda', :max_data_emissao)
-ON CONFLICT (posto_id, entity)
+INSERT INTO app.sync_state (tenant_id, location_id, erp_source, entity, last_synced_at)
+VALUES (:tenant_id, :location_id, 'status', 'fato_venda', :max_data_emissao)
+ON CONFLICT (location_id, entity)
 DO UPDATE SET last_synced_at = EXCLUDED.last_synced_at, updated_at = now()
 ```
 
@@ -338,6 +338,21 @@ Campos que disparam nova versão SCD2: `nome`, `categoria_codigo`, `grupo_id`, `
 | `agent:command` | Servidor (on schedule ou on-demand) | Envia comando `sync` para o agente via WebSocket |
 | `pipeline:fato_venda` | API `/agent/v1/ingest` ao receber batch | Processa 1 lote de fato_venda |
 | `pipeline:dim_produto` | API `/agent/v1/ingest` ao receber batch | Processa full sync de dim_produto |
+
+### 7.1.1 Campos de `app.sync_jobs` relevantes para o pipeline
+
+Campos adicionados na migration 0003 que o pipeline deve preencher:
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `triggered_by` | enum | `'scheduler'` (cron automático), `'user'` (disparado via UI/API), `'backfill'` |
+| `triggered_by_user_id` | uuid | UUID do usuário que disparou o job, quando `triggered_by = 'user'` |
+| `period_from` | date | Data inicial do período processado neste job |
+| `period_to` | date | Data final do período processado neste job |
+| `retry_count` | integer | Número de tentativas realizadas (default 0) |
+| `metadata` | jsonb | Dados adicionais de contexto do job |
+
+Registros rejeitados pelo pipeline devem ser gravados em `app.sync_rejections` com `rejection_reason` e `raw_payload`.
 
 ### 7.2 Configuração dos jobs
 
@@ -410,8 +425,8 @@ O servidor calcula as janelas de data desde o início do histórico disponível 
 
 ```typescript
 // Exemplo: posto com histórico desde jan/2023
-pgBoss.send('backfill:fato_venda', { posto_id, from: '2023-01-01', to: '2023-01-31' })
-pgBoss.send('backfill:fato_venda', { posto_id, from: '2023-02-01', to: '2023-02-28' })
+pgBoss.send('backfill:fato_venda', { location_id, from: '2023-01-01', to: '2023-01-31' })
+pgBoss.send('backfill:fato_venda', { location_id, from: '2023-02-01', to: '2023-02-28' })
 // ... até o mês corrente
 ```
 
@@ -456,7 +471,7 @@ Após processar a última janela (mês corrente):
 ```sql
 UPDATE app.sync_state
 SET backfill_completed_at = now()
-WHERE posto_id = :posto_id AND entity = 'fato_venda'
+WHERE location_id = :location_id AND entity = 'fato_venda'
 ```
 
 A partir deste momento o agendador começa a incluir este posto nas syncs diárias incrementais.
@@ -470,7 +485,7 @@ A partir deste momento o agendador começa a incluir este posto nas syncs diári
 | Agente perde conexão WebSocket | Reconecta com backoff. Job fica `pending` no pg-boss até agente reconectar |
 | Pipeline falha num lote | Job vai para retry (máx 3x). `app.sync_jobs.status = 'error'` após esgotar retries |
 | Registro inválido num lote | Registro rejeitado, restante do lote processado. Contagem de rejeições logada em `sync_jobs` |
-| `source_posto_id` não encontrado | Lote inteiro rejeitado + alerta — indica problema de configuração no onboarding |
+| `source_location_id` não encontrado | Lote inteiro rejeitado + alerta — indica problema de configuração no onboarding |
 | Watermark não avança (0 registros) | Normal. `sync_jobs.rows_ingested = 0`, status `success` |
 
 ---

@@ -1,4 +1,4 @@
-CREATE SCHEMA "analytics";
+CREATE SCHEMA IF NOT EXISTS "analytics";
 --> statement-breakpoint
 DO $$ BEGIN
  CREATE TYPE "app"."erp_source" AS ENUM('status', 'webposto');
@@ -91,15 +91,17 @@ CREATE TABLE IF NOT EXISTS "app"."usage_events" (
 	"metadata" jsonb
 );
 --> statement-breakpoint
-ALTER TABLE "app"."accounts" ALTER COLUMN "expires_at" SET DATA TYPE integer;--> statement-breakpoint
-ALTER TABLE "app"."connectors" ALTER COLUMN "erp_source" SET DATA TYPE erp_source;--> statement-breakpoint
-ALTER TABLE "app"."locations" ALTER COLUMN "erp_source" SET DATA TYPE erp_source;--> statement-breakpoint
-ALTER TABLE "app"."sync_jobs" ALTER COLUMN "erp_source" SET DATA TYPE erp_source;--> statement-breakpoint
-ALTER TABLE "app"."sync_jobs" ALTER COLUMN "job_type" SET DATA TYPE sync_job_type;--> statement-breakpoint
-ALTER TABLE "app"."sync_jobs" ALTER COLUMN "status" SET DATA TYPE sync_job_status;--> statement-breakpoint
-ALTER TABLE "app"."sync_jobs" ALTER COLUMN "rows_ingested" SET DATA TYPE integer;--> statement-breakpoint
-ALTER TABLE "app"."sync_jobs" ALTER COLUMN "rows_rejected" SET DATA TYPE integer;--> statement-breakpoint
-ALTER TABLE "app"."sync_state" ALTER COLUMN "erp_source" SET DATA TYPE erp_source;--> statement-breakpoint
+ALTER TABLE "app"."accounts" ALTER COLUMN "expires_at" SET DATA TYPE integer USING EXTRACT(EPOCH FROM "expires_at")::integer;--> statement-breakpoint
+ALTER TABLE "app"."connectors" ALTER COLUMN "erp_source" SET DATA TYPE "app"."erp_source" USING "erp_source"::"app"."erp_source";--> statement-breakpoint
+ALTER TABLE "app"."locations" ALTER COLUMN "erp_source" SET DATA TYPE "app"."erp_source" USING "erp_source"::"app"."erp_source";--> statement-breakpoint
+ALTER TABLE "app"."sync_jobs" ALTER COLUMN "erp_source" SET DATA TYPE "app"."erp_source" USING "erp_source"::"app"."erp_source";--> statement-breakpoint
+ALTER TABLE "app"."sync_jobs" ALTER COLUMN "job_type" SET DATA TYPE "app"."sync_job_type" USING "job_type"::"app"."sync_job_type";--> statement-breakpoint
+ALTER TABLE "app"."sync_jobs" ALTER COLUMN "status" DROP DEFAULT;--> statement-breakpoint
+ALTER TABLE "app"."sync_jobs" ALTER COLUMN "status" SET DATA TYPE "app"."sync_job_status" USING "status"::"app"."sync_job_status";--> statement-breakpoint
+ALTER TABLE "app"."sync_jobs" ALTER COLUMN "status" SET DEFAULT 'pending'::"app"."sync_job_status";--> statement-breakpoint
+ALTER TABLE "app"."sync_jobs" ALTER COLUMN "rows_ingested" SET DATA TYPE integer USING "rows_ingested"::integer;--> statement-breakpoint
+ALTER TABLE "app"."sync_jobs" ALTER COLUMN "rows_rejected" SET DATA TYPE integer USING "rows_rejected"::integer;--> statement-breakpoint
+ALTER TABLE "app"."sync_state" ALTER COLUMN "erp_source" SET DATA TYPE "app"."erp_source" USING "erp_source"::"app"."erp_source";--> statement-breakpoint
 ALTER TABLE "app"."connectors" ADD COLUMN "updated_at" timestamp with time zone DEFAULT now() NOT NULL;--> statement-breakpoint
 ALTER TABLE "app"."connectors" ADD COLUMN "last_sync_attempt_at" timestamp with time zone;--> statement-breakpoint
 ALTER TABLE "app"."connectors" ADD COLUMN "last_sync_success_at" timestamp with time zone;--> statement-breakpoint
@@ -171,6 +173,10 @@ EXCEPTION
  WHEN duplicate_object THEN null;
 END $$;
 --> statement-breakpoint
+-- Limpar órfãos antes de adicionar FK
+DELETE FROM "app"."tenant_users" WHERE "tenant_id" NOT IN (SELECT "id" FROM "app"."tenants");
+DELETE FROM "app"."tenant_users" WHERE "user_id" NOT IN (SELECT "id" FROM "app"."users");
+--> statement-breakpoint
 DO $$ BEGIN
  ALTER TABLE "app"."tenant_users" ADD CONSTRAINT "tenant_users_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "app"."tenants"("id") ON DELETE cascade ON UPDATE no action;
 EXCEPTION
@@ -188,3 +194,12 @@ CREATE INDEX IF NOT EXISTS "idx_sync_jobs_location_entity" ON "app"."sync_jobs" 
 ALTER TABLE "app"."connectors" ADD CONSTRAINT "uq_connectors_location_erp" UNIQUE("location_id","erp_source");--> statement-breakpoint
 ALTER TABLE "app"."sync_state" ADD CONSTRAINT "uq_sync_state_location_entity" UNIQUE("location_id","entity");--> statement-breakpoint
 ALTER TABLE "app"."tenant_users" ADD CONSTRAINT "uq_tenant_users_tenant_user" UNIQUE("tenant_id","user_id");
+--> statement-breakpoint
+-- PK composta em accounts (Auth.js DrizzleAdapter requirement)
+ALTER TABLE "app"."accounts" ADD CONSTRAINT "accounts_pkey" PRIMARY KEY ("provider","provider_account_id");
+--> statement-breakpoint
+-- PK composta em verification_tokens (Auth.js DrizzleAdapter requirement)
+ALTER TABLE "app"."verification_tokens" ADD CONSTRAINT "verification_tokens_pkey" PRIMARY KEY ("identifier","token");
+--> statement-breakpoint
+-- Slug format check constraint
+ALTER TABLE "app"."tenants" ADD CONSTRAINT "chk_tenant_slug_format" CHECK (slug ~ '^[a-z0-9-]+$');
