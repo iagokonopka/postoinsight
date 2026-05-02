@@ -15,6 +15,20 @@
       "when": 1776733121598,
       "tag": "0001_fine_johnny_storm",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1777681478233,
+      "tag": "0002_create_analytics_mvs",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1777753694278,
+      "tag": "0003_little_zaladane",
+      "breakpoints": true
     }
   ]
 }

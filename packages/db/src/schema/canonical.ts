@@ -37,6 +37,7 @@ export const dimProduto = canonicalSchema.table('dim_produto', {
   subgrupoDescricao: text('subgrupo_descricao'),
   tipoProduto:       text('tipo_produto'),
   unidadeVenda:      text('unidade_venda'),
+  locationId:        uuid('location_id'),
   isCombustivel:     boolean('is_combustivel').notNull(),
   segmento:          text('segmento'),
   ativo:             boolean('ativo').notNull().default(true),
@@ -87,6 +88,9 @@ export const fatoVenda = canonicalSchema.table('fato_venda', {
   source:               text('source').notNull(),
   sourceId:             text('source_id').notNull(),
   syncedAt:             timestamp('synced_at', { withTimezone: true }).notNull().defaultNow(),
+  rawIngestId:          uuid('raw_ingest_id'),
+  reprocessedAt:        timestamp('reprocessed_at', { withTimezone: true }),
+  reprocessCount:       integer('reprocess_count').notNull().default(0),
 }, (t) => ({
   uqFatoVenda: unique('uq_fato_venda').on(t.tenantId, t.locationId, t.source, t.sourceId),
   idxFatoVendaTenantData: index('idx_fato_venda_tenant_data').on(t.tenantId, t.dataVenda),

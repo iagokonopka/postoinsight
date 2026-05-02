@@ -1,6 +1,7 @@
 import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
 import { randomUUID } from 'crypto'
+import bcrypt from 'bcryptjs'
 import * as schema from './schema/index.js'
 
 const connectionString = process.env['DATABASE_URL']
@@ -96,12 +97,15 @@ for (const loc of locationsData) {
 // Usuário admin do tenant JAM
 // ---------------------------------------------------------------------------
 const adminEmail = process.env['JAM_ADMIN_EMAIL'] ?? 'admin@postosjam.com.br'
+const adminPassword = process.env['JAM_ADMIN_PASSWORD'] ?? 'admin123'
+const passwordHash = await bcrypt.hash(adminPassword, 12)
 const userId = randomUUID()
 
 await db.insert(schema.users).values({
-  id:    userId,
-  name:  'Admin JAM',
-  email: adminEmail,
+  id:           userId,
+  name:         'Admin JAM',
+  email:        adminEmail,
+  passwordHash,
 }).onConflictDoNothing()
 
 await db.insert(schema.tenantUsers).values({
@@ -115,6 +119,8 @@ await db.insert(schema.tenantUsers).values({
 // ---------------------------------------------------------------------------
 console.log('\n─────────────────────────────────────────')
 console.log('Seed concluído com sucesso.')
+console.log(`  Admin email:    ${adminEmail}`)
+console.log(`  Admin senha:    ${adminPassword}  <- TROCAR EM PRODUCAO`)
 console.log('\nLOCATIONS env var (copiar para o .env do agente):')
 const locationsParts = agentTokens.map(({ sourceLocationId, token }) => `${sourceLocationId}:${token}`)
 console.log(`  LOCATIONS=${locationsParts.join(',')}`)
