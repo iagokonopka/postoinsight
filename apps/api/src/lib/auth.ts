@@ -11,6 +11,8 @@ declare module 'fastify' {
     userId?: string
     role?: 'owner' | 'manager' | 'viewer' | null
     platformRole?: 'superadmin' | 'support' | null
+    /** Presente apenas para managers — UUID da location a que têm acesso restrito */
+    locationId?: string
   }
 }
 
@@ -33,6 +35,8 @@ interface AuthClaims {
   tenantSlug?: string
   role?: 'owner' | 'manager' | 'viewer'
   platformRole?: 'superadmin' | 'support'
+  /** Presente quando role = 'manager' — limita acesso à location específica */
+  locationId?: string
 }
 
 /**
@@ -75,6 +79,7 @@ export async function requireTenantSession(
   req.userId       = userId
   req.role         = claims.role         ?? null
   req.platformRole = claims.platformRole ?? null
+  if (claims.locationId) req.locationId = claims.locationId
 
   const requestedTenantId = (req.headers['x-tenant-id'] as string | undefined)?.trim()
 

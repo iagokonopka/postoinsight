@@ -12,22 +12,25 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@auth/core": "0.41.2",
+    "@fastify/cookie": "^9.4.0",
+    "@fastify/cors": "^9.0.0",
+    "@fastify/env": "^4.3.0",
+    "@fastify/websocket": "^8.3.0",
     "@postoinsight/db": "workspace:*",
     "@postoinsight/shared": "workspace:*",
-    "@auth/core": "0.41.2",
-    "fastify": "^4.27.0",
-    "@fastify/websocket": "^8.3.0",
-    "@fastify/env": "^4.3.0",
-    "@fastify/cors": "^9.0.0",
-    "pg-boss": "^9.0.0",
-    "postgres": "^3.4.0",
+    "bcryptjs": "^2.4.3",
     "drizzle-orm": "^0.30.0",
-    "zod": "^3.23.0",
-    "pino-pretty": "^11.0.0"
+    "fastify": "^4.27.0",
+    "pg-boss": "^9.0.0",
+    "pino-pretty": "^11.0.0",
+    "postgres": "^3.4.0",
+    "zod": "^3.23.0"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^20.0.0",
     "tsx": "^4.7.0",
-    "typescript": "^5.4.0",
-    "@types/node": "^20.0.0"
+    "typescript": "^5.4.0"
   }
 }

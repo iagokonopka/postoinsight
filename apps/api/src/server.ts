@@ -1,9 +1,11 @@
 import Fastify from 'fastify'
 import websocket from '@fastify/websocket'
 import cors from '@fastify/cors'
+import cookie from '@fastify/cookie'
 import { env } from './env.js'
 import { agentRoutes } from './routes/agent.js'
 import { adminRoutes } from './routes/admin.js'
+import { authRoutes } from './routes/auth.js'
 import { vendasRoutes } from './routes/vendas.js'
 import { combustivelRoutes } from './routes/combustivel.js'
 import { convenienciaRoutes } from './routes/conveniencia.js'
@@ -23,6 +25,9 @@ const allowlist = (env.WEB_ORIGIN ?? '')
   .map(s => s.trim())
   .filter(Boolean)
 
+// Cookie plugin — necessário para reply.setCookie() / reply.clearCookie() em /auth/*
+await server.register(cookie)
+
 await server.register(cors, {
   credentials: true,
   origin: (origin, cb) => {
@@ -38,6 +43,7 @@ await server.register(cors, {
 await server.register(websocket)
 await server.register(agentRoutes, { prefix: '/agent/v1' })
 await server.register(adminRoutes, { prefix: '/admin' })
+await server.register(authRoutes,         { prefix: '/auth' })
 await server.register(vendasRoutes,       { prefix: '/api/v1/vendas' })
 await server.register(combustivelRoutes,  { prefix: '/api/v1/combustivel' })
 await server.register(convenienciaRoutes, { prefix: '/api/v1/conveniencia' })

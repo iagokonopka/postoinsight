@@ -26,7 +26,7 @@ export async function ingestBatch(
     // Sinaliza conclusão do job no sync_jobs
     await db
       .update(syncJobs)
-      .set({ status: 'pipeline_queued', completedAt: new Date() })
+      .set({ status: 'success', completedAt: new Date() })
       .where(/* job_id match — simplificado */ undefined as never)
     return
   }
