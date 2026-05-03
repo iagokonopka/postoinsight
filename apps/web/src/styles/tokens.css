@@ -1,0 +1,111 @@
+/* ── Design Tokens — copiados de PostoInsight.html (fonte de verdade do design) ── */
+
+:root {
+  /* Cores principais */
+  --color-primary:          #0073BB;
+  --color-primary-hover:    #005F99;
+  --color-primary-subtle:   #F0F7FC;
+
+  /* Backgrounds */
+  --color-bg:               #FFFFFF;
+  --color-bg-subtle:        #F2F3F3;
+  --color-bg-muted:         #EAEDED;
+
+  /* Bordas */
+  --color-border:           #D5DBDB;
+  --color-border-subtle:    #EAEDED;
+
+  /* Texto */
+  --color-text:             #16191F;
+  --color-text-muted:       #545B64;
+  --color-text-subtle:      #879596;
+  --color-text-inverse:     #FFFFFF;
+
+  /* Semânticas */
+  --color-success:          #1D8102;
+  --color-success-subtle:   #EBF6E8;
+  --color-warning:          #8D6708;
+  --color-warning-subtle:   #FEF9EC;
+  --color-danger:           #D13212;
+  --color-danger-subtle:    #FDF3F1;
+  --color-info:             #0073BB;
+  --color-info-subtle:      #F0F7FC;
+
+  /* Topbar */
+  --color-topbar:           #232F3E;
+  --color-topbar-muted:     #8D9199;
+
+  /* CTA */
+  --color-cta:              #EC7211;
+
+  /* Segmentos */
+  --color-segment-combustivel:   #0073BB;
+  --color-segment-lubrificantes: #6B40C4;
+  --color-segment-servicos:      #1D8102;
+  --color-segment-conveniencia:  #EC7211;
+
+  /* Tipografia */
+  --font-sans:  'DM Sans', system-ui, sans-serif;
+  --font-mono:  'Source Sans 3', system-ui, sans-serif;
+
+  /* Escala de texto */
+  --text-xs:    11px;
+  --text-sm:    13px;
+  --text-base:  13px;
+  --text-md:    14px;
+  --text-lg:    18px;
+  --text-xl:    24px;
+  --text-2xl:   30px;
+  --text-heading: 18px;
+
+  /* Espaçamento */
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  20px;
+  --space-6:  24px;
+  --space-8:  32px;
+  --space-12: 48px;
+
+  /* Bordas arredondadas */
+  --radius-sm: 3px;
+  --radius-md: 4px;
+  --radius-lg: 6px;
+  --radius-xl: 8px;
+
+  --border-width: 1px;
+
+  /* Sombras */
+  --shadow-xs: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-sm: 0 2px 6px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.10), 0 4px 8px rgba(0,0,0,0.05);
+
+  /* Layout */
+  --table-row-height: 40px;
+  --sidebar-width:    220px;
+  --topbar-height:    40px;
+}
+
+/* ── Tema escuro ─────────────────────────────────────────────────────────── */
+[data-theme="dark"] {
+  --color-bg:             #0D1117;
+  --color-bg-subtle:      #161B22;
+  --color-bg-muted:       #21262D;
+  --color-border:         #30363D;
+  --color-border-subtle:  #21262D;
+  --color-text:           #E6EDF3;
+  --color-text-muted:     #7D8590;
+  --color-text-subtle:    #484F58;
+  --color-topbar:         #161B22;
+  --color-topbar-muted:   #7D8590;
+  --color-text-inverse:   #0F172A;
+  --color-primary-subtle: #1e3a8a30;
+  --color-success-subtle: #14532d30;
+  --color-warning-subtle: #78350f30;
+  --color-danger-subtle:  #7f1d1d30;
+  --color-info-subtle:    #0c4a6e30;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.30);
+  --shadow-md: 0 4px 6px rgba(0,0,0,0.25);
+}
