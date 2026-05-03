@@ -3,7 +3,7 @@ import postgres from 'postgres'
 import { randomUUID } from 'crypto'
 import bcrypt from 'bcryptjs'
 import * as schema from './schema/index.js'
-import { eq } from 'drizzle-orm'
+import { eq, and } from 'drizzle-orm'
 
 const connectionString = process.env['DATABASE_URL']
 if (!connectionString) throw new Error('DATABASE_URL is required')
@@ -84,17 +84,32 @@ const agentTokens: Array<{ location: string; sourceLocationId: string; token: st
 
 for (const loc of locationsData) {
   const locationId = locationIds[loc.sourceLocationId]!
-  const agentToken = randomUUID()
+
+  // Busca connector existente — reutiliza o token para não invalidar o agente em produção
+  const [existingConnector] = await db
+    .select({ id: schema.connectors.id, agentToken: schema.connectors.agentToken })
+    .from(schema.connectors)
+    .where(and(
+      eq(schema.connectors.locationId, locationId),
+      eq(schema.connectors.erpSource, 'status'),
+    ))
+    .limit(1)
+
+  // Gera novo token apenas na primeira inserção
+  const agentToken = existingConnector?.agentToken ?? randomUUID()
   agentTokens.push({ location: loc.name, sourceLocationId: loc.sourceLocationId, token: agentToken })
 
-  await db.insert(schema.connectors).values({
-    tenantId,
-    locationId,
-    erpSource:   'status',
-    agentToken,
-    credentials: sqlCreds,
-  }).onConflictDoNothing()
+  if (!existingConnector) {
+    await db.insert(schema.connectors).values({
+      tenantId,
+      locationId,
+      erpSource:   'status',
+      agentToken,
+      credentials: sqlCreds,
+    })
+  }
 
+  // sync_state: insere apenas se não existir — onConflictDoNothing é seguro aqui
   await db.insert(schema.syncState).values({
     tenantId,
     locationId,
@@ -143,6 +158,49 @@ await db.insert(schema.tenantUsers).values({
   userId,
   role: 'owner',
 }).onConflictDoNothing()
+
+// ---------------------------------------------------------------------------
+// Platform superadmin
+// ---------------------------------------------------------------------------
+const superadminEmail = process.env['SUPERADMIN_EMAIL'] ?? 'admin@app.internal'
+const superadminPassword = process.env['SUPERADMIN_PASSWORD']
+
+// Em produção (NODE_ENV=production) a senha é obrigatória — não aceita padrão inseguro
+if (!superadminPassword && process.env['NODE_ENV'] === 'production') {
+  throw new Error('SUPERADMIN_PASSWORD is required in production')
+}
+
+const superadminPasswordHash = await bcrypt.hash(superadminPassword ?? 'changeme', 12)
+
+const [existingSuperadminUser] = await db
+  .select({ id: schema.users.id })
+  .from(schema.users)
+  .where(eq(schema.users.email, superadminEmail))
+  .limit(1)
+
+const superadminUserId = existingSuperadminUser?.id ?? randomUUID()
+
+if (existingSuperadminUser) {
+  // Atualiza hash da senha — permite rotação de credencial via re-seed
+  await db.update(schema.users)
+    .set({ passwordHash: superadminPasswordHash })
+    .where(eq(schema.users.id, superadminUserId))
+} else {
+  await db.insert(schema.users).values({
+    id:           superadminUserId,
+    name:         'PostoInsight Admin',
+    email:        superadminEmail,
+    passwordHash: superadminPasswordHash,
+  })
+}
+
+// platform_users: insere apenas se não existir (unique em user_id)
+await db.insert(schema.platformUsers).values({
+  userId:       superadminUserId,
+  platformRole: 'superadmin',
+}).onConflictDoNothing()
+
+console.log(`  Superadmin: ${superadminEmail}`)
 
 // ---------------------------------------------------------------------------
 // Resumo final
