@@ -1,0 +1,2015 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>PostoInsight — Style Explorer v2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600&family=Source+Sans+3:wght@300;400;600;700&family=Source+Code+Pro:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body,#root{height:100%;width:100%}
+body{background:#1a1a1a;font-family:sans-serif;-webkit-font-smoothing:antialiased}
+
+/* Canvas wrapper */
+.explorer-canvas{
+  min-height:100vh;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  padding:48px 60px 80px;
+  gap:80px;
+}
+.explorer-label{
+  font-size:11px;
+  font-weight:600;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+  color:#555;
+  text-align:center;
+  margin-bottom:16px;
+}
+.explorer-title{
+  font-size:13px;
+  font-weight:500;
+  color:#888;
+  text-align:center;
+  margin-bottom:6px;
+}
+
+/* Dashboard frame */
+.dash-frame{
+  width:1320px;
+  height:860px;
+  border-radius:0;
+  overflow:hidden;
+  position:relative;
+  flex-shrink:0;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(128,128,128,.3);border-radius:2px}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<!-- Mock data inline -->
+<script>
+(function(){
+  function serie28(base,v){
+    v=v||0.12;
+    return Array.from({length:28},function(_,i){
+      var d=i+1;
+      var wknd=[0,6].indexOf(new Date(2026,3,d).getDay())>-1;
+      var m=1+Math.sin(d*0.7)*v;
+      return{dia:d,label:d+'/04',valor:Math.round(base*m*(wknd?0.84:1))};
+    });
+  }
+  var sB=serie28(38772);
+  window.MOCK={
+    APP_NAME:'PostoInsight',
+    LOCATIONS:[
+      {id:'loc-1',nome:'JAM Centro',status:'online'},
+      {id:'loc-2',nome:'JAM Rodovia',status:'online'},
+      {id:'loc-3',nome:'JAM Norte',status:'online'},
+      {id:'loc-4',nome:'JAM Sul',status:'warning'},
+    ],
+    vendas:{
+      resumo:{
+        totais:{receita_bruta:1085620,cmv:825620,margem_bruta:258770,margem_pct:23.86,qtd_itens:18420},
+        por_segmento:[
+          {segmento:'combustivel',  label:'Combustível',  receita_bruta:980300,cmv:810200,margem_bruta:169300,margem_pct:17.28,participacao_pct:78.4},
+          {segmento:'lubrificantes',label:'Lubrificantes',receita_bruta:42000, cmv:8500,  margem_bruta:33500, margem_pct:79.76,participacao_pct:8.7},
+          {segmento:'servicos',     label:'Serviços',     receita_bruta:18000, cmv:2100,  margem_bruta:15900, margem_pct:88.33,participacao_pct:3.7},
+          {segmento:'conveniencia', label:'Conveniência', receita_bruta:45320, cmv:4820,  margem_bruta:39770, margem_pct:89.19,participacao_pct:9.2},
+        ],
+      },
+      evolucao:sB.map(function(p){return{label:p.label,receita_bruta:p.valor,margem_bruta:Math.round(p.valor*0.2386)};}),
+      grupos_combustivel:[
+        {grupo_descricao:'Gasolina Comum',receita_bruta:432000,cmv:362880,margem_bruta:69120,margem_pct:16.0,participacao_pct:44.1},
+        {grupo_descricao:'Diesel S-10',   receita_bruta:395000,cmv:331800,margem_bruta:63200,margem_pct:16.0,participacao_pct:40.3},
+        {grupo_descricao:'Etanol',        receita_bruta:116800,cmv:93440, margem_bruta:23360,margem_pct:20.0,participacao_pct:11.9},
+        {grupo_descricao:'Arla 32',       receita_bruta:36500, cmv:22080, margem_bruta:14420,margem_pct:39.5,participacao_pct:3.7},
+      ],
+    },
+    dre:{
+      por_mes:{
+        '2026-04':{
+          combustivel:   {receita_bruta:980300, descontos:800, receita_liquida:979500, cmv:810200,margem_bruta:169300,margem_pct:17.28},
+          lubrificantes: {receita_bruta:42000,  descontos:0,   receita_liquida:42000,  cmv:8500,  margem_bruta:33500, margem_pct:79.76},
+          servicos:      {receita_bruta:18000,  descontos:0,   receita_liquida:18000,  cmv:2100,  margem_bruta:15900, margem_pct:88.33},
+          conveniencia:  {receita_bruta:45320,  descontos:430, receita_liquida:44890,  cmv:4820,  margem_bruta:40070, margem_pct:89.27},
+          _total:        {receita_bruta:1085620,descontos:1230,receita_liquida:1084390,cmv:825620, margem_bruta:258770,margem_pct:23.86},
+        },
+      },
+    },
+    sync:{
+      historico:[
+        {id:1,location:'JAM Centro', inicio:'2026-04-30T06:12:00Z',fim:'2026-04-30T06:13:12Z',duracao:'1m 12s',registros:842, status:'success'},
+        {id:2,location:'JAM Rodovia',inicio:'2026-04-30T06:14:00Z',fim:'2026-04-30T06:15:38Z',duracao:'1m 38s',registros:1024,status:'success'},
+        {id:3,location:'JAM Norte',  inicio:'2026-04-30T06:16:00Z',fim:'2026-04-30T06:16:58Z',duracao:'0m 58s',registros:688, status:'success'},
+        {id:4,location:'JAM Sul',    inicio:'2026-04-29T03:00:00Z',fim:'2026-04-29T03:00:04Z',duracao:'0m 04s',registros:0,   status:'failed',erro:'Conexão recusada — agente offline.'},
+        {id:5,location:'JAM Centro', inicio:'2026-04-29T06:10:00Z',fim:'2026-04-29T06:11:08Z',duracao:'1m 08s',registros:798, status:'success'},
+        {id:6,location:'JAM Rodovia',inicio:'2026-04-29T06:12:00Z',fim:'2026-04-29T06:13:41Z',duracao:'1m 41s',registros:992, status:'success'},
+      ],
+    },
+  };
+})();
+</script>
+
+<script type="text/babel">
+// ─── Formatters ──────────────────────────────────────────────────────────────
+const fBRL = v => v == null ? '—' : new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL',maximumFractionDigits:0}).format(v);
+const fNum = (v,d=0) => v == null ? '—' : new Intl.NumberFormat('pt-BR',{minimumFractionDigits:d,maximumFractionDigits:d}).format(v);
+const fPct = (v,d=1) => v == null ? '—' : fNum(v,d)+'%';
+
+// ─── THEMES ──────────────────────────────────────────────────────────────────
+const THEMES = {
+
+  // A: Slate/Steel — sidebar escura, conteúdo branco, DM Sans
+  slate: {
+    id: 'slate',
+    name: 'A — Slate / Steel',
+    desc: 'DM Sans · Sidebar #1E2636 · Branco puro · Azul índigo',
+
+    sidebar: {
+      bg:      '#1E2636',
+      border:  '#2C3A50',
+      text:    '#E2E8F5',
+      muted:   '#5A6E8A',
+      subtle:  '#3A4C65',
+      active:  '#253348',
+      activeText: '#93B4FF',
+      activeBorder: '#4A7BFF',
+      logo:    '#4A7BFF',
+    },
+    content: {
+      bg:      '#F4F5F7',
+      header:  '#FFFFFF',
+      card:    '#FFFFFF',
+      border:  '#E1E5EC',
+      borderSub: '#ECEEF2',
+      text:    '#0D1117',
+      muted:   '#5B6678',
+      subtle:  '#9AA3B0',
+      accent:  '#2F52E0',
+      accentBg:'rgba(47,82,224,0.07)',
+      success: '#0B6E3A',
+      successBg:'rgba(11,110,58,0.08)',
+      danger:  '#B91C1C',
+      dangerBg:'rgba(185,28,28,0.08)',
+      warning: '#92400E',
+      warningBg:'rgba(146,64,14,0.08)',
+    },
+    seg: ['#2F52E0','#6D28D9','#0369A1','#B45309'],
+    font: "'DM Sans', system-ui, sans-serif",
+    mono: "'DM Mono', 'Courier New', monospace",
+    radius: '3px',
+    radiusSm: '2px',
+    radiusLg: '4px',
+    rowH: 42,
+  },
+
+  // B: Ash/Ink — full dark, Geist, âmbar
+  ash: {
+    id: 'ash',
+    name: 'B — Ash / Ink',
+    desc: 'Geist · Full dark #111318 · Âmbar · Sem divisão',
+
+    sidebar: {
+      bg:      '#111318',
+      border:  '#1F2228',
+      text:    '#D4D8E2',
+      muted:   '#52586A',
+      subtle:  '#2A2E38',
+      active:  '#1C2030',
+      activeText: '#F5C842',
+      activeBorder: '#F5C842',
+      logo:    '#F5C842',
+    },
+    content: {
+      bg:      '#161920',
+      header:  '#111318',
+      card:    '#1A1E27',
+      border:  '#23282F',
+      borderSub: '#1E2229',
+      text:    '#E8ECF4',
+      muted:   '#6B7280',
+      subtle:  '#3A3F4A',
+      accent:  '#F5C842',
+      accentBg:'rgba(245,200,66,0.08)',
+      success: '#22C55E',
+      successBg:'rgba(34,197,94,0.10)',
+      danger:  '#F87171',
+      dangerBg:'rgba(248,113,113,0.10)',
+      warning: '#FB923C',
+      warningBg:'rgba(251,146,60,0.10)',
+    },
+    seg: ['#F5C842','#A78BFA','#34D399','#FB923C'],
+    font: "'Geist', system-ui, sans-serif",
+    mono: "'Geist Mono', 'Courier New', monospace",
+    radius: '4px',
+    radiusSm: '3px',
+    radiusLg: '6px',
+    rowH: 42,
+  },
+
+  // C: AWS Console — topbar preta, sidebar branca, fundo cinza frio, radius 0
+  aws: {
+    id: 'aws',
+    name: 'C — AWS Console',
+    desc: 'Source Sans 3 · Topbar #232F3E · Sidebar branca · Fundo #F2F3F3 · Radius 0',
+
+    sidebar: {
+      bg:           '#FFFFFF',
+      border:       '#D5DBDB',
+      text:         '#16191F',
+      muted:        '#545B64',
+      subtle:       '#F2F3F3',
+      active:       '#F2F3F3',
+      activeText:   '#EC7211',
+      activeBorder: '#EC7211',
+      logo:         '#232F3E',
+      sectionLabel: '#879596',
+    },
+    topbar: {
+      bg:    '#232F3E',
+      text:  '#FFFFFF',
+      muted: '#8D9199',
+    },
+    content: {
+      bg:        '#F2F3F3',
+      header:    '#FFFFFF',
+      card:      '#FFFFFF',
+      border:    '#D5DBDB',
+      borderSub: '#EAEDED',
+      text:      '#16191F',
+      muted:     '#545B64',
+      subtle:    '#879596',
+      accent:    '#0073BB',
+      accentBg:  'rgba(0,115,187,0.08)',
+      success:   '#1D8102',
+      successBg: 'rgba(29,129,2,0.08)',
+      danger:    '#D13212',
+      dangerBg:  'rgba(209,50,18,0.08)',
+      warning:   '#8D6708',
+      warningBg: 'rgba(141,103,8,0.08)',
+      cta:       '#EC7211',
+      ctaBg:     'rgba(236,114,17,0.10)',
+    },
+    seg: ['#0073BB','#8C4FFF','#1D8102','#EC7211'],
+    font: "'Source Sans 3', 'Segoe UI', system-ui, sans-serif",
+    mono: "'Source Code Pro', 'Courier New', monospace",
+    radius: '0px',
+    radiusSm: '0px',
+    radiusLg: '2px',
+    rowH: 38,
+    hasTopbar: true,
+  },
+};
+
+// ─── Mini SVG Chart ───────────────────────────────────────────────────────────
+function LineChart({ data, xKey, yKeys, colors, height = 160, t }) {
+  const W = 900, H = height;
+  const P = { t:12, r:8, b:24, l:64 };
+  const cW = W-P.l-P.r, cH = H-P.t-P.b;
+  const [hover, setHover] = React.useState(null);
+  if (!data || !data.length) return null;
+
+  const allVals = data.flatMap(d => yKeys.map(k => d[k]||0));
+  const maxV = Math.max(...allVals) * 1.12 || 1;
+  const xp = i => P.l + (i/(data.length-1))*cW;
+  const yp = v => P.t + cH - (v/maxV)*cH;
+  const yTicks = [0,0.25,0.5,0.75,1].map(r => r*maxV);
+
+  // support both theme shapes
+  const tc = t.content || t.c || {};
+  const fontSans = t.font || t.fontBody;
+  const fontMono = t.mono || t.fontMono;
+
+  return (
+    <div style={{ position:'relative' }}>
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width:'100%', height:H, display:'block' }}
+        onMouseLeave={() => setHover(null)}>
+        <defs>
+          {yKeys.map((k,ki) => (
+            <linearGradient key={k} id={`ag-${k}-${t.id}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={colors[ki]} stopOpacity="0.15"/>
+              <stop offset="100%" stopColor={colors[ki]} stopOpacity="0"/>
+            </linearGradient>
+          ))}
+        </defs>
+
+        {/* grid */}
+        {yTicks.map((v,i) => (
+          <g key={i}>
+            <line x1={P.l} y1={yp(v)} x2={W-P.r} y2={yp(v)}
+              stroke={tc.border} strokeWidth="1" strokeDasharray="3 4"/>
+            <text x={P.l-6} y={yp(v)+4} textAnchor="end" fontSize="9"
+              fill={tc.muted} fontFamily={t.mono}>{fBRL(v)}</text>
+          </g>
+        ))}
+
+        {/* areas + lines */}
+        {yKeys.map((k,ki) => {
+          const pts = data.map((d,i) => [xp(i), yp(d[k]||0)]);
+          const lp = pts.map((p,i) => `${i===0?'M':'L'}${p[0]},${p[1]}`).join(' ');
+          const ap = lp+` L${pts[pts.length-1][0]},${P.t+cH} L${pts[0][0]},${P.t+cH} Z`;
+          return (
+            <g key={k}>
+              <path d={ap} fill={`url(#ag-${k}-${t.id})`}/>
+              <path d={lp} fill="none" stroke={colors[ki]} strokeWidth="1.5"
+                strokeLinecap="round" strokeLinejoin="round"/>
+            </g>
+          );
+        })}
+
+        {/* x labels */}
+        {data.map((d,i) => {
+          if (data.length > 14 && i % Math.ceil(data.length/10) !== 0) return null;
+          return <text key={i} x={xp(i)} y={H-5} textAnchor="middle" fontSize="9"
+            fill={tc.muted} fontFamily={fontMono}>{d[xKey]}</text>;
+        })}
+
+        {/* hover areas */}
+        {data.map((d,i) => (
+          <rect key={i} x={xp(i)-(cW/data.length)/2} y={P.t} width={cW/data.length} height={cH}
+            fill="transparent" onMouseEnter={() => setHover({i, x:xp(i), d})}/>
+        ))}
+
+        {hover && (
+          <g>
+            <line x1={hover.x} y1={P.t} x2={hover.x} y2={P.t+cH}
+              stroke={tc.muted} strokeWidth="1" strokeDasharray="2 3"/>
+            {yKeys.map((k,ki) => (
+              <circle key={k} cx={hover.x} cy={yp(hover.d[k]||0)} r="3"
+                fill={colors[ki]} stroke={tc.card} strokeWidth="2"/>
+            ))}
+          </g>
+        )}
+      </svg>
+
+      {hover && (
+        <div style={{
+          position:'absolute', top:10, left:P.l+4,
+          background: tc.card,
+          border:`1px solid ${tc.border}`,
+          borderRadius: t.radiusSm || t.c?.radiusSm || '3px',
+          padding:'7px 10px', fontSize:11,
+          pointerEvents:'none', whiteSpace:'nowrap',
+          boxShadow:'0 4px 12px rgba(0,0,0,.15)',
+          fontFamily: fontSans,
+          color: tc.text,
+        }}>
+          <div style={{ fontWeight:700, marginBottom:4, fontSize:11 }}>{hover.d[xKey]}</div>
+          {yKeys.map((k,ki) => (
+            <div key={k} style={{ display:'flex', gap:8, alignItems:'center', marginBottom:2 }}>
+              <span style={{ width:8, height:2, background:colors[ki], display:'inline-block', borderRadius:1 }}/>
+              <span style={{ color:tc.muted, fontSize:10 }}>{k==='receita_bruta'?'Receita':'Margem'}:</span>
+              <span style={{ fontFamily:fontMono, fontWeight:600, fontSize:10 }}>{fBRL(hover.d[k])}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Horizontal bar ───────────────────────────────────────────────────────────
+function HBar({ pct, color, t }) {
+  const tc = t.content || t.c || {};
+  return (
+    <div style={{ height:3, background:tc.borderSub, borderRadius:1, flex:1 }}>
+      <div style={{ height:'100%', width:pct+'%', background:color, borderRadius:1 }}/>
+    </div>
+  );
+}
+
+// ─── KPI Card ─────────────────────────────────────────────────────────────────
+function KpiCard({ label, value, sub, delta, format, accent, t }) {
+  const tc = t.content;
+  const formatted = format==='pct' ? fPct(value,2)
+    : format==='num' ? fNum(value)
+    : fBRL(value);
+
+  return (
+    <div style={{
+      flex:1, minWidth:0,
+      background: tc.card,
+      border: `1px solid ${tc.border}`,
+      borderTop: accent ? `2px solid ${accent}` : `1px solid ${tc.border}`,
+      borderRadius: t.radius,
+      padding: '16px 18px',
+    }}>
+      <div style={{
+        fontSize:10, color:tc.muted, textTransform:'uppercase',
+        letterSpacing:'.08em', fontWeight:600, marginBottom:8,
+        fontFamily: t.font,
+      }}>{label}</div>
+      <div style={{
+        fontSize:22, fontWeight:700, color:tc.text,
+        letterSpacing:'-0.03em', fontFamily:t.mono,
+        marginBottom:6, lineHeight:1,
+      }}>{formatted}</div>
+      <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+        {sub && <span style={{ fontSize:10, color:tc.subtle, fontFamily:t.font }}>{sub}</span>}
+        {delta != null && (
+          <span style={{
+            fontSize:10, fontWeight:700,
+            color: delta>=0 ? tc.success : tc.danger,
+            background: delta>=0 ? tc.successBg : tc.dangerBg,
+            padding:'2px 6px', borderRadius:t.radiusSm,
+            fontFamily: t.font,
+          }}>{(delta>=0?'+':'')+fNum(delta,1)+'%'}</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Section header ───────────────────────────────────────────────────────────
+function SectionHeader({ title, right, t }) {
+  const tc = t.content;
+  return (
+    <div style={{
+      padding:'11px 18px',
+      borderBottom:`1px solid ${tc.border}`,
+      display:'flex', alignItems:'center', justifyContent:'space-between',
+      background: tc.card,
+    }}>
+      <span style={{
+        fontSize:11, fontWeight:600, color:tc.text,
+        textTransform:'uppercase', letterSpacing:'.07em',
+        fontFamily: t.font,
+      }}>{title}</span>
+      {right}
+    </div>
+  );
+}
+
+// ─── Page: Visão Geral ────────────────────────────────────────────────────────
+function PageVendas({ t }) {
+  const tc = t.content;
+  const d = window.MOCK.vendas;
+  const r = d.resumo;
+  const [gran, setGran] = React.useState('dia');
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:14, padding:'18px 24px', background:tc.bg, flex:1, overflowY:'auto', minHeight:0 }}>
+
+      {/* KPIs */}
+      <div style={{ display:'flex', gap:10 }}>
+        <KpiCard label="Receita Bruta"  value={r.totais.receita_bruta}  delta={8.7}  accent={t.seg[0]} t={t}/>
+        <KpiCard label="CMV"            value={r.totais.cmv}            sub="custo merc." t={t}/>
+        <KpiCard label="Margem Bruta"   value={r.totais.margem_bruta}   delta={9.1}  accent={t.seg[2]} t={t}/>
+        <KpiCard label="Margem %"       value={r.totais.margem_pct}     format="pct" t={t}/>
+        <KpiCard label="Itens Vendidos" value={r.totais.qtd_itens}      format="num" sub="transações" t={t}/>
+      </div>
+
+      {/* Chart */}
+      <div style={{ background:tc.card, border:`1px solid ${tc.border}`, borderRadius:t.radius, overflow:'hidden' }}>
+        <SectionHeader title="Evolução de Receita — Abril 2026" t={t}
+          right={
+            <div style={{ display:'flex', background:tc.bg, borderRadius:t.radiusSm, padding:2, gap:1 }}>
+              {['dia','semana','mês'].map(g => (
+                <button key={g} onClick={() => setGran(g)} style={{
+                  padding:'3px 10px', borderRadius:t.radiusSm, border:'none',
+                  cursor:'pointer', fontFamily:t.font, fontSize:10, fontWeight:gran===g?700:400,
+                  background: gran===g ? tc.card : 'transparent',
+                  color: gran===g ? tc.text : tc.muted,
+                  boxShadow: gran===g ? '0 1px 3px rgba(0,0,0,.08)' : 'none',
+                  transition:'all .12s',
+                }}>{g.charAt(0).toUpperCase()+g.slice(1)}</button>
+              ))}
+            </div>
+          }
+        />
+        <div style={{ padding:'12px 18px 10px' }}>
+          <LineChart data={d.evolucao} xKey="label" yKeys={['receita_bruta','margem_bruta']}
+            colors={[tc.accent, tc.success]} height={160} t={t}/>
+          <div style={{ display:'flex', gap:16, justifyContent:'flex-end', marginTop:6 }}>
+            {[{c:tc.accent,l:'Receita Bruta'},{c:tc.success,l:'Margem Bruta'}].map(item => (
+              <div key={item.l} style={{ display:'flex', alignItems:'center', gap:5, fontSize:10, color:tc.muted, fontFamily:t.font }}>
+                <span style={{ width:14, height:2, background:item.c, display:'inline-block', borderRadius:1 }}/>
+                {item.l}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Segment table */}
+      <div style={{ background:tc.card, border:`1px solid ${tc.border}`, borderRadius:t.radius, overflow:'hidden' }}>
+        <SectionHeader title="Breakdown por Segmento" t={t}/>
+
+        {/* table head */}
+        <div style={{
+          display:'grid', gridTemplateColumns:'180px 1fr 130px 120px 80px 110px',
+          padding:'0 18px', height:32, alignItems:'center', gap:16,
+          borderBottom:`1px solid ${tc.border}`,
+          background: tc.bg,
+        }}>
+          {['Segmento','Participação','Receita Bruta','CMV','Margem %','Margem R$'].map(h => (
+            <div key={h} style={{ fontSize:9, fontWeight:700, color:tc.muted, textTransform:'uppercase', letterSpacing:'.08em', fontFamily:t.font, textAlign: h==='Segmento'||h==='Participação'?'left':'right' }}>{h}</div>
+          ))}
+        </div>
+
+        {r.por_segmento.map((seg, i) => {
+          const color = t.seg[i];
+          return (
+            <div key={seg.segmento} style={{
+              display:'grid', gridTemplateColumns:'180px 1fr 130px 120px 80px 110px',
+              padding:'0 18px', height:t.rowH, alignItems:'center', gap:16,
+              borderBottom: i < r.por_segmento.length-1 ? `1px solid ${tc.borderSub}` : 'none',
+            }}>
+              <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                <span style={{ width:3, height:20, background:color, display:'inline-block', borderRadius:1, flexShrink:0 }}/>
+                <span style={{ fontSize:12, fontWeight:600, color:tc.text, fontFamily:t.font }}>{seg.label}</span>
+              </div>
+              <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                <HBar pct={seg.participacao_pct} color={color} t={t}/>
+                <span style={{ fontSize:10, color:tc.muted, fontFamily:t.mono, width:32, textAlign:'right', flexShrink:0 }}>{fPct(seg.participacao_pct,0)}</span>
+              </div>
+              <div style={{ textAlign:'right', fontSize:12, fontWeight:600, color:tc.text, fontFamily:t.mono }}>{fBRL(seg.receita_bruta)}</div>
+              <div style={{ textAlign:'right', fontSize:12, color:tc.muted, fontFamily:t.mono }}>{fBRL(seg.cmv)}</div>
+              <div style={{ textAlign:'right', fontSize:12, fontWeight:700, color:tc.success, fontFamily:t.mono }}>{fPct(seg.margem_pct)}</div>
+              <div style={{ textAlign:'right', fontSize:12, color:tc.muted, fontFamily:t.mono }}>{fBRL(seg.margem_bruta)}</div>
+            </div>
+          );
+        })}
+
+        {/* totals */}
+        <div style={{
+          display:'grid', gridTemplateColumns:'180px 1fr 130px 120px 80px 110px',
+          padding:'0 18px', height:t.rowH, alignItems:'center', gap:16,
+          borderTop:`1px solid ${tc.border}`,
+          background: tc.bg,
+        }}>
+          <div style={{ fontSize:10, fontWeight:700, color:tc.muted, textTransform:'uppercase', letterSpacing:'.07em', fontFamily:t.font }}>Total</div>
+          <div/>
+          <div style={{ textAlign:'right', fontSize:12, fontWeight:700, color:tc.text, fontFamily:t.mono }}>{fBRL(r.totais.receita_bruta)}</div>
+          <div style={{ textAlign:'right', fontSize:12, fontWeight:700, color:tc.muted, fontFamily:t.mono }}>{fBRL(r.totais.cmv)}</div>
+          <div style={{ textAlign:'right', fontSize:12, fontWeight:700, color:tc.success, fontFamily:t.mono }}>{fPct(r.totais.margem_pct)}</div>
+          <div style={{ textAlign:'right', fontSize:12, fontWeight:700, color:tc.text, fontFamily:t.mono }}>{fBRL(r.totais.margem_bruta)}</div>
+        </div>
+      </div>
+
+      {/* Combustível detail */}
+      <div style={{ background:tc.card, border:`1px solid ${tc.border}`, borderRadius:t.radius, overflow:'hidden' }}>
+        <SectionHeader title="Detalhe — Combustível" t={t}/>
+        <div style={{
+          display:'grid', gridTemplateColumns:'180px 1fr 130px 120px 80px 110px',
+          padding:'0 18px', height:32, alignItems:'center', gap:16,
+          borderBottom:`1px solid ${tc.border}`, background:tc.bg,
+        }}>
+          {['Produto','Volume','Receita Bruta','CMV','Margem %','Margem R$'].map(h => (
+            <div key={h} style={{ fontSize:9, fontWeight:700, color:tc.muted, textTransform:'uppercase', letterSpacing:'.08em', fontFamily:t.font, textAlign: h==='Produto'||h==='Volume'?'left':'right' }}>{h}</div>
+          ))}
+        </div>
+        {d.grupos_combustivel.map((g,i) => (
+          <div key={g.grupo_descricao} style={{
+            display:'grid', gridTemplateColumns:'180px 1fr 130px 120px 80px 110px',
+            padding:'0 18px', height:t.rowH, alignItems:'center', gap:16,
+            borderBottom: i < d.grupos_combustivel.length-1 ? `1px solid ${tc.borderSub}` : 'none',
+          }}>
+            <div style={{ fontSize:12, color:tc.text, fontFamily:t.font }}>{g.grupo_descricao}</div>
+            <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+              <HBar pct={g.participacao_pct} color={t.seg[0]} t={t}/>
+              <span style={{ fontSize:10, color:tc.muted, fontFamily:t.mono, width:32, textAlign:'right', flexShrink:0 }}>{fPct(g.participacao_pct,0)}</span>
+            </div>
+            <div style={{ textAlign:'right', fontSize:12, fontWeight:600, color:tc.text, fontFamily:t.mono }}>{fBRL(g.receita_bruta)}</div>
+            <div style={{ textAlign:'right', fontSize:12, color:tc.muted, fontFamily:t.mono }}>{fBRL(g.cmv)}</div>
+            <div style={{ textAlign:'right', fontSize:12, fontWeight:700, color:tc.success, fontFamily:t.mono }}>{fPct(g.margem_pct)}</div>
+            <div style={{ textAlign:'right', fontSize:12, color:tc.muted, fontFamily:t.mono }}>{fBRL(g.margem_bruta)}</div>
+          </div>
+        ))}
+      </div>
+
+    </div>
+  );
+}
+
+// ─── Page: DRE ───────────────────────────────────────────────────────────────
+function PageDRE({ t }) {
+  const tc = t.content;
+  const rows = [
+    { label:'Receita Bruta',    key:'receita_bruta',   bold:false, indent:0 },
+    { label:'(-) Descontos',    key:'descontos',       bold:false, indent:1, neg:true },
+    { label:'Receita Líquida',  key:'receita_liquida', bold:true,  indent:0 },
+    { label:'(-) CMV',          key:'cmv',             bold:false, indent:1, neg:true },
+    { label:'Margem Bruta',     key:'margem_bruta',    bold:true,  indent:0, highlight:true },
+    { label:'Margem %',         key:'margem_pct',      bold:true,  indent:0, pct:true },
+  ];
+  const segs = ['combustivel','lubrificantes','servicos','conveniencia','_total'];
+  const segLabels = { combustivel:'Combustível', lubrificantes:'Lubrificantes', servicos:'Serviços', conveniencia:'Conveniência', _total:'Total' };
+  const mes = '2026-04';
+  const data = window.MOCK.dre?.por_mes?.[mes] || {};
+
+  return (
+    <div style={{ padding:'18px 24px', background:tc.bg, flex:1, overflowY:'auto', minHeight:0 }}>
+      <div style={{ background:tc.card, border:`1px solid ${tc.border}`, borderRadius:t.radius, overflow:'hidden' }}>
+        <SectionHeader title="DRE Mensal — Abril 2026" t={t}/>
+
+        {/* col headers */}
+        <div style={{
+          display:'grid', gridTemplateColumns:`200px repeat(${segs.length}, 1fr)`,
+          padding:'0 18px', height:34, alignItems:'center', gap:0,
+          borderBottom:`1px solid ${tc.border}`, background:tc.bg,
+        }}>
+          <div/>
+          {segs.map(s => (
+            <div key={s} style={{ textAlign:'right', fontSize:9, fontWeight:s==='_total'?700:600, color:s==='_total'?tc.text:tc.muted, textTransform:'uppercase', letterSpacing:'.07em', fontFamily:t.font, paddingRight:18 }}>{segLabels[s]}</div>
+          ))}
+        </div>
+
+        {rows.map((row, ri) => {
+          const isHL = row.highlight;
+          return (
+            <div key={row.key} style={{
+              display:'grid', gridTemplateColumns:`200px repeat(${segs.length}, 1fr)`,
+              padding:'0 18px', height: row.bold ? 44 : 38, alignItems:'center', gap:0,
+              borderBottom:`1px solid ${tc.borderSub}`,
+              background: isHL ? tc.accentBg : ri%2===0 ? 'transparent' : tc.bg+'80',
+            }}>
+              <div style={{
+                fontSize: row.bold ? 12 : 11,
+                fontWeight: row.bold ? 700 : 400,
+                color: isHL ? tc.accent : tc.text,
+                paddingLeft: row.indent * 14,
+                fontFamily: t.font,
+              }}>{row.label}</div>
+              {segs.map(s => {
+                const seg = data[s] || {};
+                const val = seg[row.key] ?? 0;
+                const display = row.pct ? fPct(val,2) : fBRL(val);
+                return (
+                  <div key={s} style={{
+                    textAlign:'right', paddingRight:18,
+                    fontSize: row.bold ? 13 : 12,
+                    fontWeight: row.bold ? 700 : 400,
+                    fontFamily: t.mono,
+                    color: isHL
+                      ? (s==='_total' ? tc.accent : tc.success)
+                      : row.neg
+                        ? tc.danger
+                        : s==='_total' ? tc.text : tc.muted,
+                  }}>{display}</div>
+                );
+              })}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Page: Sincronização ─────────────────────────────────────────────────────
+function PageSync({ t }) {
+  const tc = t.content;
+  const sync = window.MOCK.sync;
+  const locs = window.MOCK.LOCATIONS;
+  const statusColor = { online: tc.success, warning: tc.warning, failed: tc.danger };
+  const statusBg    = { online: tc.successBg, warning: tc.warningBg, failed: tc.dangerBg };
+
+  return (
+    <div style={{ padding:'18px 24px', background:tc.bg, flex:1, overflowY:'auto', minHeight:0, display:'flex', flexDirection:'column', gap:14 }}>
+
+      {/* Status cards */}
+      <div style={{ display:'flex', gap:10 }}>
+        {locs.map(loc => (
+          <div key={loc.id} style={{ flex:1, background:tc.card, border:`1px solid ${tc.border}`, borderLeft:`3px solid ${statusColor[loc.status]||tc.muted}`, borderRadius:t.radius, padding:'14px 16px' }}>
+            <div style={{ fontSize:11, fontWeight:700, color:tc.text, fontFamily:t.font, marginBottom:4 }}>{loc.nome}</div>
+            <div style={{ display:'inline-flex', alignItems:'center', gap:5, fontSize:10, fontWeight:600, color:statusColor[loc.status], background:statusBg[loc.status], padding:'2px 8px', borderRadius:t.radiusSm, fontFamily:t.font }}>
+              <span style={{ width:5, height:5, borderRadius:'50%', background:statusColor[loc.status], display:'inline-block' }}/>
+              {loc.status==='online'?'Online':loc.status==='warning'?'Alerta':'Offline'}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Histórico */}
+      <div style={{ background:tc.card, border:`1px solid ${tc.border}`, borderRadius:t.radius, overflow:'hidden' }}>
+        <SectionHeader title="Histórico de Sincronização" t={t}/>
+        <div style={{ display:'grid', gridTemplateColumns:'140px 100px 140px 100px 80px 1fr', padding:'0 18px', height:32, alignItems:'center', gap:16, borderBottom:`1px solid ${tc.border}`, background:tc.bg }}>
+          {['Unidade','Status','Início','Duração','Registros','Detalhe'].map(h => (
+            <div key={h} style={{ fontSize:9, fontWeight:700, color:tc.muted, textTransform:'uppercase', letterSpacing:'.08em', fontFamily:t.font }}>{h}</div>
+          ))}
+        </div>
+        {(sync?.historico||[]).map((h,i) => (
+          <div key={h.id} style={{
+            display:'grid', gridTemplateColumns:'140px 100px 140px 100px 80px 1fr',
+            padding:'0 18px', height:t.rowH, alignItems:'center', gap:16,
+            borderBottom: i < (sync.historico.length-1) ? `1px solid ${tc.borderSub}` : 'none',
+          }}>
+            <div style={{ fontSize:12, color:tc.text, fontFamily:t.font }}>{h.location}</div>
+            <div>
+              <span style={{ fontSize:10, fontWeight:600, color:statusColor[h.status]||tc.muted, background:statusBg[h.status]||tc.bg, padding:'2px 7px', borderRadius:t.radiusSm, fontFamily:t.font }}>
+                {h.status==='success'?'OK':h.status==='failed'?'Falhou':'Running'}
+              </span>
+            </div>
+            <div style={{ fontSize:11, color:tc.muted, fontFamily:t.mono }}>{new Date(h.inicio).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</div>
+            <div style={{ fontSize:11, color:tc.muted, fontFamily:t.mono }}>{h.duracao}</div>
+            <div style={{ fontSize:11, fontFamily:t.mono, color:tc.text }}>{fNum(h.registros)}</div>
+            <div style={{ fontSize:10, color:tc.muted, fontFamily:t.font, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{h.erro||'—'}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Sidebar ──────────────────────────────────────────────────────────────────
+const NAV = [
+  { id:'dashboard',   label:'Visão Geral',    section:'Análise' },
+  { id:'combustivel', label:'Combustível',    section:'Análise' },
+  { id:'dre',         label:'DRE Mensal',     section:'Análise' },
+  { id:'sync',        label:'Sincronização',  section:'Operação' },
+];
+
+function Sidebar({ t, page, onNav }) {
+  const s = t.sidebar;
+  let lastSection = null;
+
+  return (
+    <div style={{
+      width:200, flexShrink:0,
+      background:s.bg,
+      borderRight:`1px solid ${s.border}`,
+      display:'flex', flexDirection:'column',
+      height:'100%',
+      fontFamily: t.font,
+    }}>
+      {/* Logo */}
+      <div style={{ padding:'18px 16px 14px', borderBottom:`1px solid ${s.border}`, display:'flex', alignItems:'center', gap:10 }}>
+        <div style={{
+          width:28, height:28, borderRadius:t.radiusSm, flexShrink:0,
+          background: s.logo,
+          display:'flex', alignItems:'center', justifyContent:'center',
+        }}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={t.id==='ash'?'#000':'#fff'} strokeWidth="2.5">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+          </svg>
+        </div>
+        <div>
+          <div style={{ fontSize:13, fontWeight:700, color:s.text, letterSpacing:'-0.01em' }}>PostoInsight</div>
+          <div style={{ fontSize:9, color:s.muted, marginTop:1 }}>Rede JAM · 4 unidades</div>
+        </div>
+      </div>
+
+      {/* Nav */}
+      <nav style={{ flex:1, padding:'10px 8px', overflowY:'auto' }}>
+        {NAV.map(item => {
+          const showSection = item.section !== lastSection;
+          lastSection = item.section;
+          const active = page === item.id;
+          return (
+            <React.Fragment key={item.id}>
+              {showSection && (
+                <div style={{ fontSize:9, fontWeight:700, color:s.muted, textTransform:'uppercase', letterSpacing:'.1em', padding:'8px 8px 5px', marginTop: item.section==='Análise'?0:6 }}>
+                  {item.section}
+                </div>
+              )}
+              <button onClick={() => onNav(item.id)} style={{
+                width:'100%', display:'flex', alignItems:'center', gap:0,
+                padding:'0 8px', height:34,
+                borderRadius:t.radiusSm, marginBottom:1,
+                border:'none', textAlign:'left',
+                background: active ? s.active : 'transparent',
+                color: active ? s.activeText : s.muted,
+                fontSize:12, fontWeight: active ? 600 : 400,
+                cursor:'pointer', fontFamily:t.font,
+                borderLeft: `2px solid ${active ? s.activeBorder : 'transparent'}`,
+                transition:'background .1s, color .1s',
+              }}>
+                {item.label}
+              </button>
+            </React.Fragment>
+          );
+        })}
+      </nav>
+
+      {/* Footer */}
+      <div style={{ padding:'12px 16px', borderTop:`1px solid ${s.border}`, display:'flex', alignItems:'center', gap:7 }}>
+        <span style={{ width:6, height:6, borderRadius:'50%', background:t.content.success, display:'inline-block', flexShrink:0 }}/>
+        <span style={{ fontSize:10, color:s.muted }}>3/4 online · Sync 06:18</span>
+      </div>
+    </div>
+  );
+}
+
+// ─── Header ──────────────────────────────────────────────────────────────────
+const PAGE_META = {
+  dashboard:   { title:'Visão Geral de Vendas',     subtitle:'Rede JAM · Abril 2026' },
+  combustivel: { title:'Visão Geral de Vendas',     subtitle:'Rede JAM · Abril 2026' },
+  dre:         { title:'DRE Mensal',                subtitle:'Demonstrativo de Resultado — Margem Bruta' },
+  sync:        { title:'Sincronização',             subtitle:'Status dos conectores ERP' },
+};
+
+function Header({ t, page, onNav }) {
+  const tc = t.content;
+  const meta = PAGE_META[page] || PAGE_META.dashboard;
+  const periodos = ['Hoje','Semana','Mês','Mês anterior'];
+
+  return (
+    <div style={{
+      background: tc.header,
+      borderBottom:`1px solid ${tc.border}`,
+      padding:'0 24px',
+      height:52, flexShrink:0,
+      display:'flex', alignItems:'center', justifyContent:'space-between',
+      gap:16,
+      fontFamily: t.font,
+    }}>
+      <div>
+        <div style={{ fontSize:14, fontWeight:700, color:tc.text, letterSpacing:'-0.02em', lineHeight:1.2 }}>{meta.title}</div>
+        <div style={{ fontSize:10, color:tc.muted, marginTop:2 }}>{meta.subtitle}</div>
+      </div>
+      <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+        {/* Period pills */}
+        <div style={{ display:'flex', background:tc.bg, borderRadius:t.radiusSm, padding:2, gap:1, border:`1px solid ${tc.border}` }}>
+          {periodos.map((p,i) => (
+            <div key={p} style={{
+              padding:'3px 10px', borderRadius:t.radiusSm,
+              background: i===2 ? tc.card : 'transparent',
+              color: i===2 ? tc.text : tc.muted,
+              fontSize:10, fontWeight: i===2 ? 700 : 400,
+              boxShadow: i===2 ? '0 1px 2px rgba(0,0,0,.06)' : 'none',
+              cursor:'default',
+            }}>{p}</div>
+          ))}
+        </div>
+
+        {/* Location */}
+        <div style={{
+          padding:'5px 10px', border:`1px solid ${tc.border}`,
+          borderRadius:t.radiusSm, fontSize:11, color:tc.text,
+          background:tc.card, cursor:'default',
+          display:'flex', alignItems:'center', gap:6,
+        }}>
+          <span style={{ width:5, height:5, borderRadius:'50%', background:t.content.success, display:'inline-block' }}/>
+          Todas as unidades
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" d="M2 4l3 3 3-3"/></svg>
+        </div>
+
+        {/* Sync button */}
+        <button onClick={() => onNav('sync')} style={{
+          display:'flex', alignItems:'center', gap:5,
+          padding:'5px 12px', border:`1px solid ${tc.border}`,
+          borderRadius:t.radiusSm, background:tc.card,
+          color:tc.muted, fontSize:11, cursor:'pointer',
+          fontFamily:t.font, transition:'all .1s',
+        }}>
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+          </svg>
+          Sincronizar
+        </button>
+
+        {/* Avatar */}
+        <div style={{
+          width:30, height:30, borderRadius:'50%',
+          background:tc.accentBg, border:`1px solid ${tc.border}`,
+          display:'flex', alignItems:'center', justifyContent:'center',
+          fontSize:11, fontWeight:700, color:tc.accent,
+          cursor:'default',
+        }}>IK</div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Full Dashboard ───────────────────────────────────────────────────────────
+function Dashboard({ themeKey }) {
+  const t = THEMES[themeKey];
+  const [page, setPage] = React.useState('dashboard');
+  const tc = t.content;
+
+  return (
+    <div style={{
+      width:'100%', height:'100%',
+      display:'flex',
+      fontFamily: t.font,
+      background: tc.bg,
+      color: tc.text,
+      fontSize:13,
+      overflow:'hidden',
+    }}>
+      <Sidebar t={t} page={page} onNav={setPage}/>
+      <div style={{ flex:1, display:'flex', flexDirection:'column', minWidth:0, overflow:'hidden' }}>
+        <Header t={t} page={page} onNav={setPage}/>
+        <div style={{ flex:1, overflow:'hidden', display:'flex', flexDirection:'column', minHeight:0 }}>
+          {(page==='dashboard'||page==='combustivel') && <PageVendas t={t}/>}
+          {page==='dre'  && <PageDRE t={t}/>}
+          {page==='sync' && <PageSync t={t}/>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── AWS-style Sidebar ────────────────────────────────────────────────────────
+function SidebarAWS({ t, page, onNav }) {
+  const s = t.sidebar;
+  const groups = [
+    { label: 'Visão Geral', items: [
+      { id: 'dashboard',   label: 'Dashboard de Vendas' },
+      { id: 'combustivel', label: 'Combustível' },
+    ]},
+    { label: 'Financeiro', items: [
+      { id: 'dre', label: 'DRE Mensal' },
+    ]},
+    { label: 'Sistema', items: [
+      { id: 'sync', label: 'Sincronização' },
+    ]},
+  ];
+
+  return (
+    <div style={{
+      width: 220, flexShrink: 0,
+      background: s.bg,
+      borderRight: `1px solid ${s.border}`,
+      display: 'flex', flexDirection: 'column',
+      height: '100%', overflowY: 'auto',
+      fontFamily: t.font,
+    }}>
+      {groups.map((grp, gi) => (
+        <div key={gi}>
+          <div style={{
+            fontSize: 11, fontWeight: 700, color: s.sectionLabel,
+            textTransform: 'uppercase', letterSpacing: '.08em',
+            padding: gi === 0 ? '16px 16px 6px' : '12px 16px 6px',
+          }}>{grp.label}</div>
+          {grp.items.map(item => {
+            const active = page === item.id;
+            return (
+              <button key={item.id} onClick={() => onNav(item.id)} style={{
+                width: '100%', display: 'flex', alignItems: 'center',
+                padding: '6px 16px 6px 20px', height: 32,
+                border: 'none', textAlign: 'left',
+                background: active ? s.active : 'transparent',
+                color: active ? s.activeText : s.text,
+                fontSize: 13, fontWeight: active ? 700 : 400,
+                cursor: 'pointer', fontFamily: t.font,
+                borderLeft: `3px solid ${active ? s.activeBorder : 'transparent'}`,
+                transition: 'background .1s',
+              }}>
+                {item.label}
+              </button>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── AWS-style Top Bar ────────────────────────────────────────────────────────
+function TopBarAWS({ t }) {
+  const tb = t.topbar;
+  return (
+    <div style={{
+      height: 35, flexShrink: 0,
+      background: tb.bg,
+      display: 'flex', alignItems: 'center',
+      padding: '0 14px',
+      gap: 12,
+      fontFamily: t.font,
+    }}>
+      {/* Logo mark */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginRight: 8 }}>
+        <div style={{ width: 22, height: 22, background: t.sidebar.activeText, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#000" strokeWidth="2.5">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+          </svg>
+        </div>
+        <span style={{ fontSize: 13, fontWeight: 700, color: '#fff', letterSpacing: '-.01em' }}>PostoInsight</span>
+      </div>
+
+      {/* Search */}
+      <div style={{
+        flex: 1, maxWidth: 340,
+        height: 24,
+        background: 'rgba(255,255,255,0.12)',
+        border: '1px solid rgba(255,255,255,0.2)',
+        display: 'flex', alignItems: 'center',
+        padding: '0 10px', gap: 6,
+      }}>
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={tb.muted} strokeWidth="2">
+          <circle cx="11" cy="11" r="8"/><path strokeLinecap="round" d="M21 21l-4.35-4.35"/>
+        </svg>
+        <span style={{ fontSize: 12, color: tb.muted }}>Buscar</span>
+      </div>
+
+      <div style={{ flex: 1 }}/>
+
+      {/* Right items */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+        <span style={{ fontSize: 12, color: tb.muted }}>Rede JAM</span>
+        <span style={{ fontSize: 12, color: '#fff', fontWeight: 600 }}>IK ▾</span>
+        <span style={{ fontSize: 12, color: tb.muted }}>Brasil ▾</span>
+      </div>
+    </div>
+  );
+}
+
+// ─── AWS breadcrumb + page title ──────────────────────────────────────────────
+function BreadcrumbAWS({ t, page }) {
+  const tc = t.content;
+  const crumbs = {
+    dashboard:   ['PostoInsight', 'Visão Geral de Vendas'],
+    combustivel: ['PostoInsight', 'Visão Geral de Vendas'],
+    dre:         ['PostoInsight', 'Financeiro', 'DRE Mensal'],
+    sync:        ['PostoInsight', 'Sistema', 'Sincronização'],
+  };
+  const titles = {
+    dashboard:   'Visão Geral de Vendas',
+    combustivel: 'Visão Geral de Vendas',
+    dre:         'DRE Mensal',
+    sync:        'Sincronização',
+  };
+  const parts = crumbs[page] || crumbs.dashboard;
+
+  return (
+    <div style={{ padding: '10px 20px 0', fontFamily: t.font }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 6 }}>
+        {parts.map((p, i) => (
+          <React.Fragment key={i}>
+            {i > 0 && <span style={{ fontSize: 11, color: tc.muted }}>›</span>}
+            <span style={{
+              fontSize: 11,
+              color: i === parts.length - 1 ? tc.muted : tc.accent,
+              fontWeight: i === parts.length - 1 ? 400 : 400,
+              cursor: i < parts.length - 1 ? 'pointer' : 'default',
+            }}>{p}</span>
+          </React.Fragment>
+        ))}
+      </div>
+      <h1 style={{ fontSize: 20, fontWeight: 700, color: tc.text, letterSpacing: '-.01em', marginBottom: 14 }}>
+        {titles[page]}
+      </h1>
+    </div>
+  );
+}
+
+// ─── AWS Dashboard ────────────────────────────────────────────────────────────
+function DashboardAWS({ themeKey }) {
+  const t = THEMES[themeKey];
+  const [page, setPage] = React.useState('dashboard');
+  const tc = t.content;
+
+  // Period selector state
+  const [period, setPeriod] = React.useState('mes');
+
+  return (
+    <div style={{
+      width: '100%', height: '100%',
+      display: 'flex', flexDirection: 'column',
+      fontFamily: t.font, background: tc.bg,
+      color: tc.text, fontSize: 13, overflow: 'hidden',
+    }}>
+      <TopBarAWS t={t}/>
+
+      <div style={{ flex: 1, display: 'flex', overflow: 'hidden', minHeight: 0 }}>
+        <SidebarAWS t={t} page={page} onNav={setPage}/>
+
+        {/* Content */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
+
+          {/* Sub-header with period selector */}
+          <div style={{
+            background: tc.header,
+            borderBottom: `1px solid ${tc.border}`,
+            padding: '0 20px',
+            height: 40, flexShrink: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          }}>
+            <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+              {['Hoje','Esta semana','Este mês','Mês anterior'].map((p, i) => (
+                <button key={p} onClick={() => setPeriod(p)} style={{
+                  padding: '4px 12px',
+                  border: period === p ? `1px solid ${tc.accent}` : `1px solid ${tc.border}`,
+                  background: period === p ? tc.accentBg : tc.card,
+                  color: period === p ? tc.accent : tc.muted,
+                  fontSize: 12, fontWeight: period === p ? 700 : 400,
+                  cursor: 'pointer', fontFamily: t.font,
+                  borderRadius: t.radiusSm,
+                }}>{p}</button>
+              ))}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <select style={{
+                padding: '4px 8px', border: `1px solid ${tc.border}`,
+                background: tc.card, color: tc.text,
+                fontSize: 12, fontFamily: t.font,
+                cursor: 'pointer', outline: 'none',
+                borderRadius: t.radiusSm,
+              }}>
+                <option>Todas as unidades</option>
+                {window.MOCK.LOCATIONS.map(l => <option key={l.id}>{l.nome}</option>)}
+              </select>
+              <button style={{
+                padding: '4px 14px',
+                background: tc.cta, color: '#fff',
+                border: 'none', cursor: 'pointer',
+                fontSize: 12, fontWeight: 700, fontFamily: t.font,
+                borderRadius: t.radiusSm,
+              }}>Sincronizar agora</button>
+            </div>
+          </div>
+
+          {/* Page content */}
+          <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+            <BreadcrumbAWS t={t} page={page}/>
+            <div style={{ padding: '0 20px 24px' }}>
+              {(page === 'dashboard' || page === 'combustivel') && <PageVendasAWS t={t}/>}
+              {page === 'dre'  && <PageDREAWS t={t}/>}
+              {page === 'sync' && <PageSyncAWS t={t}/>}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── AWS Page: Vendas ──────────────────────────────────────────────────────────
+function PageVendasAWS({ t }) {
+  const tc = t.content;
+  const d = window.MOCK.vendas;
+  const r = d.resumo;
+  const [gran, setGran] = React.useState('dia');
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+      {/* KPIs — AWS style: white cards, borda definida, sem radius */}
+      <div style={{ display: 'flex', gap: 12 }}>
+        {[
+          { label: 'Receita Bruta',   value: fBRL(r.totais.receita_bruta),  delta: '+8,7%', pos: true },
+          { label: 'CMV',             value: fBRL(r.totais.cmv),            sub: 'custo das mercadorias' },
+          { label: 'Margem Bruta',    value: fBRL(r.totais.margem_bruta),   delta: '+9,1%', pos: true },
+          { label: 'Margem %',        value: fPct(r.totais.margem_pct, 2),  delta: '+0,3pp', pos: true },
+          { label: 'Itens Vendidos',  value: fNum(r.totais.qtd_itens),      sub: 'transações' },
+        ].map((kpi, i) => (
+          <div key={kpi.label} style={{
+            flex: 1, minWidth: 0,
+            background: tc.card,
+            border: `1px solid ${tc.border}`,
+            borderTop: i === 0 ? `3px solid ${tc.cta}` : i === 2 ? `3px solid ${tc.success}` : `1px solid ${tc.border}`,
+            padding: '14px 16px',
+          }}>
+            <div style={{ fontSize: 11, color: tc.muted, marginBottom: 6, fontWeight: 400 }}>{kpi.label}</div>
+            <div style={{ fontSize: 22, fontWeight: 700, color: tc.text, fontFamily: t.mono, letterSpacing: '-.02em', marginBottom: 5, lineHeight: 1 }}>{kpi.value}</div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              {kpi.sub && <span style={{ fontSize: 11, color: tc.muted }}>{kpi.sub}</span>}
+              {kpi.delta && (
+                <span style={{
+                  fontSize: 11, fontWeight: 700,
+                  color: kpi.pos ? tc.success : tc.danger,
+                  background: kpi.pos ? tc.successBg : tc.dangerBg,
+                  padding: '1px 6px',
+                }}>{kpi.delta}</span>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Chart panel */}
+      <div style={{ background: tc.card, border: `1px solid ${tc.border}` }}>
+        <div style={{
+          padding: '10px 16px', borderBottom: `1px solid ${tc.border}`,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          background: tc.bg,
+        }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: tc.text }}>Evolução de Receita — Abril 2026</span>
+          <div style={{ display: 'flex', gap: 2 }}>
+            {['Dia','Semana','Mês'].map(g => (
+              <button key={g} onClick={() => setGran(g)} style={{
+                padding: '3px 10px', border: `1px solid ${tc.border}`,
+                background: gran === g ? tc.accentBg : tc.card,
+                color: gran === g ? tc.accent : tc.muted,
+                fontSize: 11, fontWeight: gran === g ? 700 : 400,
+                cursor: 'pointer', fontFamily: t.font,
+              }}>{g}</button>
+            ))}
+          </div>
+        </div>
+        <div style={{ padding: '12px 16px 8px' }}>
+          <LineChart data={d.evolucao} xKey="label" yKeys={['receita_bruta','margem_bruta']}
+            colors={[tc.accent, tc.success]} height={150} t={t}/>
+          <div style={{ display: 'flex', gap: 16, justifyContent: 'flex-end', marginTop: 4 }}>
+            {[{c: tc.accent, l:'Receita Bruta'},{c: tc.success, l:'Margem Bruta'}].map(item => (
+              <div key={item.l} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: tc.muted }}>
+                <span style={{ width: 14, height: 2, background: item.c, display: 'inline-block' }}/>
+                {item.l}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Segment table — AWS style */}
+      <div style={{ background: tc.card, border: `1px solid ${tc.border}` }}>
+        <div style={{ padding: '10px 16px', borderBottom: `1px solid ${tc.border}`, background: tc.bg, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: tc.text }}>Receita por Segmento</span>
+          <span style={{ fontSize: 12, color: tc.muted }}>{r.por_segmento.length} segmentos</span>
+        </div>
+
+        {/* thead */}
+        <div style={{
+          display: 'grid', gridTemplateColumns: '200px 1fr 130px 110px 80px 110px',
+          padding: '0 16px', height: 34, alignItems: 'center', gap: 16,
+          borderBottom: `2px solid ${tc.border}`,
+          background: tc.bg,
+        }}>
+          {['Segmento','Participação','Receita Bruta','CMV','Margem %','Margem R$'].map((h, i) => (
+            <div key={h} style={{
+              fontSize: 11, fontWeight: 700, color: tc.muted,
+              textAlign: i > 1 ? 'right' : 'left',
+              display: 'flex', alignItems: 'center', justifyContent: i > 1 ? 'flex-end' : 'flex-start', gap: 3,
+              cursor: 'pointer',
+            }}>
+              {h}
+              {i > 0 && <svg width="8" height="8" viewBox="0 0 8 8" fill={tc.muted}><path d="M4 1l3 3H1z"/></svg>}
+            </div>
+          ))}
+        </div>
+
+        {r.por_segmento.map((seg, i) => {
+          const color = t.seg[i];
+          const isEven = i % 2 === 0;
+          return (
+            <div key={seg.segmento} style={{
+              display: 'grid', gridTemplateColumns: '200px 1fr 130px 110px 80px 110px',
+              padding: '0 16px', height: t.rowH, alignItems: 'center', gap: 16,
+              borderBottom: `1px solid ${tc.borderSub}`,
+              background: isEven ? tc.card : '#FAFAFA',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ width: 3, height: 18, background: color, display: 'inline-block', flexShrink: 0 }}/>
+                <span style={{ fontSize: 13, color: tc.accent, cursor: 'pointer', fontWeight: 400 }}>{seg.label}</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ height: 4, background: tc.borderSub, flex: 1 }}>
+                  <div style={{ height: '100%', width: seg.participacao_pct+'%', background: color }}/>
+                </div>
+                <span style={{ fontSize: 11, color: tc.muted, fontFamily: t.mono, width: 32, textAlign: 'right', flexShrink: 0 }}>{fPct(seg.participacao_pct,0)}</span>
+              </div>
+              <div style={{ textAlign: 'right', fontSize: 13, fontWeight: 600, color: tc.text, fontFamily: t.mono }}>{fBRL(seg.receita_bruta)}</div>
+              <div style={{ textAlign: 'right', fontSize: 13, color: tc.muted, fontFamily: t.mono }}>{fBRL(seg.cmv)}</div>
+              <div style={{ textAlign: 'right', fontSize: 13, fontWeight: 700, color: tc.success, fontFamily: t.mono }}>{fPct(seg.margem_pct)}</div>
+              <div style={{ textAlign: 'right', fontSize: 13, color: tc.muted, fontFamily: t.mono }}>{fBRL(seg.margem_bruta)}</div>
+            </div>
+          );
+        })}
+
+        {/* footer total */}
+        <div style={{
+          display: 'grid', gridTemplateColumns: '200px 1fr 130px 110px 80px 110px',
+          padding: '0 16px', height: 38, alignItems: 'center', gap: 16,
+          borderTop: `2px solid ${tc.border}`, background: tc.bg,
+        }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: tc.muted, textTransform: 'uppercase', letterSpacing: '.06em' }}>Total</div>
+          <div/>
+          <div style={{ textAlign: 'right', fontSize: 13, fontWeight: 700, color: tc.text, fontFamily: t.mono }}>{fBRL(r.totais.receita_bruta)}</div>
+          <div style={{ textAlign: 'right', fontSize: 13, fontWeight: 700, color: tc.muted, fontFamily: t.mono }}>{fBRL(r.totais.cmv)}</div>
+          <div style={{ textAlign: 'right', fontSize: 13, fontWeight: 700, color: tc.success, fontFamily: t.mono }}>{fPct(r.totais.margem_pct)}</div>
+          <div style={{ textAlign: 'right', fontSize: 13, fontWeight: 700, color: tc.text, fontFamily: t.mono }}>{fBRL(r.totais.margem_bruta)}</div>
+        </div>
+      </div>
+
+      {/* Detail: Combustível */}
+      <div style={{ background: tc.card, border: `1px solid ${tc.border}` }}>
+        <div style={{ padding: '10px 16px', borderBottom: `1px solid ${tc.border}`, background: tc.bg }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: tc.text }}>Detalhamento — Combustível</span>
+        </div>
+        <div style={{
+          display: 'grid', gridTemplateColumns: '200px 1fr 130px 110px 80px 110px',
+          padding: '0 16px', height: 32, alignItems: 'center', gap: 16,
+          borderBottom: `2px solid ${tc.border}`, background: tc.bg,
+        }}>
+          {['Produto','Vol. relativo','Receita Bruta','CMV','Margem %','Margem R$'].map((h, i) => (
+            <div key={h} style={{ fontSize: 11, fontWeight: 700, color: tc.muted, textAlign: i > 1 ? 'right' : 'left' }}>{h}</div>
+          ))}
+        </div>
+        {d.grupos_combustivel.map((g, i) => (
+          <div key={g.grupo_descricao} style={{
+            display: 'grid', gridTemplateColumns: '200px 1fr 130px 110px 80px 110px',
+            padding: '0 16px', height: t.rowH, alignItems: 'center', gap: 16,
+            borderBottom: i < d.grupos_combustivel.length-1 ? `1px solid ${tc.borderSub}` : 'none',
+            background: i%2===0 ? tc.card : '#FAFAFA',
+          }}>
+            <div style={{ fontSize: 13, color: tc.accent, cursor: 'pointer' }}>{g.grupo_descricao}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ height: 4, background: tc.borderSub, flex: 1 }}>
+                <div style={{ height: '100%', width: g.participacao_pct+'%', background: t.seg[0] }}/>
+              </div>
+              <span style={{ fontSize: 11, color: tc.muted, fontFamily: t.mono, width: 32, textAlign: 'right', flexShrink: 0 }}>{fPct(g.participacao_pct,0)}</span>
+            </div>
+            <div style={{ textAlign: 'right', fontSize: 13, fontWeight: 600, color: tc.text, fontFamily: t.mono }}>{fBRL(g.receita_bruta)}</div>
+            <div style={{ textAlign: 'right', fontSize: 13, color: tc.muted, fontFamily: t.mono }}>{fBRL(g.cmv)}</div>
+            <div style={{ textAlign: 'right', fontSize: 13, fontWeight: 700, color: tc.success, fontFamily: t.mono }}>{fPct(g.margem_pct)}</div>
+            <div style={{ textAlign: 'right', fontSize: 13, color: tc.muted, fontFamily: t.mono }}>{fBRL(g.margem_bruta)}</div>
+          </div>
+        ))}
+      </div>
+
+    </div>
+  );
+}
+
+// ─── AWS Page: DRE ────────────────────────────────────────────────────────────
+function PageDREAWS({ t }) {
+  const tc = t.content;
+  const rows = [
+    { label:'Receita Bruta',   key:'receita_bruta',   bold:false, indent:0 },
+    { label:'(-) Descontos',   key:'descontos',       bold:false, indent:1, neg:true },
+    { label:'Receita Líquida', key:'receita_liquida', bold:true,  indent:0 },
+    { label:'(-) CMV',         key:'cmv',             bold:false, indent:1, neg:true },
+    { label:'Margem Bruta',    key:'margem_bruta',    bold:true,  indent:0, highlight:true },
+    { label:'Margem %',        key:'margem_pct',      bold:true,  indent:0, pct:true },
+  ];
+  const segs = ['combustivel','lubrificantes','servicos','conveniencia','_total'];
+  const segLabels = { combustivel:'Combustível', lubrificantes:'Lubrificantes', servicos:'Serviços', conveniencia:'Conveniência', _total:'Total' };
+  const data = window.MOCK.dre?.por_mes?.['2026-04'] || {};
+
+  return (
+    <div style={{ background: tc.card, border: `1px solid ${tc.border}` }}>
+      <div style={{ padding: '10px 16px', borderBottom: `1px solid ${tc.border}`, background: tc.bg }}>
+        <span style={{ fontSize: 13, fontWeight: 700, color: tc.text }}>Demonstrativo de Resultado — Abril 2026</span>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: `220px repeat(${segs.length}, 1fr)`, padding: '0 16px', height: 34, alignItems: 'center', borderBottom: `2px solid ${tc.border}`, background: tc.bg }}>
+        <div/>
+        {segs.map(s => (
+          <div key={s} style={{ textAlign: 'right', fontSize: 11, fontWeight: s==='_total'?700:600, color: s==='_total'?tc.text:tc.muted, paddingRight: 16 }}>{segLabels[s]}</div>
+        ))}
+      </div>
+      {rows.map((row, ri) => (
+        <div key={row.key} style={{
+          display: 'grid', gridTemplateColumns: `220px repeat(${segs.length}, 1fr)`,
+          padding: '0 16px', height: row.bold ? 42 : 36, alignItems: 'center',
+          borderBottom: `1px solid ${tc.borderSub}`,
+          background: row.highlight ? tc.successBg : ri%2===0 ? tc.card : '#FAFAFA',
+        }}>
+          <div style={{ fontSize: row.bold ? 13 : 12, fontWeight: row.bold ? 700 : 400, color: row.highlight ? tc.success : tc.text, paddingLeft: row.indent*14 }}>{row.label}</div>
+          {segs.map(s => {
+            const val = (data[s]||{})[row.key] ?? 0;
+            return (
+              <div key={s} style={{ textAlign: 'right', paddingRight: 16, fontSize: row.bold ? 13 : 12, fontWeight: row.bold ? 700 : 400, fontFamily: t.mono, color: row.highlight ? tc.success : row.neg ? tc.danger : s==='_total' ? tc.text : tc.muted }}>
+                {row.pct ? fPct(val,2) : fBRL(val)}
+              </div>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── AWS Page: Sync ───────────────────────────────────────────────────────────
+function PageSyncAWS({ t }) {
+  const tc = t.content;
+  const sync = window.MOCK.sync;
+  const locs = window.MOCK.LOCATIONS;
+  const sColor = { online: tc.success, warning: tc.warning, failed: tc.danger };
+  const sBg    = { online: tc.successBg, warning: tc.warningBg, failed: tc.dangerBg };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* Status cards */}
+      <div style={{ display: 'flex', gap: 12 }}>
+        {locs.map(loc => (
+          <div key={loc.id} style={{ flex: 1, background: tc.card, border: `1px solid ${tc.border}`, borderLeft: `4px solid ${sColor[loc.status]||tc.muted}`, padding: '12px 14px' }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: tc.text, marginBottom: 5 }}>{loc.nome}</div>
+            <span style={{ fontSize: 11, fontWeight: 700, color: sColor[loc.status], background: sBg[loc.status], padding: '2px 8px' }}>
+              {loc.status==='online'?'● Online':loc.status==='warning'?'⚠ Alerta':'✕ Offline'}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {/* History table */}
+      <div style={{ background: tc.card, border: `1px solid ${tc.border}` }}>
+        <div style={{ padding: '10px 16px', borderBottom: `1px solid ${tc.border}`, background: tc.bg }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: tc.text }}>Histórico de Sincronização</span>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '150px 90px 150px 90px 80px 1fr', padding: '0 16px', height: 32, alignItems: 'center', gap: 12, borderBottom: `2px solid ${tc.border}`, background: tc.bg }}>
+          {['Unidade','Status','Início','Duração','Registros','Erro'].map(h => (
+            <div key={h} style={{ fontSize: 11, fontWeight: 700, color: tc.muted }}>{h}</div>
+          ))}
+        </div>
+        {(sync?.historico||[]).map((h, i) => (
+          <div key={h.id} style={{
+            display: 'grid', gridTemplateColumns: '150px 90px 150px 90px 80px 1fr',
+            padding: '0 16px', height: t.rowH, alignItems: 'center', gap: 12,
+            borderBottom: i < sync.historico.length-1 ? `1px solid ${tc.borderSub}` : 'none',
+            background: i%2===0 ? tc.card : '#FAFAFA',
+          }}>
+            <div style={{ fontSize: 13, color: tc.accent, cursor: 'pointer' }}>{h.location}</div>
+            <span style={{ fontSize: 11, fontWeight: 700, color: sColor[h.status]||tc.muted, background: sBg[h.status]||'transparent', padding: '2px 7px', display: 'inline-block' }}>
+              {h.status==='success'?'OK':h.status==='failed'?'Falhou':'Running'}
+            </span>
+            <div style={{ fontSize: 12, color: tc.muted, fontFamily: t.mono }}>{new Date(h.inicio).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</div>
+            <div style={{ fontSize: 12, color: tc.muted, fontFamily: t.mono }}>{h.duracao}</div>
+            <div style={{ fontSize: 12, fontFamily: t.mono, color: tc.text }}>{fNum(h.registros)}</div>
+            <div style={{ fontSize: 11, color: tc.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.erro||'—'}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── THEME D ─────────────────────────────────────────────────────────────────
+const THEME_D = {
+  id: 'plex',
+  fontTitle: "'IBM Plex Sans', system-ui, sans-serif",
+  fontBody:  "'Inter', system-ui, sans-serif",
+  fontMono:  "'IBM Plex Mono', 'Courier New', monospace",
+
+  topbar: { bg: '#232F3E', text: '#fff', muted: '#8D9199', accent: '#EC7211' },
+
+  sidebar: {
+    bg: '#FFFFFF', border: '#D5DBDB',
+    text: '#16191F', muted: '#545B64', subtle: '#879596',
+    activeText: '#0073BB', activeBg: '#F2F8FF',
+    groupLabel: '#16191F', // bold, não uppercase
+    width: 220, widthCollapsed: 0,
+  },
+
+  c: {
+    bg: '#F2F3F3', header: '#FFFFFF', card: '#FFFFFF',
+    border: '#D5DBDB', borderSub: '#EAEDED',
+    text: '#16191F', muted: '#545B64', subtle: '#879596',
+    accent: '#0073BB', accentBg: '#F2F8FF',
+    success: '#1D8102', successBg: '#EBF6E8',
+    danger:  '#D13212', dangerBg:  '#FDF3F1',
+    warning: '#8D6708', warningBg: '#FEF9EC',
+    cta: '#EC7211', ctaHover: '#C55E06',
+    radius: '4px', radiusSm: '3px',
+    rowH: 38,
+  },
+  seg: ['#0073BB','#6B40C4','#1D8102','#EC7211'],
+};
+
+// ─── Topbar D ─────────────────────────────────────────────────────────────────
+function TopBarD({ t }) {
+  const tb = t.topbar;
+  return (
+    <div style={{ height:38, flexShrink:0, background:tb.bg, display:'flex', alignItems:'center', padding:'0 16px', gap:12, fontFamily:t.fontBody, zIndex:10 }}>
+      <div style={{ display:'flex', alignItems:'center', gap:8, marginRight:10 }}>
+        <div style={{ width:24, height:24, background:tb.accent, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, borderRadius:2 }}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+        </div>
+        <span style={{ fontSize:14, fontWeight:700, color:'#fff', letterSpacing:'-.02em', fontFamily:t.fontTitle }}>PostoInsight</span>
+      </div>
+      <div style={{ flex:1, maxWidth:320, height:26, background:'rgba(255,255,255,.1)', border:'1px solid rgba(255,255,255,.18)', borderRadius:3, display:'flex', alignItems:'center', padding:'0 10px', gap:6 }}>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={tb.muted} strokeWidth="2"><circle cx="11" cy="11" r="8"/><path strokeLinecap="round" d="M21 21l-4.35-4.35"/></svg>
+        <span style={{ fontSize:12, color:tb.muted }}>Buscar serviços, recursos…</span>
+      </div>
+      <div style={{ flex:1 }}/>
+      <div style={{ display:'flex', alignItems:'center', gap:18 }}>
+        <span style={{ fontSize:12, color:tb.muted }}>Rede JAM</span>
+        <span style={{ fontSize:12, color:'#fff', fontWeight:600 }}>IK ▾</span>
+        <span style={{ fontSize:12, color:tb.muted }}>Brasil ▾</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={tb.muted} strokeWidth="1.8"><path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+      </div>
+    </div>
+  );
+}
+
+// ─── Sidebar D (retrátil) ─────────────────────────────────────────────────────
+function SidebarD({ t, page, onNav, collapsed, onToggle }) {
+  const s = t.sidebar;
+  const tc = t.c;
+
+  // Breadcrumb label for collapsed topbar
+  const groups = [
+    { label: 'Análise de Vendas', items: [
+      { id:'dashboard',   label:'Visão Geral' },
+      { id:'combustivel', label:'Combustível' },
+    ]},
+    { label: 'Financeiro', items: [
+      { id:'dre', label:'DRE Mensal' },
+    ]},
+    { label: 'Sistema', items: [
+      { id:'sync', label:'Sincronização' },
+    ]},
+  ];
+
+  if (collapsed) return (
+    <div style={{ width:0, flexShrink:0, position:'relative' }}>
+      {/* thin strip to re-expand */}
+      <button onClick={onToggle} style={{
+        position:'absolute', top:12, left:0, zIndex:20,
+        width:20, height:32, background:tc.card,
+        border:`1px solid ${tc.border}`, borderLeft:'none',
+        borderRadius:'0 4px 4px 0',
+        display:'flex', alignItems:'center', justifyContent:'center',
+        cursor:'pointer', color:tc.muted,
+      }}>
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.8"><path strokeLinecap="round" d="M3 2l4 3-4 3"/></svg>
+      </button>
+    </div>
+  );
+
+  return (
+    <div style={{
+      width: s.width, flexShrink:0,
+      background: s.bg,
+      borderRight: `1px solid ${s.border}`,
+      display:'flex', flexDirection:'column',
+      height:'100%', overflowY:'auto',
+      fontFamily: t.fontBody,
+      transition:'width .2s',
+    }}>
+      {/* Section title + collapse btn */}
+      <div style={{ padding:'14px 16px 10px', borderBottom:`1px solid ${s.border}`, display:'flex', alignItems:'flex-start', justifyContent:'space-between' }}>
+        <div>
+          <div style={{ fontSize:15, fontWeight:700, color:s.text, fontFamily:t.fontTitle, letterSpacing:'-.01em', lineHeight:1.3 }}>PostoInsight</div>
+          <div style={{ fontSize:11, color:s.muted, marginTop:2 }}>Rede JAM</div>
+        </div>
+        <button onClick={onToggle} style={{ background:'transparent', border:'none', cursor:'pointer', color:s.muted, padding:2, marginTop:2 }} title="Recolher menu">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8"><path strokeLinecap="round" d="M9 2L5 7l4 5"/></svg>
+        </button>
+      </div>
+
+      {/* Nav */}
+      <nav style={{ flex:1, padding:'8px 0' }}>
+        {groups.map((grp, gi) => (
+          <div key={gi} style={{ marginBottom:4 }}>
+            {/* Group label — bold, not uppercase */}
+            <div style={{ fontSize:13, fontWeight:700, color:s.groupLabel, padding:'10px 16px 4px', fontFamily:t.fontTitle }}>
+              {grp.label}
+            </div>
+            {grp.items.map(item => {
+              const active = page === item.id;
+              return (
+                <button key={item.id} onClick={() => onNav(item.id)} style={{
+                  width:'100%', display:'flex', alignItems:'center',
+                  padding:'6px 16px', height:30,
+                  border:'none', textAlign:'left',
+                  background: active ? s.activeBg : 'transparent',
+                  color: active ? s.activeText : s.muted,
+                  fontSize:13, fontWeight: active ? 600 : 400,
+                  cursor:'pointer', fontFamily: t.fontBody,
+                  borderLeft: `3px solid ${active ? s.activeText : 'transparent'}`,
+                  transition:'background .1s, color .1s',
+                }}>
+                  {item.label}
+                </button>
+              );
+            })}
+          </div>
+        ))}
+      </nav>
+
+      {/* Footer */}
+      <div style={{ padding:'10px 16px', borderTop:`1px solid ${s.border}`, display:'flex', alignItems:'center', gap:7 }}>
+        <span style={{ width:7, height:7, borderRadius:'50%', background:THEME_D.c.success, display:'inline-block', flexShrink:0 }}/>
+        <span style={{ fontSize:11, color:s.muted, fontFamily:t.fontBody }}>3/4 online · Sync 06:18</span>
+      </div>
+    </div>
+  );
+}
+
+// ─── Breadcrumb D ─────────────────────────────────────────────────────────────
+function BreadcrumbD({ t, page }) {
+  const tc = t.c;
+  const map = {
+    dashboard:   ['PostoInsight','Análise de Vendas','Visão Geral'],
+    combustivel: ['PostoInsight','Análise de Vendas','Combustível'],
+    dre:         ['PostoInsight','Financeiro','DRE Mensal'],
+    sync:        ['PostoInsight','Sistema','Sincronização'],
+  };
+  const titles = { dashboard:'Visão Geral de Vendas', combustivel:'Combustível', dre:'DRE Mensal', sync:'Sincronização' };
+  const parts = map[page] || map.dashboard;
+  return (
+    <div style={{ padding:'14px 24px 0', fontFamily:t.fontBody }}>
+      <div style={{ display:'flex', alignItems:'center', gap:5, marginBottom:8 }}>
+        {parts.map((p,i) => (
+          <React.Fragment key={i}>
+            {i>0 && <span style={{ fontSize:12, color:tc.muted }}>›</span>}
+            <span style={{ fontSize:12, color: i===parts.length-1 ? tc.muted : tc.accent, cursor: i<parts.length-1?'pointer':'default' }}>{p}</span>
+          </React.Fragment>
+        ))}
+      </div>
+      <h1 style={{ fontSize:22, fontWeight:700, color:tc.text, fontFamily:t.fontTitle, letterSpacing:'-.02em', marginBottom:16 }}>{titles[page]}</h1>
+    </div>
+  );
+}
+
+// ─── KPI Summary card D (horizontal, like AWS "Summary of balances") ──────────
+function SummaryCardD({ t }) {
+  const tc = t.c;
+  const r = window.MOCK.vendas.resumo.totais;
+  return (
+    <div style={{ background:tc.card, border:`1px solid ${tc.border}`, borderRadius:tc.radius, padding:'16px 24px', marginBottom:16 }}>
+      <div style={{ fontSize:13, fontWeight:700, color:tc.text, fontFamily:t.fontTitle, marginBottom:12 }}>Resumo do período</div>
+      <div style={{ display:'flex', gap:48, flexWrap:'wrap' }}>
+        {[
+          { label:'Receita Bruta',  value: fBRL(r.receita_bruta), color: tc.text },
+          { label:'CMV',            value: fBRL(r.cmv),           color: tc.muted },
+          { label:'Margem Bruta',   value: fBRL(r.margem_bruta),  color: tc.success },
+          { label:'Margem %',       value: fPct(r.margem_pct,2),  color: tc.success },
+          { label:'Itens Vendidos', value: fNum(r.qtd_itens),     color: tc.text },
+        ].map(kpi => (
+          <div key={kpi.label}>
+            <div style={{ fontSize:11, color:tc.muted, fontFamily:t.fontBody, marginBottom:3 }}>{kpi.label}</div>
+            <div style={{ fontSize:20, fontWeight:700, color:kpi.color, fontFamily:t.fontMono, letterSpacing:'-.02em', lineHeight:1 }}>{kpi.value}</div>
+            {kpi.label==='Receita Bruta' && (
+              <div style={{ fontSize:11, color:tc.success, marginTop:3, fontFamily:t.fontBody }}>▲ +8,7% vs mês anterior</div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Table D (checkbox col, sortable headers, row highlight, filter) ──────────
+function TableD({ t, title, count, columns, rows, getKey }) {
+  const tc = t.c;
+  const [selected, setSelected] = React.useState(null);
+  const [filter, setFilter] = React.useState('');
+  const filtered = filter ? rows.filter(r => Object.values(r).some(v => String(v).toLowerCase().includes(filter.toLowerCase()))) : rows;
+  const colTemplate = `32px ${columns.map(c => c.width||'1fr').join(' ')}`;
+
+  return (
+    <div style={{ background:tc.card, border:`1px solid ${tc.border}`, borderRadius:tc.radius, overflow:'hidden', marginBottom:16 }}>
+      {/* Table header */}
+      <div style={{ padding:'10px 16px', borderBottom:`1px solid ${tc.border}`, display:'flex', alignItems:'center', justifyContent:'space-between', background:tc.bg }}>
+        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+          <span style={{ fontSize:14, fontWeight:700, color:tc.text, fontFamily:t.fontTitle }}>{title}</span>
+          <span style={{ fontSize:12, color:tc.muted, fontFamily:t.fontBody }}>({count})</span>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={tc.accent} strokeWidth="2" style={{ cursor:'pointer' }}><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        </div>
+        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+          {/* pagination */}
+          <div style={{ display:'flex', alignItems:'center', gap:4, fontSize:12, color:tc.muted, fontFamily:t.fontBody }}>
+            <button style={{ width:24, height:24, border:`1px solid ${tc.border}`, background:tc.card, borderRadius:3, cursor:'pointer', color:tc.muted, display:'flex', alignItems:'center', justifyContent:'center' }}>
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" d="M6 2L2 5l4 3"/></svg>
+            </button>
+            <span>1</span>
+            <button style={{ width:24, height:24, border:`1px solid ${tc.border}`, background:tc.card, borderRadius:3, cursor:'pointer', color:tc.muted, display:'flex', alignItems:'center', justifyContent:'center' }}>
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" d="M4 2l4 3-4 3"/></svg>
+            </button>
+          </div>
+          <button style={{ width:28, height:28, border:`1px solid ${tc.border}`, background:tc.card, borderRadius:3, cursor:'pointer', color:tc.muted, display:'flex', alignItems:'center', justifyContent:'center' }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+          </button>
+        </div>
+      </div>
+
+      {/* Filter */}
+      <div style={{ padding:'8px 16px', borderBottom:`1px solid ${tc.border}` }}>
+        <div style={{ position:'relative', maxWidth:320 }}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={tc.muted} strokeWidth="2" style={{ position:'absolute', left:8, top:'50%', transform:'translateY(-50%)', pointerEvents:'none' }}><circle cx="11" cy="11" r="8"/><path strokeLinecap="round" d="M21 21l-4.35-4.35"/></svg>
+          <input
+            value={filter}
+            onChange={e => setFilter(e.target.value)}
+            placeholder="Filtrar por texto, propriedade ou valor"
+            style={{
+              width:'100%', padding:'5px 10px 5px 28px',
+              border:`1px solid ${tc.border}`, borderRadius:tc.radiusSm,
+              fontSize:12, fontFamily:t.fontBody, color:tc.text,
+              background:tc.card, outline:'none',
+            }}
+          />
+        </div>
+      </div>
+
+      {/* Column headers */}
+      <div style={{ display:'grid', gridTemplateColumns:colTemplate, padding:'0 12px', height:34, alignItems:'center', gap:8, borderBottom:`2px solid ${tc.border}`, background:tc.bg }}>
+        <div/>
+        {columns.map((col,i) => (
+          <div key={col.key} style={{ display:'flex', alignItems:'center', gap:3, justifyContent: col.align==='right'?'flex-end':'flex-start', cursor:'pointer' }}>
+            <span style={{ fontSize:11, fontWeight:700, color:tc.muted, fontFamily:t.fontBody }}>{col.label}</span>
+            <svg width="9" height="9" viewBox="0 0 9 9" fill={tc.muted} style={{ flexShrink:0 }}><path d="M4.5 1L7 4H2z"/><path d="M4.5 8L2 5h5z" opacity=".4"/></svg>
+          </div>
+        ))}
+      </div>
+
+      {/* Rows */}
+      {filtered.map((row, ri) => {
+        const key = getKey(row);
+        const isSelected = selected === key;
+        return (
+          <div key={key} onClick={() => setSelected(isSelected ? null : key)} style={{
+            display:'grid', gridTemplateColumns:colTemplate,
+            padding:'0 12px', height:tc.rowH, alignItems:'center', gap:8,
+            borderBottom: ri < filtered.length-1 ? `1px solid ${tc.borderSub}` : 'none',
+            background: isSelected ? '#F2F8FF' : 'transparent',
+            borderLeft: isSelected ? `3px solid ${tc.accent}` : '3px solid transparent',
+            cursor:'pointer', transition:'background .1s',
+          }}>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'center' }}>
+              <div style={{
+                width:14, height:14, borderRadius:'50%',
+                border:`2px solid ${isSelected ? tc.accent : tc.border}`,
+                background: isSelected ? tc.accent : 'transparent',
+                display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0,
+              }}>
+                {isSelected && <div style={{ width:5, height:5, borderRadius:'50%', background:'#fff' }}/>}
+              </div>
+            </div>
+            {columns.map(col => (
+              <div key={col.key} style={{ textAlign: col.align==='right'?'right':'left', fontSize:13, fontFamily: col.mono ? t.fontMono : t.fontBody, color: col.link ? tc.accent : col.danger ? tc.danger : tc.text, fontWeight: col.bold ? 600 : 400, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                {col.render ? col.render(row) : row[col.key]}
+              </div>
+            ))}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Dashboard D pages ────────────────────────────────────────────────────────
+function PageVendasD({ t }) {
+  const tc = t.c;
+  const d = window.MOCK.vendas;
+  const r = d.resumo;
+  const [gran, setGran] = React.useState('Dia');
+
+  const segColumns = [
+    { key:'label',            label:'Segmento',       width:'160px' },
+    { key:'bar',              label:'Participação',   width:'1fr',   render: row => (
+      <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+        <div style={{ height:4, background:tc.borderSub, flex:1, borderRadius:2 }}>
+          <div style={{ height:'100%', width:row.participacao_pct+'%', background:THEME_D.seg[r.por_segmento.indexOf(row)%4], borderRadius:2 }}/>
+        </div>
+        <span style={{ fontSize:11, color:tc.muted, fontFamily:t.fontMono, width:30, textAlign:'right', flexShrink:0 }}>{fPct(row.participacao_pct,0)}</span>
+      </div>
+    )},
+    { key:'receita_bruta',    label:'Receita Bruta',  width:'120px', align:'right', mono:true, bold:true },
+    { key:'cmv',              label:'CMV',            width:'110px', align:'right', mono:true },
+    { key:'margem_pct',       label:'Margem %',       width:'80px',  align:'right', mono:true, render: row => <span style={{ color:tc.success, fontWeight:700 }}>{fPct(row.margem_pct)}</span> },
+    { key:'margem_bruta',     label:'Margem R$',      width:'110px', align:'right', mono:true },
+  ];
+
+  const segRows = r.por_segmento.map(seg => ({
+    ...seg,
+    receita_bruta: fBRL(seg.receita_bruta),
+    cmv:           fBRL(seg.cmv),
+    margem_bruta:  fBRL(seg.margem_bruta),
+  }));
+
+  const combColumns = [
+    { key:'grupo_descricao', label:'Produto',       width:'160px' },
+    { key:'bar',             label:'Vol. relativo', width:'1fr', render: row => (
+      <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+        <div style={{ height:4, background:tc.borderSub, flex:1, borderRadius:2 }}>
+          <div style={{ height:'100%', width:row.participacao_pct+'%', background:THEME_D.seg[0], borderRadius:2 }}/>
+        </div>
+        <span style={{ fontSize:11, color:tc.muted, fontFamily:t.fontMono, width:30, textAlign:'right', flexShrink:0 }}>{fPct(row.participacao_pct,0)}</span>
+      </div>
+    )},
+    { key:'receita_bruta', label:'Receita Bruta', width:'120px', align:'right', mono:true, bold:true },
+    { key:'cmv',           label:'CMV',           width:'110px', align:'right', mono:true },
+    { key:'margem_pct',    label:'Margem %',      width:'80px',  align:'right', mono:true, render: row => <span style={{ color:tc.success, fontWeight:700 }}>{fPct(row.margem_pct)}</span> },
+    { key:'margem_bruta',  label:'Margem R$',     width:'110px', align:'right', mono:true },
+  ];
+
+  const combRows = d.grupos_combustivel.map(g => ({
+    ...g,
+    receita_bruta: fBRL(g.receita_bruta),
+    cmv:           fBRL(g.cmv),
+    margem_bruta:  fBRL(g.margem_bruta),
+  }));
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column' }}>
+      <SummaryCardD t={t}/>
+
+      {/* Chart */}
+      <div style={{ background:tc.card, border:`1px solid ${tc.border}`, borderRadius:tc.radius, marginBottom:16 }}>
+        <div style={{ padding:'10px 16px', borderBottom:`1px solid ${tc.border}`, display:'flex', alignItems:'center', justifyContent:'space-between', background:tc.bg }}>
+          <span style={{ fontSize:14, fontWeight:700, color:tc.text, fontFamily:t.fontTitle }}>Evolução de Receita — Abril 2026</span>
+          <div style={{ display:'flex', gap:2 }}>
+            {['Dia','Semana','Mês'].map(g => (
+              <button key={g} onClick={()=>setGran(g)} style={{ padding:'3px 10px', border:`1px solid ${tc.border}`, borderRadius:tc.radiusSm, background: gran===g ? tc.accentBg : tc.card, color: gran===g ? tc.accent : tc.muted, fontSize:11, fontWeight: gran===g?700:400, cursor:'pointer', fontFamily:t.fontBody }}>
+                {g}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div style={{ padding:'12px 16px 8px' }}>
+          <LineChart data={d.evolucao} xKey="label" yKeys={['receita_bruta','margem_bruta']} colors={[tc.accent, tc.success]} height={150} t={{ id:'plex', content: tc }}/>
+          <div style={{ display:'flex', gap:16, justifyContent:'flex-end', marginTop:4 }}>
+            {[{c:tc.accent,l:'Receita Bruta'},{c:tc.success,l:'Margem Bruta'}].map(item=>(
+              <div key={item.l} style={{ display:'flex', alignItems:'center', gap:5, fontSize:11, color:tc.muted, fontFamily:t.fontBody }}>
+                <span style={{ width:14, height:2, background:item.c, display:'inline-block', borderRadius:1 }}/>
+                {item.l}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <TableD t={t} title="Receita por Segmento" count={r.por_segmento.length}
+        columns={segColumns} rows={segRows} getKey={row=>row.segmento}/>
+      <TableD t={t} title="Detalhamento — Combustível" count={d.grupos_combustivel.length}
+        columns={combColumns} rows={combRows} getKey={row=>row.grupo_descricao}/>
+    </div>
+  );
+}
+
+function PageDRED({ t }) {
+  const tc = t.c;
+  const rows = [
+    { label:'Receita Bruta',   key:'receita_bruta',   bold:false, indent:0 },
+    { label:'(-) Descontos',   key:'descontos',       bold:false, indent:1, neg:true },
+    { label:'Receita Líquida', key:'receita_liquida', bold:true,  indent:0 },
+    { label:'(-) CMV',         key:'cmv',             bold:false, indent:1, neg:true },
+    { label:'Margem Bruta',    key:'margem_bruta',    bold:true,  indent:0, hl:true },
+    { label:'Margem %',        key:'margem_pct',      bold:true,  indent:0, pct:true },
+  ];
+  const segs = ['combustivel','lubrificantes','servicos','conveniencia','_total'];
+  const segLabels = { combustivel:'Combustível',lubrificantes:'Lubrificantes',servicos:'Serviços',conveniencia:'Conveniência',_total:'Total' };
+  const data = window.MOCK.dre?.por_mes?.['2026-04']||{};
+
+  return (
+    <div style={{ background:tc.card, border:`1px solid ${tc.border}`, borderRadius:tc.radius }}>
+      <div style={{ padding:'10px 16px', borderBottom:`1px solid ${tc.border}`, background:tc.bg }}>
+        <span style={{ fontSize:14, fontWeight:700, color:tc.text, fontFamily:t.fontTitle }}>Demonstrativo de Resultado — Abril 2026</span>
+      </div>
+      <div style={{ display:'grid', gridTemplateColumns:`220px repeat(${segs.length},1fr)`, padding:'0 16px', height:34, alignItems:'center', borderBottom:`2px solid ${tc.border}`, background:tc.bg }}>
+        <div/>
+        {segs.map(s=>(
+          <div key={s} style={{ textAlign:'right', fontSize:11, fontWeight:s==='_total'?700:600, color:s==='_total'?tc.text:tc.muted, paddingRight:12, fontFamily:t.fontBody }}>{segLabels[s]}</div>
+        ))}
+      </div>
+      {rows.map((row,ri)=>(
+        <div key={row.key} style={{ display:'grid', gridTemplateColumns:`220px repeat(${segs.length},1fr)`, padding:'0 16px', height:row.bold?42:36, alignItems:'center', borderBottom:`1px solid ${tc.borderSub}`, background: row.hl?tc.successBg:ri%2===0?tc.card:'#FAFAFA' }}>
+          <div style={{ fontSize:row.bold?13:12, fontWeight:row.bold?700:400, color:row.hl?tc.success:tc.text, paddingLeft:row.indent*14, fontFamily:t.fontBody }}>{row.label}</div>
+          {segs.map(s=>{
+            const val=(data[s]||{})[row.key]??0;
+            return <div key={s} style={{ textAlign:'right', paddingRight:12, fontSize:row.bold?13:12, fontWeight:row.bold?700:400, fontFamily:t.fontMono, color:row.hl?tc.success:row.neg?tc.danger:s==='_total'?tc.text:tc.muted }}>{row.pct?fPct(val,2):fBRL(val)}</div>;
+          })}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function PageSyncD({ t }) {
+  const tc = t.c;
+  const sync = window.MOCK.sync;
+  const locs = window.MOCK.LOCATIONS;
+  const sColor={online:tc.success,warning:tc.warning,failed:tc.danger};
+  const sBg={online:tc.successBg,warning:tc.warningBg,failed:tc.dangerBg};
+
+  const syncColumns = [
+    { key:'location', label:'Unidade',    width:'140px' },
+    { key:'status',   label:'Status',     width:'100px', render: row=><span style={{ fontSize:11,fontWeight:700,color:sColor[row.status]||tc.muted,background:sBg[row.status]||'transparent',padding:'2px 8px',borderRadius:3,fontFamily:t.fontBody }}>{row.status==='success'?'OK':row.status==='failed'?'Falhou':'Running'}</span> },
+    { key:'inicio',   label:'Início',     width:'130px', mono:true, render: row=><span style={{fontFamily:t.fontMono,fontSize:12}}>{new Date(row.inicio).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</span> },
+    { key:'duracao',  label:'Duração',    width:'80px',  mono:true },
+    { key:'registros',label:'Registros',  width:'80px',  align:'right', mono:true, render:row=><span style={{fontFamily:t.fontMono}}>{fNum(row.registros)}</span> },
+    { key:'erro',     label:'Detalhe',    width:'1fr',   render:row=><span style={{color:row.erro?tc.danger:tc.muted,fontSize:11}}>{row.erro||'—'}</span> },
+  ];
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
+      <div style={{ display:'flex', gap:12 }}>
+        {locs.map(loc=>(
+          <div key={loc.id} style={{ flex:1, background:tc.card, border:`1px solid ${tc.border}`, borderLeft:`4px solid ${sColor[loc.status]||tc.muted}`, borderRadius:tc.radius, padding:'12px 16px' }}>
+            <div style={{ fontSize:13,fontWeight:700,color:tc.text,fontFamily:t.fontTitle,marginBottom:5 }}>{loc.nome}</div>
+            <span style={{ fontSize:11,fontWeight:700,color:sColor[loc.status],background:sBg[loc.status],padding:'2px 8px',borderRadius:3,fontFamily:t.fontBody }}>
+              {loc.status==='online'?'● Online':loc.status==='warning'?'⚠ Alerta':'✕ Offline'}
+            </span>
+          </div>
+        ))}
+      </div>
+      <TableD t={t} title="Histórico de Sincronização" count={(sync?.historico||[]).length}
+        columns={syncColumns} rows={sync?.historico||[]} getKey={row=>row.id}/>
+    </div>
+  );
+}
+
+// ─── DashboardPlex (full D) ───────────────────────────────────────────────────
+function DashboardPlex() {
+  const t = THEME_D;
+  const tc = t.c;
+  const [page, setPage] = React.useState('dashboard');
+  const [collapsed, setCollapsed] = React.useState(false);
+  const [period, setPeriod] = React.useState('Este mês');
+
+  return (
+    <div style={{ width:'100%', height:'100%', display:'flex', flexDirection:'column', fontFamily:t.fontBody, background:tc.bg, color:tc.text, fontSize:13, overflow:'hidden' }}>
+      <TopBarD t={t}/>
+      <div style={{ flex:1, display:'flex', overflow:'hidden', minHeight:0 }}>
+        <SidebarD t={t} page={page} onNav={setPage} collapsed={collapsed} onToggle={()=>setCollapsed(c=>!c)}/>
+        <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden', minWidth:0 }}>
+          {/* Sub-header */}
+          <div style={{ background:tc.header, borderBottom:`1px solid ${tc.border}`, padding:'0 24px', height:44, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+            <div style={{ display:'flex', gap:4 }}>
+              {['Hoje','Esta semana','Este mês','Mês anterior'].map(p=>(
+                <button key={p} onClick={()=>setPeriod(p)} style={{ padding:'4px 12px', border:`1px solid ${period===p?tc.accent:tc.border}`, borderRadius:tc.radiusSm, background:period===p?tc.accentBg:tc.card, color:period===p?tc.accent:tc.muted, fontSize:12, fontWeight:period===p?700:400, cursor:'pointer', fontFamily:t.fontBody }}>
+                  {p}
+                </button>
+              ))}
+            </div>
+            <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+              <select style={{ padding:'4px 8px', border:`1px solid ${tc.border}`, borderRadius:tc.radiusSm, background:tc.card, color:tc.text, fontSize:12, fontFamily:t.fontBody, cursor:'pointer', outline:'none' }}>
+                <option>Todas as unidades</option>
+                {window.MOCK.LOCATIONS.map(l=><option key={l.id}>{l.nome}</option>)}
+              </select>
+              <button style={{ display:'flex', alignItems:'center', gap:5, padding:'4px 12px', border:`1px solid ${tc.border}`, borderRadius:tc.radiusSm, background:tc.card, color:tc.muted, fontSize:12, cursor:'pointer', fontFamily:t.fontBody }}>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                Sincronizar
+              </button>
+              <button style={{ padding:'4px 16px', background:tc.cta, color:'#fff', border:'none', borderRadius:tc.radiusSm, fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:t.fontBody }}>
+                Exportar relatório ▾
+              </button>
+            </div>
+          </div>
+
+          {/* Page content */}
+          <div style={{ flex:1, overflowY:'auto', minHeight:0 }}>
+            <BreadcrumbD t={t} page={page}/>
+            <div style={{ padding:'0 24px 32px' }}>
+              {(page==='dashboard'||page==='combustivel') && <PageVendasD t={t}/>}
+              {page==='dre'  && <PageDRED t={t}/>}
+              {page==='sync' && <PageSyncD t={t}/>}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── App (canvas wrapper) ─────────────────────────────────────────────────────
+function App() {
+  return (
+    <div className="explorer-canvas">
+
+      {/* Header label */}
+      <div style={{ textAlign:'center', paddingBottom:8 }}>
+        <div style={{ fontSize:11, fontWeight:600, color:'#444', letterSpacing:'.12em', textTransform:'uppercase', marginBottom:6 }}>PostoInsight — Style Explorer v2</div>
+        <div style={{ fontSize:13, color:'#666' }}>Clique nos itens do menu para navegar • Hover nos gráficos para ver dados</div>
+      </div>
+
+      {/* Variant A */}
+      <div>
+        <div style={{ marginBottom:14 }}>
+          <div style={{ fontSize:11, fontWeight:700, color:'#555', letterSpacing:'.1em', textTransform:'uppercase', marginBottom:4 }}>A — Slate / Steel</div>
+          <div style={{ fontSize:12, color:'#555' }}>DM Sans · Sidebar #1E2636 · Conteúdo branco puro · Acento azul índigo · Bordas sharp 3px</div>
+        </div>
+        <div className="dash-frame" style={{ boxShadow:'0 0 0 1px #2a2a2a, 0 24px 60px rgba(0,0,0,.5)' }}>
+          <Dashboard themeKey="slate"/>
+        </div>
+      </div>
+
+      {/* Variant B */}
+      <div>
+        <div style={{ marginBottom:14 }}>
+          <div style={{ fontSize:11, fontWeight:700, color:'#555', letterSpacing:'.1em', textTransform:'uppercase', marginBottom:4 }}>B — Ash / Ink</div>
+          <div style={{ fontSize:12, color:'#555' }}>Geist · Full dark #111318 · Cards #1A1E27 · Acento âmbar · Sem divisão dark/light</div>
+        </div>
+        <div className="dash-frame" style={{ boxShadow:'0 0 0 1px #2a2a2a, 0 24px 60px rgba(0,0,0,.6)' }}>
+          <Dashboard themeKey="ash"/>
+        </div>
+      </div>
+
+      {/* Variant C */}
+      <div>
+        <div style={{ marginBottom:14 }}>
+          <div style={{ fontSize:11, fontWeight:700, color:'#555', letterSpacing:'.1em', textTransform:'uppercase', marginBottom:4 }}>C — AWS Console Style</div>
+          <div style={{ fontSize:12, color:'#555' }}>Source Sans 3 · Topbar #232F3E · Sidebar branca · Fundo #F2F3F3 · Radius 0 · Acento laranja CTA</div>
+        </div>
+        <div className="dash-frame" style={{ boxShadow:'0 0 0 1px #2a2a2a, 0 24px 60px rgba(0,0,0,.4)' }}>
+          <DashboardAWS themeKey="aws"/>
+        </div>
+      </div>
+
+      {/* Variant D */}
+      <div>
+        <div style={{ marginBottom:14 }}>
+          <div style={{ fontSize:11, fontWeight:700, color:'#555', letterSpacing:'.1em', textTransform:'uppercase', marginBottom:4 }}>D — IBM Plex Sans + Inter · Sidebar retrátil · Tabela com seleção</div>
+          <div style={{ fontSize:12, color:'#555' }}>IBM Plex Sans (títulos) · Inter (corpo) · Topbar #232F3E · Sidebar branca retrátil · Tabelas com filtro, sort e seleção por radio · Cards horizontais · Radius 4px</div>
+        </div>
+        <div className="dash-frame" style={{ boxShadow:'0 0 0 1px #2a2a2a, 0 24px 60px rgba(0,0,0,.4)' }}>
+          <DashboardPlex/>
+        </div>
+      </div>
+
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App/>);
+</script>
+</body>
+</html>

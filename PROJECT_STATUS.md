@@ -6,8 +6,8 @@
 ---
 
 ## Última atualização
-**Data:** 2026-05-02
-**Sessão:** Migration 0003 — 47 alterações de schema (auditoria, soft-delete, rastreabilidade raw→canonical, novos enums)
+**Data:** 2026-05-03
+**Sessão:** Scaffold completo `apps/web` (Vite + React SPA) — todas as páginas implementadas, telas funcionando sem dados (aguarda endpoint `/api/v1/locations` e backfill)
 
 ---
 
@@ -64,27 +64,44 @@ Completa. Fontes de dados mapeadas, problema de negócio definido, stack decidid
   - `GET /api/v1/combustivel/resumo`, `/evolucao`, `/produtos`
   - `GET /api/v1/conveniencia/resumo`, `/evolucao`, `/grupos`
   - `GET /api/v1/dre/mensal`
-- ✅ **`apps/api/src/lib/auth.ts`** — middleware `requireTenantSession`: decode de JWE Auth.js v5 via cookie ou Bearer, suporte a impersonation via `x-tenant-id` para platform users
+- ✅ **`apps/api/src/lib/auth.ts`** — middleware `requireTenantSession`: decode de JWE via cookie ou Bearer, suporte a impersonation via `x-tenant-id` para platform users
 - ✅ **`apps/api/src/lib/queryParsers.ts`** — parsers tipados para datas, UUIDs, enums
-- ✅ **`apps/web`** — Next.js 14 App Router completo:
-  - Auth.js v5 com Credentials provider + DrizzleAdapter (`apps/web/auth.ts`)
-  - Middleware de proteção de rotas (`apps/web/middleware.ts`)
-  - Layout de dashboard com Sidebar, proteção por sessão
-  - Páginas: `/dashboard` (vendas), `/combustivel`, `/conveniencia`, `/dre`, `/sync`, `/settings`
-  - Login page (`/login`)
-  - Componentes: `KpiCard`, `SegmentoBreakdown`, `PeriodoSelector`, `DataTable`, `Sidebar`, `PlaceholderPage`
-  - `lib/api.ts` — `apiFetch` com repasse de cookie de sessão servidor→API
-  - `lib/format.ts` — formatadores de moeda, porcentagem, número
-  - `lib/env.ts` — validação de env vars do frontend
+- ✅ **`apps/api/src/routes/auth.ts`** — `POST /auth/login`, `GET /auth/me`, `POST /auth/logout` (cookie HttpOnly JWE via `@auth/core/jwt`)
+- ✅ **`packages/db/src/schema/app.ts`** — corrigido para Drizzle v0.30 (sintaxe objeto), campo `password_changed_at` adicionado em `users`
+- ✅ **`@fastify/cookie`** + **`bcryptjs`** adicionados como dependências em `apps/api`
+- ✅ **ADR-010** — Vite + React SPA (migração de Next.js) — aprovado
+- ✅ **ADR-011** — ECharts via echarts-for-react (não Recharts) — aprovado
+- ✅ **ADR-012** — Cookie HttpOnly JWE emitido pelo Fastify (Auth.js removido do frontend) — aprovado
+- ✅ **`apps/web` — scaffold Vite + React SPA completo** — implementado do zero (2026-05-03)
+  - Estrutura: `src/lib/`, `src/hooks/`, `src/components/layout/`, `src/components/ui/`, `src/components/charts/`, `src/pages/`
+  - Design tokens copiados de `design_example/postoinsight/PostoInsight.html`
+  - Autenticação via cookie HttpOnly (ADR-012): `AuthContext`, `useAuth`, `GET /auth/me` no boot
+  - TanStack Query v5 para fetching — stale time 5min, retry desabilitado para 401/403
+  - ECharts com tree-shaking via `src/lib/echarts.ts` (ADR-011)
+  - Período sincronizado com `searchParams` da URL (`?periodo=mes`)
+  - Location filter sincronizado com `searchParams` da URL (`?location=<uuid>`)
+  - Tema claro/escuro persistido em `localStorage` com CSS `data-theme`
+  - **7 páginas implementadas** (visual fiel ao design de referência):
+    - `/login` — LoginPage com validação, erro 401, redirect pós-login
+    - `/dashboard` — DashboardPage: KPIs, evolução temporal (ECharts), breakdown por segmento
+    - `/combustivel` — CombustivelPage: KPIs, evolução por produto, tabela detalhada com mini-bars
+    - `/conveniencia` — ConvenienciaPage: KPIs, evolução, breakdown com drill-down em categorias
+    - `/dre` — DrePage: seletor de mês, tabela DRE com comparativo vs mês anterior
+    - `/sync` — SyncPage: cards por location com status, botão de sync, histórico de jobs
+    - `/settings` — SettingsPage: perfil do usuário, info do tenant, integrações
+  - `AppLayout` protege rotas: redireciona `/login` se não autenticado
+  - Proxy Vite configurado para `/api` e `/auth` → `http://localhost:3000`
+  - **Estado atual: telas renderizando, sem dados** — endpoints retornam 401 sem sessão ativa ou dados ainda não populados
 
 **Pendente:**
 - ❌ Adaptar pipeline para gravar `raw_ingest_id` em `fato_venda` e rejeições em `sync_rejections`
 - ❌ Preencher `triggered_by`, `period_from`, `period_to` em `sync_jobs` no pipeline
 - ❌ Backfill completo das 4 locations (histórico completo)
-- ❌ Deploy `apps/web` no Railway (frontend ainda não está em produção)
-- ❌ Gráficos de evolução temporal nos dashboards (placeholder implementado — aguarda lib de charts)
-- ❌ Página `/sync` — conteúdo real (status de sync por location)
-- ❌ Página `/settings` — conteúdo real (perfil do usuário)
+- ❌ Migration para `password_changed_at` (users) e `next_run_at` (sync_state)
+- ❌ Gaps de auth: `POST /auth/change-password`, rejeição de manager sem location
+- ❌ `GET /api/v1/sync/status` — endpoint para a página `/sync` (frontend já consome)
+- ❌ `GET /api/v1/locations` — endpoint para o seletor de unidades na Topbar (frontend usa graceful degradation sem ele)
+- ❌ Deploy `apps/web` no Railway (build estático via `pnpm build`)
 
 ---
 
@@ -122,7 +139,7 @@ Completa. Fontes de dados mapeadas, problema de negócio definido, stack decidid
 | Inventário WebPosto | `docs/data/inventory/webposto-inventory.md` | ✅ válido |
 | Canonical model | `docs/data/canonical-model.md` | ✅ atualizado |
 | Architecture overview | `docs/architecture/overview.md` | ❌ legado — ignorar |
-| ADRs | `docs/architecture/decisions/` | ✅ 9 ADRs escritos (ADR-009 adicionado) |
+| ADRs | `docs/architecture/decisions/` | ✅ 12 ADRs escritos (ADR-010 Vite, ADR-011 ECharts, ADR-012 Auth cookie) |
 | DDL do banco | `docs/db/schema.sql` | ❌ desatualizado — schema real está no Drizzle |
 | API design | `docs/api/api.md` | ❌ legado — ignorar |
 | Onboarding runbook | `docs/ops/onboarding.md` | ❌ pendente |
@@ -140,17 +157,20 @@ Completa. Fontes de dados mapeadas, problema de negócio definido, stack decidid
 
 Todas as specs MVP estão escritas. Sync WebPosto pausado (não implementar agora).
 
-### 🔴 Agora — Fechar o loop até produção
+### 🔴 Agora — Fazer o frontend mostrar dados reais
 
-1. **Adaptar pipeline** para usar novas colunas da migration 0003: gravar `raw_ingest_id` em `fato_venda`, gravar rejeições em `sync_rejections`, preencher `triggered_by`/`period_from`/`period_to` em `sync_jobs`
-2. **Deploy `apps/web`** no Railway — configurar variáveis de ambiente (`AUTH_SECRET`, `NEXT_PUBLIC_API_URL`, `DATABASE_URL`)
-3. **Backfill completo** — rodar para as 4 locations com histórico completo e confirmar MVs populadas
-4. **Gráficos de evolução** — integrar lib de charts (Recharts ou similar) nos dashboards
-5. **Testar fluxo completo** — login → dashboard → dados reais da Rede JAM
+1. **`GET /api/v1/locations`** — criar endpoint no backend para o seletor de unidades da Topbar
+   - Retorna: `{ locations: [{ id, nome, status }] }` filtrado por `tenant_id` da sessão
+2. **`GET /api/v1/sync/status`** — criar endpoint para a página `/sync`
+   - Retorna: `{ locations: [...], historico: [...] }` (shape já definido na SyncPage)
+3. **Backfill completo** — rodar para as 4 locations e confirmar MVs populadas
+4. **Testar login + dados end-to-end** — logar com usuário da Rede JAM, confirmar que os dashboards mostram dados reais
+5. **Deploy `apps/web`** no Railway — `pnpm build` → servir `dist/` como static site
 
 ### 🟡 Pendente secundário
 
-- Páginas `/sync` e `/settings` com conteúdo real
+- Migration para `password_changed_at` (users) e `next_run_at` (sync_state)
+- Adaptar pipeline para `raw_ingest_id` e `sync_rejections`
 - Onboarding runbook — `docs/ops/onboarding.md`
 - Sync automático agendado (hoje só backfill manual)
 

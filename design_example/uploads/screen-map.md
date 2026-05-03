@@ -78,7 +78,7 @@ Todas as telas autenticadas compartilham o mesmo shell:
 
 **Comportamento:**
 - Após login: redireciona para `/dashboard`
-- Autenticação via `POST /auth/login` → cookie HttpOnly JWE gerenciado pelo Fastify
+- Sessão via Auth.js v5
 
 ---
 
@@ -271,25 +271,39 @@ Toda tela deve tratar os seguintes estados:
 
 ---
 
-## 6. Rotas SPA (React Router v6)
+## 6. Rotas Next.js (App Router)
 
 ```
-/                           → redireciona para /dashboard
-/login
-/dashboard
-/combustivel
-/conveniencia
-/dre
-/sync
-/settings                   → redireciona para /settings/profile
-/settings/profile
-/settings/locations
-/settings/users
-/settings/integrations
+app/
+  (auth)/
+    login/
+      page.tsx
+  (dashboard)/
+    layout.tsx                  ← Shell com sidebar
+    page.tsx                    ← Redirect para /dashboard
+    dashboard/
+      page.tsx
+    combustivel/
+      page.tsx
+    conveniencia/
+      page.tsx
+    dre/
+      page.tsx
+    sync/
+      page.tsx
+    settings/
+      layout.tsx                ← Sub-navegação de settings
+      page.tsx                  ← Redirect para /settings/profile
+      profile/
+        page.tsx
+      locations/
+        page.tsx
+      users/
+        page.tsx
+      integrations/
+        page.tsx
 ```
-
-Todas as rotas exceto `/login` são protegidas por um componente `PrivateRoute` que chama `GET /auth/me`. Se a sessão não existir ou estiver expirada, redireciona para `/login` preservando a URL de retorno.
 
 ---
 
-*Última atualização: 2026-05-03*
+*Última atualização: 2026-04-30*

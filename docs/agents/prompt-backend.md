@@ -33,7 +33,9 @@ Leia obrigatoriamente antes de qualquer implementação:
 | Fastify 4+ | HTTP server, rotas, plugins, autenticação |
 | Drizzle ORM | Queries, schema, migrations — nunca SQL raw sem justificativa |
 | pg-boss | Jobs assíncronos, pipeline de ingestão |
-| Auth.js v5 | Autenticação — integrado ao Fastify |
+| `@auth/core/jwt` | Criação e verificação de JWE — cookie HttpOnly |
+| `@fastify/cookie` | Leitura e escrita de cookies HttpOnly |
+| `bcryptjs` | Hash e verificação de senhas |
 | PostgreSQL 16+ | Banco de dados |
 
 **Referências:**
@@ -69,11 +71,30 @@ analytics  ← ✅ seu — materialized views mv_*
 
 ---
 
+## Autenticação — Como funciona
+
+O backend emite um cookie HttpOnly JWE via `@auth/core/jwt`:
+
+- `POST /auth/login` — verifica email/senha com bcryptjs, cria JWE, seta cookie `__session` (HttpOnly, Secure, SameSite=Lax)
+- `GET /auth/me` — verifica cookie, retorna `{ userId, tenantId, role, locationId? }`
+- `POST /auth/logout` — limpa o cookie
+
+**Regras de implementação de auth:**
+- Toda rota protegida usa o plugin/hook que lê e verifica o cookie JWE
+- `tenantId` e `role` vêm **sempre** do token — nunca do body ou query string
+- `manager` tem `locationId` no token — o backend usa esse campo para filtrar automaticamente
+- Falhas de login devem incrementar `failed_login_attempts` em `app.users`
+- Login bem-sucedido deve inserir registro em `app.login_history`
+- Mudanças sensíveis (senha, role, plano) devem inserir em `app.audit_log`
+- `tenant_users` com `role = 'manager'` e `location_id = NULL` deve ser **rejeitado** — manager sempre tem location obrigatória
+
+---
+
 ## Regras de multitenancy (nunca viole)
 
 - Toda query analítica tem `WHERE tenant_id = :tenantId`
 - `tenant_id` vem sempre do token de autenticação — nunca do body/query string
-- Usuário `manager` filtra também por `location_id` da sua location
+- Usuário `manager` filtra também por `location_id` do seu token
 - Nunca retorne dados de tenants diferentes em uma mesma resposta
 
 ---

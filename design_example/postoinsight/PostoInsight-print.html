@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PostoInsight — Relatório</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Source+Sans+3:wght@400;500;600&display=swap" rel="stylesheet" />
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <style>
+    /* ── Design Tokens ─────────────────────────────────────── */
+    :root {
+      --color-primary:          #0073BB;
+      --color-primary-hover:    #005F99;
+      --color-primary-subtle:   #F0F7FC;
+      --color-bg:               #FFFFFF;
+      --color-bg-subtle:        #F2F3F3;
+      --color-bg-muted:         #EAEDED;
+      --color-border:           #D5DBDB;
+      --color-border-subtle:    #EAEDED;
+      --color-text:             #16191F;
+      --color-text-muted:       #545B64;
+      --color-text-subtle:      #879596;
+      --color-text-inverse:     #FFFFFF;
+      --color-success:          #1D8102;
+      --color-success-subtle:   #EBF6E8;
+      --color-warning:          #8D6708;
+      --color-warning-subtle:   #FEF9EC;
+      --color-danger:           #D13212;
+      --color-danger-subtle:    #FDF3F1;
+      --color-info:             #0073BB;
+      --color-info-subtle:      #F0F7FC;
+      --color-topbar:           #232F3E;
+      --color-topbar-muted:     #8D9199;
+      --color-cta:              #EC7211;
+      --color-segment-combustivel:   #0073BB;
+      --color-segment-lubrificantes: #6B40C4;
+      --color-segment-servicos:      #1D8102;
+      --color-segment-conveniencia:  #EC7211;
+      --font-sans:  'DM Sans', system-ui, sans-serif;
+      --font-mono:  'Source Sans 3', system-ui, sans-serif;
+      --text-xs:    11px;
+      --text-sm:    13px;
+      --text-base:  13px;
+      --text-md:    14px;
+      --text-lg:    18px;
+      --text-xl:    24px;
+      --text-2xl:   30px;
+      --text-heading: 18px;
+      --space-1:  4px;
+      --space-2:  8px;
+      --space-3:  12px;
+      --space-4:  16px;
+      --space-5:  20px;
+      --space-6:  24px;
+      --space-8:  32px;
+      --space-12: 48px;
+      --radius-sm: 3px;
+      --radius-md: 4px;
+      --radius-lg: 6px;
+      --radius-xl: 8px;
+      --border-width: 1px;
+      --shadow-xs: none;
+      --shadow-sm: none;
+      --shadow-md: none;
+      --shadow-lg: none;
+      --table-row-height: 36px;
+      --sidebar-width: 0px;
+      --topbar-height: 0px;
+    }
+
+    /* ── Base ──────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body, #root { height: auto; }
+    body {
+      background: #fff;
+      color: var(--color-text);
+      font-family: var(--font-sans);
+      font-size: var(--text-base);
+      -webkit-font-smoothing: antialiased;
+    }
+    button { cursor: default; font-family: inherit; }
+
+    /* ── Print page ────────────────────────────────────────── */
+    @page {
+      size: A4 landscape;
+      margin: 1cm 1.2cm;
+    }
+
+    /* ── Page sections ─────────────────────────────────────── */
+    .print-page {
+      width: 100%;
+      break-before: page;
+      break-inside: avoid;
+      padding: 0;
+      background: #fff;
+    }
+    .print-page:first-child {
+      break-before: avoid;
+    }
+
+    /* ── Print header ──────────────────────────────────────── */
+    .print-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-bottom: 10px;
+      margin-bottom: 16px;
+      border-bottom: 2px solid var(--color-topbar);
+    }
+    .print-header-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .print-logo-mark {
+      width: 28px; height: 28px;
+      border-radius: 6px;
+      background: var(--color-cta);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .print-app-name {
+      font-size: 14px; font-weight: 600;
+      color: var(--color-text);
+      letter-spacing: -0.01em;
+    }
+    .print-page-title {
+      font-size: 13px; font-weight: 500;
+      color: var(--color-text-muted);
+    }
+    .print-meta {
+      font-size: 11px;
+      color: var(--color-text-subtle);
+      text-align: right;
+    }
+
+    /* ── Suppress interactive chrome ───────────────────────── */
+    .no-print { display: none !important; }
+
+    /* ── Force colors in print ─────────────────────────────── */
+    * {
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    /* ── KPI grid ──────────────────────────────────────────── */
+    .kpi-grid {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .kpi-grid > * { flex: 1; min-width: 0; }
+
+    /* ── Section card ──────────────────────────────────────── */
+    .section-card {
+      border: 1px solid var(--color-border);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 14px;
+      break-inside: avoid;
+    }
+    .section-card-header {
+      padding: 8px 16px;
+      background: var(--color-bg-subtle);
+      border-bottom: 1px solid var(--color-border-subtle);
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--color-text);
+    }
+
+    /* ── Scrollbars off ────────────────────────────────────── */
+    ::-webkit-scrollbar { display: none; }
+
+    @media print {
+      html, body { height: auto; overflow: visible; }
+      #root { height: auto; overflow: visible; }
+      .print-page { page-break-before: always; }
+      .print-page:first-child { page-break-before: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script src="data.js"></script>
+  <script type="text/babel" src="layout.jsx"></script>
+  <script type="text/babel" src="tweaks-panel.jsx"></script>
+  <script type="text/babel" src="page-login.jsx"></script>
+  <script type="text/babel" src="page-vendas.jsx"></script>
+  <script type="text/babel" src="page-combustivel.jsx"></script>
+  <script type="text/babel" src="page-conveniencia.jsx"></script>
+  <script type="text/babel" src="page-dre.jsx"></script>
+  <script type="text/babel" src="page-sync.jsx"></script>
+  <script type="text/babel" src="page-settings.jsx"></script>
+
+  <script type="text/babel">
+    // ── Print header component ─────────────────────────────────
+    function PrintHeader({ title, subtitle }) {
+      return React.createElement('div', { className: 'print-header' },
+        React.createElement('div', { className: 'print-header-left' },
+          React.createElement('div', { className: 'print-logo-mark' },
+            React.createElement('svg', { width: 14, height: 14, fill: 'none', stroke: 'white', strokeWidth: 2.5, viewBox: '0 0 24 24' },
+              React.createElement('path', { strokeLinecap: 'round', strokeLinejoin: 'round', d: 'M13 10V3L4 14h7v7l9-11h-7z' })
+            )
+          ),
+          React.createElement('span', { className: 'print-app-name' }, window.MOCK.APP_NAME),
+          React.createElement('span', { style: { color: 'var(--color-border)', fontSize: 16 } }, '·'),
+          React.createElement('span', { className: 'print-page-title' }, title)
+        ),
+        React.createElement('div', { className: 'print-meta' },
+          React.createElement('div', null, subtitle || 'Rede JAM · Abril 2026'),
+          React.createElement('div', null, 'Gerado em ' + new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' }))
+        )
+      );
+    }
+
+    // ── Print KPI card ─────────────────────────────────────────
+    function PrintKpiCard({ label, value, sub, delta, format, accent }) {
+      var formatted = format === 'pct' ? fPct(value, 2)
+        : format === 'num' ? fNum(value)
+        : format === 'litros' ? fLitros(value)
+        : fBRL(value);
+
+      return React.createElement('div', {
+        style: {
+          background: '#fff',
+          border: '1px solid var(--color-border)',
+          borderRadius: 4,
+          borderTop: accent ? '2px solid ' + accent : '1px solid var(--color-border)',
+          padding: '12px 14px',
+        }
+      },
+        React.createElement('div', { style: { fontSize: 10, color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '.08em' } }, label),
+        React.createElement('div', { style: { fontSize: 22, fontWeight: 600, color: 'var(--color-text)', fontFamily: 'var(--font-mono)', lineHeight: 1, marginBottom: 4, letterSpacing: '-0.02em' } }, formatted),
+        React.createElement('div', { style: { display: 'flex', gap: 6, alignItems: 'center' } },
+          sub && React.createElement('span', { style: { fontSize: 11, color: 'var(--color-text-subtle)' } }, sub),
+          delta != null && React.createElement('span', {
+            style: {
+              fontSize: 10, fontWeight: 600,
+              color: delta >= 0 ? 'var(--color-success)' : 'var(--color-danger)',
+              background: delta >= 0 ? 'var(--color-success-subtle)' : 'var(--color-danger-subtle)',
+              padding: '1px 5px', borderRadius: 3,
+            }
+          }, (delta >= 0 ? '+' : '') + fNum(delta, 1) + '%')
+        )
+      );
+    }
+
+    // ── Print App ──────────────────────────────────────────────
+    function PrintApp() {
+      var d = window.MOCK.vendas;
+      var r = d.resumo;
+      var dre = window.MOCK.dre;
+      var dreAtual = dre.por_mes[dre.mes_atual] || {};
+      var segs = ['combustivel','lubrificantes','servicos','conveniencia'];
+      var segLabels = { combustivel:'Combustível', lubrificantes:'Lubrificantes', servicos:'Serviços', conveniencia:'Conveniência' };
+
+      // ── PAGE 1: Visão Geral ──────────────────────────────────
+      var page1 = React.createElement('div', { className: 'print-page' },
+        React.createElement(PrintHeader, { title: 'Visão Geral de Vendas', subtitle: 'Rede JAM · Abril 2026' }),
+        // KPIs
+        React.createElement('div', { className: 'kpi-grid' },
+          React.createElement(PrintKpiCard, { label: 'Receita Bruta',  value: r.totais.receita_bruta,  delta: 8.7, accent: 'var(--color-primary)' }),
+          React.createElement(PrintKpiCard, { label: 'CMV',            value: r.totais.cmv,             sub: 'custo das mercadorias' }),
+          React.createElement(PrintKpiCard, { label: 'Margem Bruta',   value: r.totais.margem_bruta,   delta: 9.1, accent: 'var(--color-success)' }),
+          React.createElement(PrintKpiCard, { label: 'Margem %',       value: r.totais.margem_pct,      format: 'pct' }),
+          React.createElement(PrintKpiCard, { label: 'Itens vendidos', value: r.totais.qtd_itens,       format: 'num', sub: 'transações' })
+        ),
+        // Breakdown por segmento
+        React.createElement('div', { className: 'section-card' },
+          React.createElement('div', { className: 'section-card-header' }, 'Breakdown por Segmento'),
+          // Table header
+          React.createElement('div', { style: {
+            display: 'grid', gridTemplateColumns: '160px 1fr 120px 120px 90px 90px',
+            gap: 12, padding: '0 16px', height: 32,
+            background: 'var(--color-bg-subtle)', borderBottom: '1px solid var(--color-border)',
+          }},
+            ['Segmento','Participação','Receita Bruta','CMV','Margem %','Margem R$'].map(function(h) {
+              return React.createElement('div', { key: h, style: { display: 'flex', alignItems: 'center', fontSize: 9, fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '.07em', justifyContent: h === 'Segmento' || h === 'Participação' ? 'flex-start' : 'flex-end' } }, h);
+            })
+          ),
+          // Rows
+          r.por_segmento.map(function(seg) {
+            var color = SEG_COLORS[seg.segmento];
+            return React.createElement('div', { key: seg.segmento, style: {
+              display: 'grid', gridTemplateColumns: '160px 1fr 120px 120px 90px 90px',
+              gap: 12, padding: '0 16px', height: 'var(--table-row-height)',
+              alignItems: 'center', borderBottom: '1px solid var(--color-border-subtle)',
+            }},
+              React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+                React.createElement('span', { style: { width: 8, height: 8, borderRadius: 2, background: color, flexShrink: 0 } }),
+                React.createElement('span', { style: { fontSize: 13, fontWeight: 500, color: 'var(--color-text)' } }, seg.label)
+              ),
+              React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+                React.createElement('div', { style: { height: 4, background: 'var(--color-bg-muted)', borderRadius: 2, overflow: 'hidden', flex: 1 } },
+                  React.createElement('div', { style: { height: '100%', width: seg.participacao_pct + '%', background: color, borderRadius: 2 } })
+                ),
+                React.createElement('span', { style: { fontSize: 10, color: 'var(--color-text-muted)', fontFamily: 'var(--font-mono)', width: 32, textAlign: 'right', flexShrink: 0 } }, fPct(seg.participacao_pct, 0))
+              ),
+              React.createElement('div', { style: { textAlign: 'right', fontSize: 13, fontWeight: 500, fontFamily: 'var(--font-mono)', color: 'var(--color-text)' } }, fBRL(seg.receita_bruta)),
+              React.createElement('div', { style: { textAlign: 'right', fontSize: 13, fontFamily: 'var(--font-mono)', color: 'var(--color-text-muted)' } }, fBRL(seg.cmv)),
+              React.createElement('div', { style: { textAlign: 'right', fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-mono)', color: 'var(--color-success)' } }, fPct(seg.margem_pct)),
+              React.createElement('div', { style: { textAlign: 'right', fontSize: 13, fontFamily: 'var(--font-mono)', color: 'var(--color-text-muted)' } }, fBRL(seg.margem_bruta))
+            );
+          }),
+          // Total
+          React.createElement('div', { style: {
+            display: 'grid', gridTemplateColumns: '160px 1fr 120px 120px 90px 90px',
+            gap: 12, padding: '0 16px', height: 'var(--table-row-height)',
+            alignItems: 'center', background: 'var(--color-bg-subtle)',
+          }},
+            React.createElement('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '.06em' } }, 'Total'),
+            React.createElement('div'),
+            React.createElement('div', { style: { textAlign: 'right', fontSize: 13, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--color-text)' } }, fBRL(r.totais.receita_bruta)),
+            React.createElement('div', { style: { textAlign: 'right', fontSize: 13, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--color-text-muted)' } }, fBRL(r.totais.cmv)),
+            React.createElement('div', { style: { textAlign: 'right', fontSize: 13, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--color-success)' } }, fPct(r.totais.margem_pct)),
+            React.createElement('div', { style: { textAlign: 'right', fontSize: 13, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--color-text)' } }, fBRL(r.totais.margem_bruta))
+          )
+        )
+      );
+
+      // ── PAGE 2: DRE ──────────────────────────────────────────
+      var dreSegs = segs;
+      var dreColsStyle = '160px repeat(4, 1fr) 1fr 60px';
+
+      function DreRow({ label, metric, bold, highlight, indent }) {
+        var totalAtual = dreSegs.reduce(function(a, s) { return a + ((dreAtual[s] && dreAtual[s][metric]) || 0); }, 0);
+        return React.createElement('div', { style: {
+          display: 'grid', gridTemplateColumns: dreColsStyle,
+          gap: 10, alignItems: 'center',
+          padding: indent ? '0 16px 0 36px' : '0 16px',
+          height: bold ? 40 : 32,
+          background: bold ? 'var(--color-bg-subtle)' : highlight ? 'var(--color-success-subtle)' : 'transparent',
+          borderBottom: '1px solid var(--color-border)',
+          borderTop: bold ? '1px solid var(--color-border)' : 'none',
+        }},
+          React.createElement('div', { style: { fontSize: indent ? 12 : 13, fontWeight: bold ? 700 : 500, color: indent ? 'var(--color-text-muted)' : 'var(--color-text)' } }, label),
+          dreSegs.map(function(s) {
+            var val = (dreAtual[s] && dreAtual[s][metric]) || 0;
+            return React.createElement('div', { key: s, style: { textAlign: 'right', fontSize: bold ? 13 : 12, fontWeight: bold ? 700 : 400, fontFamily: 'var(--font-mono)', color: highlight ? 'var(--color-success)' : 'var(--color-text)' } }, fBRL(val));
+          }),
+          React.createElement('div', { style: { textAlign: 'right', fontSize: bold ? 14 : 13, fontWeight: 700, fontFamily: 'var(--font-mono)', color: highlight ? 'var(--color-success)' : 'var(--color-text)' } }, fBRL(totalAtual)),
+          React.createElement('div')
+        );
+      }
+
+      var page2 = React.createElement('div', { className: 'print-page' },
+        React.createElement(PrintHeader, { title: 'DRE Mensal', subtitle: 'Rede JAM · ' + dre.labels[dre.mes_atual] + ' (parcial)' }),
+        React.createElement('div', { className: 'section-card' },
+          // DRE header
+          React.createElement('div', { style: {
+            display: 'grid', gridTemplateColumns: dreColsStyle,
+            gap: 10, padding: '0 16px', height: 40,
+            background: 'var(--color-bg-subtle)', borderBottom: '2px solid var(--color-border)',
+            alignItems: 'center',
+          }},
+            React.createElement('div', { style: { fontSize: 10, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 } }, 'Linha'),
+            dreSegs.map(function(s) {
+              return React.createElement('div', { key: s, style: { textAlign: 'right' } },
+                React.createElement('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 5 } },
+                  React.createElement('span', { style: { width: 7, height: 7, borderRadius: 2, background: SEG_COLORS[s] } }),
+                  React.createElement('span', { style: { fontSize: 11, fontWeight: 600, color: 'var(--color-text)' } }, segLabels[s])
+                )
+              );
+            }),
+            React.createElement('div', { style: { textAlign: 'right', fontSize: 12, fontWeight: 700, color: 'var(--color-text)' } }, dre.labels[dre.mes_atual]),
+            React.createElement('div', { style: { textAlign: 'right', fontSize: 10, color: 'var(--color-text-muted)', textTransform: 'uppercase' } }, 'Var.')
+          ),
+          React.createElement(DreRow, { label: 'RECEITA BRUTA',    metric: 'receita_bruta',   bold: true }),
+          React.createElement(DreRow, { label: '(-) Descontos',    metric: 'descontos',        indent: true }),
+          React.createElement(DreRow, { label: '(=) RECEITA LÍQUIDA', metric: 'receita_liquida', bold: true }),
+          React.createElement(DreRow, { label: '(-) CMV',          metric: 'cmv',              bold: true }),
+          React.createElement(DreRow, { label: '(=) MARGEM BRUTA', metric: 'margem_bruta',     bold: true, highlight: true }),
+          // Margem %
+          React.createElement('div', { style: {
+            display: 'grid', gridTemplateColumns: dreColsStyle,
+            gap: 10, padding: '0 16px', height: 40, alignItems: 'center',
+            background: 'var(--color-bg-subtle)', borderTop: '2px solid var(--color-border)',
+          }},
+            React.createElement('div', { style: { fontSize: 13, fontWeight: 700, color: 'var(--color-text)' } }, 'Margem Bruta %'),
+            dreSegs.map(function(s) {
+              var rl = (dreAtual[s] && dreAtual[s].receita_liquida) || 0;
+              var mb = (dreAtual[s] && dreAtual[s].margem_bruta) || 0;
+              var pct = rl > 0 ? mb / rl * 100 : 0;
+              return React.createElement('div', { key: s, style: { textAlign: 'right', fontSize: 13, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--color-success)' } }, fPct(pct, 2));
+            }),
+            React.createElement('div', { style: { textAlign: 'right', fontSize: 14, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--color-success)' } }, (function() {
+              var rl = dreSegs.reduce(function(a,s){ return a+((dreAtual[s]&&dreAtual[s].receita_liquida)||0);},0);
+              var mb = dreSegs.reduce(function(a,s){ return a+((dreAtual[s]&&dreAtual[s].margem_bruta)||0);},0);
+              return fPct(rl>0?mb/rl*100:0, 2);
+            })()),
+            React.createElement('div')
+          ),
+          // Disclaimer
+          React.createElement('div', { style: { padding: '8px 16px', display: 'flex', alignItems: 'flex-start', gap: 6, borderTop: '1px solid var(--color-border)' } },
+            React.createElement('p', { style: { margin: 0, fontSize: 10, color: 'var(--color-text-muted)', lineHeight: 1.5 } },
+              'Este DRE vai até Margem Bruta. Despesas operacionais (aluguel, folha, energia) não estão incluídas.'
+            )
+          )
+        )
+      );
+
+      // ── PAGE 3: Combustível ──────────────────────────────────
+      var combData = window.MOCK.combustivel;
+      var combR = combData.resumo;
+
+      var page3 = React.createElement('div', { className: 'print-page' },
+        React.createElement(PrintHeader, { title: 'Dashboard de Combustível', subtitle: 'Volume, receita e margem por produto' }),
+        // KPIs
+        React.createElement('div', { className: 'kpi-grid' },
+          React.createElement(PrintKpiCard, { label: 'Volume Total',   value: combR.totais.volume_litros, format: 'litros', accent: 'var(--color-primary)' }),
+          React.createElement(PrintKpiCard, { label: 'Receita Bruta',  value: combR.totais.receita_bruta }),
+          React.createElement(PrintKpiCard, { label: 'CMV',            value: combR.totais.cmv }),
+          React.createElement(PrintKpiCard, { label: 'Margem Bruta',   value: combR.totais.margem_bruta }),
+          React.createElement(PrintKpiCard, { label: 'Margem %',       value: combR.totais.margem_pct, format: 'pct', accent: 'var(--color-success)' })
+        ),
+        React.createElement('div', { className: 'section-card' },
+          React.createElement('div', { className: 'section-card-header' }, 'Produtos — Combustível'),
+          // Header
+          React.createElement('div', { style: {
+            display: 'grid', gridTemplateColumns: '150px 100px 70px 110px 110px 90px 78px 78px',
+            gap: 12, padding: '0 16px', height: 32,
+            background: 'var(--color-bg-subtle)', borderBottom: '1px solid var(--color-border)',
+            alignItems: 'center',
+          }},
+            ['Produto','Volume (L)','Partic.','Receita','CMV','Margem %','R$/L','Custo/L'].map(function(h, i) {
+              return React.createElement('div', { key: h, style: { fontSize: 9, fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '.07em', textAlign: i === 0 ? 'left' : 'right' } }, h);
+            })
+          ),
+          // Rows
+          combR.por_produto.map(function(p) {
+            var color = p.participacao_volume_pct > 30 ? 'var(--color-primary)' : p.participacao_volume_pct > 20 ? 'var(--color-segment-lubrificantes)' : 'var(--color-segment-servicos)';
+            return React.createElement('div', { key: p.produto_descricao, style: {
+              display: 'grid', gridTemplateColumns: '150px 100px 70px 110px 110px 90px 78px 78px',
+              gap: 12, padding: '0 16px', height: 'var(--table-row-height)',
+              alignItems: 'center', borderBottom: '1px solid var(--color-border-subtle)',
+            }},
+              React.createElement('div', { style: { fontSize: 13, fontWeight: 500, color: 'var(--color-text)' } }, p.produto_descricao),
+              React.createElement('div', { style: { textAlign: 'right', fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--color-text)', fontWeight: 600 } }, fNum(p.volume_litros)),
+              React.createElement('div', { style: { textAlign: 'right', fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--color-text-muted)' } }, fPct(p.participacao_volume_pct)),
+              React.createElement('div', { style: { textAlign: 'right', fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--color-text)' } }, fBRL(p.receita_bruta)),
+              React.createElement('div', { style: { textAlign: 'right', fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--color-text-muted)' } }, fBRL(p.cmv)),
+              React.createElement('div', { style: { textAlign: 'right', fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-mono)', color: 'var(--color-success)' } }, fPct(p.margem_pct)),
+              React.createElement('div', { style: { textAlign: 'right', fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-text)' } }, 'R$\u00a0' + p.preco_medio_litro.toFixed(2)),
+              React.createElement('div', { style: { textAlign: 'right', fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-text-muted)' } }, 'R$\u00a0' + p.custo_medio_litro.toFixed(2))
+            );
+          }),
+          // Total
+          React.createElement('div', { style: {
+            display: 'grid', gridTemplateColumns: '150px 100px 70px 110px 110px 90px 78px 78px',
+            gap: 12, padding: '0 16px', height: 'var(--table-row-height)',
+            alignItems: 'center', background: 'var(--color-bg-subtle)',
+          }},
+            React.createElement('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '.06em' } }, 'Total'),
+            React.createElement('div', { style: { textAlign: 'right', fontSize: 13, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--color-text)' } }, fLitros(combR.totais.volume_litros)),
+            React.createElement('div', { style: { textAlign: 'right', fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--color-text-muted)' } }, '100%'),
+            React.createElement('div', { style: { textAlign: 'right', fontSize: 13, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--color-text)' } }, fBRL(combR.totais.receita_bruta)),
+            React.createElement('div', { style: { textAlign: 'right', fontSize: 13, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--color-text-muted)' } }, fBRL(combR.totais.cmv)),
+            React.createElement('div', { style: { textAlign: 'right', fontSize: 13, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--color-success)' } }, fPct(combR.totais.margem_pct)),
+            React.createElement('div'),
+            React.createElement('div')
+          )
+        )
+      );
+
+      return React.createElement('div', { style: { padding: '0' } },
+        React.cloneElement(page1, { key: 'p1' }),
+        React.cloneElement(page2, { key: 'p2' }),
+        React.cloneElement(page3, { key: 'p3' })
+      );
+    }
+
+    var root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(React.createElement(PrintApp));
+
+    // ── Auto-print after fonts + Babel loaded ─────────────────
+    document.fonts.ready.then(function() {
+      setTimeout(function() { window.print(); }, 500);
+    });
+  </script>
+</body>
+</html>

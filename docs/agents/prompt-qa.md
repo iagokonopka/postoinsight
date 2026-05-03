@@ -58,8 +58,16 @@ Leia obrigatoriamente antes de qualquer revisão:
 
 ### 5. Integração Backend ↔ Frontend
 - O contrato da API (tipos, campos, formato) está consistente entre quem serve e quem consome?
-- Server Components usados corretamente? `'use client'` apenas onde necessário?
-- Variáveis de ambiente usadas para URLs — sem hardcode?
+- Variáveis de ambiente usadas para URLs — sem hardcode (`VITE_API_URL`)?
+- Frontend é SPA puro (Vite + React) — sem Server Components, sem `'use client'`, sem Next.js?
+
+### 6. Autenticação e auditoria
+- `manager` tem `locationId` no token e o backend filtra por ele automaticamente em todas as queries?
+- `tenant_users` com `role = 'manager'` e `location_id = NULL` é rejeitado pelo backend?
+- `login_history` é populada em logins bem-sucedidos?
+- `failed_login_attempts` é incrementado em falhas de login?
+- `audit_log` registra mudanças de senha, role e plano?
+- Cookie de autenticação é HttpOnly — frontend nunca acessa via JavaScript?
 
 ---
 

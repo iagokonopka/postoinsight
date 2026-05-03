@@ -35,11 +35,12 @@
 
 | Camada | Tecnologia | Observações |
 |--------|-----------|-------------|
-| Frontend | Next.js 14+ TypeScript | App Router — **implementado, aguardando deploy** |
+| Frontend | **Vite + React SPA** + TypeScript | ADR-010 — Next.js removido. Scaffold pendente. |
+| Charts | **ECharts** via echarts-for-react | ADR-011 — não usar Recharts/Tremor |
 | Backend | Fastify 4+ TypeScript | Em produção no Railway |
 | ORM | Drizzle ORM | Nunca Prisma. Migrations obrigatórias para todo DDL |
 | Jobs | pg-boss | Jobs persistidos no PostgreSQL — sem Redis |
-| Auth | Auth.js v5 | Self-hosted |
+| Auth | Cookie HttpOnly JWE emitido pelo Fastify | ADR-012 — Auth.js removido do frontend |
 | Banco | PostgreSQL 16+ | |
 | Agente ERP | Node.js + TypeScript → `.exe` via `@yao-pkg/pkg` | Em produção |
 | Deploy | Railway | MVP — API + worker como 2 serviços separados |
@@ -198,29 +199,37 @@ Receita Bruta
 - `packages/db` — Drizzle schema (app/raw/canonical/analytics), migrations aplicadas até `0003_little_zaladane`, seed (Rede JAM)
 - `packages/shared` — tipos, `deriveSegmento()`
 - `apps/api` — Fastify + WebSocket, pipeline pg-boss, todos os endpoints de dashboard
-  - `/api/v1/vendas` — resumo, evolução, segmentos, grupos
-  - `/api/v1/combustivel` — resumo, evolução, produtos
-  - `/api/v1/conveniencia` — resumo, evolução, grupos
-  - `/api/v1/dre` — DRE mensal
-  - `lib/auth.ts` — middleware `requireTenantSession` (Auth.js v5 JWE)
+  - `/api/v1/vendas`, `/api/v1/combustivel`, `/api/v1/conveniencia`, `/api/v1/dre`
+  - `lib/auth.ts` — middleware `requireTenantSession` (JWE decode, impersonation)
 - `apps/agent` — extração SQL Server → WebSocket → pipeline
-- `analytics.*` — 4 MVs criadas via migration (mv_vendas_diario, mv_combustivel_diario, mv_conveniencia_diario, mv_dre_mensal)
+- `analytics.*` — 4 MVs (mv_vendas_diario, mv_combustivel_diario, mv_conveniencia_diario, mv_dre_mensal)
 - Railway — API + worker + PostgreSQL
 - Rede JAM — 4 locations conectadas, pipeline end-to-end validado
 
-### ✅ Implementado (aguardando deploy)
-- `apps/web` — Next.js 14 App Router completo:
-  - Auth.js v5 Credentials + DrizzleAdapter
-  - Middleware de proteção de rotas
-  - Páginas: dashboard (vendas), combustível, conveniência, DRE, sync, settings, login
-  - Componentes: KpiCard, SegmentoBreakdown, PeriodoSelector, DataTable, Sidebar
+### ✅ Implementado (aguardando migration)
+- `apps/api/src/routes/auth.ts` — `POST /auth/login`, `GET /auth/me`, `POST /auth/logout`, `POST /auth/change-password`
+  - ⚠️ Migration pendente para `password_changed_at` e `next_run_at`
+- `packages/db/src/schema/app.ts` — corrigido para Drizzle v0.30, campo `password_changed_at` adicionado
+
+### ✅ Implementado — `apps/web` (telas prontas, sem dados reais)
+- Scaffold Vite 5 + React 18 + TypeScript + React Router v6 + TanStack Query v5 + ECharts (2026-05-03)
+- Autenticação: `AuthContext` + `GET /auth/me` no boot + cookie HttpOnly (ADR-012)
+- Tema claro/escuro com `data-theme` + `localStorage`
+- Período e location filter em `searchParams` da URL
+- 7 páginas implementadas (visual fiel ao design): Login, Dashboard, Combustível, Conveniência, DRE, Sync, Settings
+- **Estado: telas renderizando — sem dados** (aguarda endpoints + backfill)
 
 ### ❌ Pendente
-- Deploy `apps/web` no Railway
+- `GET /api/v1/locations` — endpoint para seletor de unidades na Topbar
+- `GET /api/v1/sync/status` — endpoint para página `/sync`
 - Backfill completo das 4 locations
-- Gráficos de evolução temporal (lib de charts)
-- Páginas sync e settings com conteúdo real
+- Migration para schema atualizado (`password_changed_at`, `next_run_at`)
+- Deploy `apps/web` no Railway (static build)
 - `docs/ops/onboarding.md` — runbook para novos clientes
+
+### Design de referência
+**`design_example/postoinsight/`** — fonte de verdade visual. Todo agente Frontend lê antes de implementar.
+ADRs relevantes: ADR-010 (Vite SPA), ADR-011 (ECharts), ADR-012 (auth cookie HttpOnly)
 
 ---
 
