@@ -6,6 +6,8 @@ import { env } from './env.js'
 import { agentRoutes } from './routes/agent.js'
 import { adminRoutes } from './routes/admin.js'
 import { authRoutes } from './routes/auth.js'
+import { locationsRoutes } from './routes/locations.js'
+import { syncRoutes } from './routes/sync.js'
 import { vendasRoutes } from './routes/vendas.js'
 import { combustivelRoutes } from './routes/combustivel.js'
 import { convenienciaRoutes } from './routes/conveniencia.js'
@@ -44,6 +46,8 @@ await server.register(websocket)
 await server.register(agentRoutes, { prefix: '/agent/v1' })
 await server.register(adminRoutes, { prefix: '/admin' })
 await server.register(authRoutes,         { prefix: '/auth' })
+await server.register(locationsRoutes,    { prefix: '/api/v1/locations' })
+await server.register(syncRoutes,         { prefix: '/api/v1/sync' })
 await server.register(vendasRoutes,       { prefix: '/api/v1/vendas' })
 await server.register(combustivelRoutes,  { prefix: '/api/v1/combustivel' })
 await server.register(convenienciaRoutes, { prefix: '/api/v1/conveniencia' })

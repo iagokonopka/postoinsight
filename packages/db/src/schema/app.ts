@@ -2,6 +2,7 @@ import {
   pgSchema, uuid, text, boolean, timestamp, jsonb, integer, date,
   unique, index, primaryKey,
 } from 'drizzle-orm/pg-core'
+import type { PgTableExtraConfig } from 'drizzle-orm/pg-core/table'
 
 export const appSchema = pgSchema('app')
 
@@ -84,7 +85,7 @@ export const accounts = appSchema.table('accounts', {
   tokenType:         text('token_type'),
   scope:             text('scope'),
   idToken:           text('id_token'),
-}, (t) => ({
+}, (t): PgTableExtraConfig => ({
   accountsPkey: primaryKey({ name: 'accounts_pkey', columns: [t.provider, t.providerAccountId] }),
 }))
 
@@ -104,7 +105,7 @@ export const verificationTokens = appSchema.table('verification_tokens', {
   identifier: text('identifier').notNull(),
   token:      text('token').notNull(),
   expires:    timestamp('expires', { withTimezone: true }).notNull(),
-}, (t) => ({
+}, (t): PgTableExtraConfig => ({
   verificationTokensPkey: primaryKey({ name: 'verification_tokens_pkey', columns: [t.identifier, t.token] }),
 }))
 
@@ -125,7 +126,7 @@ export const tenantUsers = appSchema.table('tenant_users', {
   deactivatedAt:  timestamp('deactivated_at', { withTimezone: true }),
   deactivatedBy:  uuid('deactivated_by'),
   deletedAt:      timestamp('deleted_at', { withTimezone: true }),
-}, (t) => ({
+}, (t): PgTableExtraConfig => ({
   uqTenantUsersTenantUser: unique('uq_tenant_users_tenant_user').on(t.tenantId, t.userId),
 }))
 
@@ -157,7 +158,7 @@ export const connectors = appSchema.table('connectors', {
   lastSyncAttemptAt:   timestamp('last_sync_attempt_at', { withTimezone: true }),
   lastSyncSuccessAt:   timestamp('last_sync_success_at', { withTimezone: true }),
   deletedAt:           timestamp('deleted_at', { withTimezone: true }),
-}, (t) => ({
+}, (t): PgTableExtraConfig => ({
   uqConnectorsLocationErp: unique('uq_connectors_location_erp').on(t.locationId, t.erpSource),
 }))
 
@@ -175,7 +176,7 @@ export const syncState = appSchema.table('sync_state', {
   /** Próxima execução agendada — populada pelo pipeline após cada sync bem-sucedida */
   nextRunAt:           timestamp('next_run_at', { withTimezone: true }),
   updatedAt:           timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-}, (t) => ({
+}, (t): PgTableExtraConfig => ({
   uqSyncStateLocationErpEntity: unique('uq_sync_state_location_erp_entity').on(t.locationId, t.erpSource, t.entity),
 }))
 
@@ -202,7 +203,7 @@ export const syncJobs = appSchema.table('sync_jobs', {
   retryCount:         integer('retry_count').notNull().default(0),
   metadata:           jsonb('metadata'),
   createdAt:          timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-}, (t) => ({
+}, (t): PgTableExtraConfig => ({
   idxSyncJobsTenantCreated:    index('idx_sync_jobs_tenant_created').on(t.tenantId, t.createdAt),
   idxSyncJobsLocationEntity:   index('idx_sync_jobs_location_entity').on(t.locationId, t.entity, t.createdAt),
 }))
@@ -237,7 +238,7 @@ export const auditLog = appSchema.table('audit_log', {
   payloadAfter:   jsonb('payload_after'),
   ipAddress:      text('ip_address'),
   createdAt:      timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-}, (t) => ({
+}, (t): PgTableExtraConfig => ({
   idxAuditLogTenantCreated: index('idx_audit_log_tenant_created').on(t.tenantId, t.createdAt),
   idxAuditLogActor:         index('idx_audit_log_actor').on(t.actorUserId, t.createdAt),
 }))
@@ -254,7 +255,7 @@ export const loginHistory = appSchema.table('login_history', {
   userAgent:   text('user_agent'),
   /** true = login bem-sucedido, false = credenciais inválidas ou conta bloqueada */
   success:     boolean('success').notNull().default(true),
-}, (t) => ({
+}, (t): PgTableExtraConfig => ({
   idxLoginHistoryUser:   index('idx_login_history_user').on(t.userId, t.loggedInAt),
   idxLoginHistoryTenant: index('idx_login_history_tenant').on(t.tenantId, t.loggedInAt),
 }))
@@ -270,7 +271,7 @@ export const connectorEvents = appSchema.table('connector_events', {
   eventType:    text('event_type').notNull(),
   occurredAt:   timestamp('occurred_at', { withTimezone: true }).notNull().defaultNow(),
   metadata:     jsonb('metadata'),
-}, (t) => ({
+}, (t): PgTableExtraConfig => ({
   idxConnectorEventsConnector: index('idx_connector_events_connector').on(t.connectorId, t.occurredAt),
   idxConnectorEventsTenant:    index('idx_connector_events_tenant').on(t.tenantId, t.occurredAt),
 }))
@@ -288,7 +289,7 @@ export const syncRejections = appSchema.table('sync_rejections', {
   rawPayload:       jsonb('raw_payload'),
   rejectionReason:  text('rejection_reason').notNull(),
   rejectedAt:       timestamp('rejected_at', { withTimezone: true }).notNull().defaultNow(),
-}, (t) => ({
+}, (t): PgTableExtraConfig => ({
   idxSyncRejectionsJob:    index('idx_sync_rejections_job').on(t.syncJobId),
   idxSyncRejectionsTenant: index('idx_sync_rejections_tenant').on(t.tenantId, t.rejectedAt),
 }))
@@ -303,7 +304,7 @@ export const usageEvents = appSchema.table('usage_events', {
   eventType:   text('event_type').notNull(),
   occurredAt:  timestamp('occurred_at', { withTimezone: true }).notNull().defaultNow(),
   metadata:    jsonb('metadata'),
-}, (t) => ({
+}, (t): PgTableExtraConfig => ({
   idxUsageEventsTenant: index('idx_usage_events_tenant').on(t.tenantId, t.occurredAt),
   idxUsageEventsUser:   index('idx_usage_events_user').on(t.userId, t.occurredAt),
 }))
