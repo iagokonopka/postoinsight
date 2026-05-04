@@ -6,8 +6,8 @@
 ---
 
 ## Última atualização
-**Data:** 2026-05-03
-**Sessão:** Scaffold completo `apps/web` (Vite + React SPA) — todas as páginas implementadas, telas funcionando sem dados (aguarda endpoint `/api/v1/locations` e backfill)
+**Data:** 2026-05-04
+**Sessão:** Frontend mostrando dados reais — endpoints `/api/v1/locations` e `/api/v1/sync/status` implementados e deployados, migration corrigida e aplicada, dim_tempo populado, backfill JAM Rota 1 concluído (152k rows), 4 MVs refreshadas
 
 ---
 
@@ -94,14 +94,12 @@ Completa. Fontes de dados mapeadas, problema de negócio definido, stack decidid
   - **Estado atual: telas renderizando, sem dados** — endpoints retornam 401 sem sessão ativa ou dados ainda não populados
 
 **Pendente:**
+- ⚠️ Backfill das 3 locations restantes: JAM Torres (002), JAM Imbé (005), JAM Tramandaí (006)
+- ❌ Deploy `apps/web` no Railway (build estático via `pnpm build`)
 - ❌ Adaptar pipeline para gravar `raw_ingest_id` em `fato_venda` e rejeições em `sync_rejections`
 - ❌ Preencher `triggered_by`, `period_from`, `period_to` em `sync_jobs` no pipeline
-- ❌ Backfill completo das 4 locations (histórico completo)
-- ❌ Migration para `password_changed_at` (users) e `next_run_at` (sync_state)
 - ❌ Gaps de auth: `POST /auth/change-password`, rejeição de manager sem location
-- ❌ `GET /api/v1/sync/status` — endpoint para a página `/sync` (frontend já consome)
-- ❌ `GET /api/v1/locations` — endpoint para o seletor de unidades na Topbar (frontend usa graceful degradation sem ele)
-- ❌ Deploy `apps/web` no Railway (build estático via `pnpm build`)
+- ❌ Onboarding runbook — `docs/ops/onboarding.md`
 
 ---
 
@@ -157,15 +155,17 @@ Completa. Fontes de dados mapeadas, problema de negócio definido, stack decidid
 
 Todas as specs MVP estão escritas. Sync WebPosto pausado (não implementar agora).
 
-### 🔴 Agora — Fazer o frontend mostrar dados reais
+### 🔴 Agora — Finalizar backfill + deploy web
 
-1. **`GET /api/v1/locations`** — criar endpoint no backend para o seletor de unidades da Topbar
-   - Retorna: `{ locations: [{ id, nome, status }] }` filtrado por `tenant_id` da sessão
-2. **`GET /api/v1/sync/status`** — criar endpoint para a página `/sync`
-   - Retorna: `{ locations: [...], historico: [...] }` (shape já definido na SyncPage)
-3. **Backfill completo** — rodar para as 4 locations e confirmar MVs populadas
-4. **Testar login + dados end-to-end** — logar com usuário da Rede JAM, confirmar que os dashboards mostram dados reais
-5. **Deploy `apps/web`** no Railway — `pnpm build` → servir `dist/` como static site
+1. **Backfill 3 locations restantes** — Torres (002), Imbé (005), Tramandaí (006)
+   ```bash
+   curl -X POST https://api-production-3a9c.up.railway.app/admin/backfill \
+     -H "Content-Type: application/json" \
+     -d '{"locationId":"5a416e5f-1378-49fa-83c3-3d72a6865ad2","from":"2026-01-01","to":"2026-05-03","batch_size":200,"delay_ms":200}'
+   # repetir para b13a9212 e 5d2a80f7
+   ```
+2. **Refresh MVs** após cada backfill concluído
+3. **Deploy `apps/web`** no Railway — `pnpm build` → servir `dist/` como static site
 
 ### 🟡 Pendente secundário
 

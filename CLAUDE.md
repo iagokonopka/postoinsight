@@ -380,47 +380,38 @@ Depois: instalar o agente `.exe` no RDP com o arquivo `.env` configurado.
 ## 16. Estado Atual da Implementação
 
 ### ✅ Em produção (API + pipeline)
-- `packages/db` — Drizzle schema completo (app/raw/canonical/analytics), migrations aplicadas até `0003_little_zaladane`, seed (Rede JAM)
+- `packages/db` — Drizzle schema completo, migrations aplicadas até `0005_sync_state_unique_erp`, seed (Rede JAM)
 - `packages/shared` — tipos, `deriveSegmento()`
 - `apps/api` — Fastify + WebSocket `/agent/v1/connect`, pipeline pg-boss, `POST /admin/backfill`
-- `apps/api` — 4 grupos de endpoints de dashboard: `/api/v1/vendas`, `/api/v1/combustivel`, `/api/v1/conveniencia`, `/api/v1/dre`
+- `apps/api` — 6 grupos de endpoints: `/api/v1/vendas`, `/api/v1/combustivel`, `/api/v1/conveniencia`, `/api/v1/dre`, `/api/v1/locations`, `/api/v1/sync/status`
 - `apps/api/src/lib/auth.ts` — middleware `requireTenantSession` (JWE decode, impersonation)
-- `apps/api/src/pipeline/refresh-analytics.ts` — refresh das 4 MVs com CONCURRENTLY
+- `apps/api/src/pipeline/refresh-analytics.ts` — refresh das 4 MVs
 - `apps/agent` — Extração SQL Server, WebSocket client, bundlado como `.exe`
-- Railway — API + worker (2 serviços) + PostgreSQL
+- Railway — serviço `api` (Fastify + WebSocket) + serviço `postoinsight` (worker pg-boss) + PostgreSQL
+  - `api` → domínio: `api-production-3a9c.up.railway.app`
+  - `postoinsight` → domínio: `postoinsight-production.up.railway.app` (worker — sem WebSocket)
 - Rede JAM — 4 locations conectadas, pipeline end-to-end validado
+- `canonical.dim_tempo` — populado de 2025-01-01 a 2027-12-31
+- 4 MVs de analytics refreshadas com dados reais
 
-### ✅ Implementado (aguardando migration + testes)
-- `apps/api/src/routes/auth.ts` — `POST /auth/login`, `GET /auth/me`, `POST /auth/logout`, `POST /auth/change-password`
-  - ⚠️ Pendente: migration para `password_changed_at` e `next_run_at`
-- `packages/db/src/schema/app.ts` — schema corrigido (sintaxe Drizzle v0.30), campo `password_changed_at` adicionado
-
-### ✅ Implementado — `apps/web` (frontend, telas prontas sem dados)
-- Scaffold completo Vite 5 + React 18 + TypeScript (2026-05-03)
+### ✅ Implementado — `apps/web` (frontend com dados reais)
+- Scaffold completo Vite 5 + React 18 + TypeScript
 - Autenticação: `AuthContext` + `GET /auth/me` no boot + cookie HttpOnly (ADR-012)
-- Design tokens de `design_example/postoinsight/PostoInsight.html` em `src/styles/tokens.css`
-- Tema claro/escuro: `data-theme` no HTML, persistido em `localStorage`
+- Design tokens em `src/styles/tokens.css`, tema claro/escuro
 - Período ativo e location filter sincronizados com `searchParams` da URL
 - Componentes: `Topbar`, `Sidebar`, `AppLayout`, `KpiCard`, `SectionCard`, `StatusBadge`, `HorizBar`, `ChartLegend`, `LineAreaChart` (ECharts), `BarChart` (ECharts)
-- Páginas implementadas (visual fiel ao design):
-  - `/login` — LoginPage
-  - `/dashboard` — Visão Geral (KPIs + evolução + breakdown por segmento)
-  - `/combustivel` — Combustível (KPIs + evolução por produto + tabela detalhada)
-  - `/conveniencia` — Conveniência & Serviços (KPIs + evolução + drill-down categorias)
-  - `/dre` — DRE Mensal (seletor de mês + tabela comparativa)
-  - `/sync` — Sincronização (cards por location + histórico de jobs)
-  - `/settings` — Configurações (perfil + tenant info)
-- `VITE_API_URL=http://localhost:3000`, proxy Vite para `/api` e `/auth`
-- **Estado atual: telas renderizando corretamente — sem dados** (falta `GET /api/v1/locations`, `GET /api/v1/sync/status` e backfill completo)
+- Páginas: `/login`, `/dashboard`, `/combustivel`, `/conveniencia`, `/dre`, `/sync`, `/settings`
+- Proxy Vite `/api` e `/auth` → `http://localhost:3000`
+- **Estado atual: frontend carregando dados reais da API** (backfill JAM Rota 1 concluído)
+
+### ⚠️ Parcialmente feito
+- Backfill das 4 locations — apenas JAM Rota 1 (001) concluído. Torres, Imbé, Tramandaí pendentes.
 
 ### ❌ Pendente
-- `GET /api/v1/locations` — endpoint para seletor de unidades na Topbar
-- `GET /api/v1/sync/status` — endpoint para página `/sync`
-- Backfill completo das 4 locations (histórico completo das MVs)
-- Migration para colunas novas do schema (`password_changed_at`, `next_run_at` em sync_state)
+- Backfill completo das 3 locations restantes (002, 005, 006)
 - Deploy `apps/web` no Railway (build estático `dist/`)
 - `docs/ops/onboarding.md` — runbook para novos clientes
 
 ---
 
-*Última atualização: 2026-05-03 — documento vivo, atualizado conforme o projeto evolui.*
+*Última atualização: 2026-05-04 — documento vivo, atualizado conforme o projeto evolui.*
