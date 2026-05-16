@@ -57,8 +57,8 @@ Vite entrega DX superior: dev server instantâneo, hot reload imediato, build si
 ## Consequências
 
 - `apps/web` deletado e recriado do zero com Vite + React + TypeScript
-- Auth.js v5 removido do frontend — autenticação passa a ser gerenciada via Bearer token (ver ADR-012)
-- Backend `apps/api/src/lib/auth.ts` não precisa de alterações — já suporta `Authorization: Bearer`
+- Auth.js v5 removido do frontend — autenticação passa a ser gerenciada via cookie HttpOnly emitido pelo Fastify (ver ADR-012)
+- Backend `apps/api/src/lib/auth.ts` implementa `requireTenantSession` com decode JWE
 - Deploy no Railway: servir o build estático de `dist/` via um servidor estático (ex: `serve`) ou Railway Static Sites
 - Toda lógica de negócio permanece no backend — regra já existente, não muda
 

@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(wsl -d Ubuntu -- python3 /tmp/write_app_ts.py)"
+      "Bash(wsl -d Ubuntu -- python3 /tmp/write_app_ts.py)",
+      "Bash(wsl -d Ubuntu -e bash -c \"grep -n 'segmento\\\\|lubrif\\\\|conveni' /home/dev/postoinsight/apps/api/src/routes/conveniencia.ts | head -30\")"
     ]
   }
 }

@@ -66,6 +66,7 @@ O founder opera solo. Para economizar tokens e contexto:
 | Camada | Tecnologia | Versão alvo |
 |--------|-----------|-------------|
 | Frontend | **Vite + React + TypeScript (SPA)** | React 18 / Vite 5 |
+| Estilização | **Tailwind CSS v4 + Shadcn/ui** | — |
 | Backend | Fastify + TypeScript | 4+ |
 | ORM / Queries | Drizzle ORM | latest |
 | Jobs / Pipeline | pg-boss | latest |
@@ -78,7 +79,7 @@ O founder opera solo. Para economizar tokens e contexto:
 
 **Nunca substitua uma tecnologia da stack sem um ADR aprovado em `docs/architecture/decisions/`.**
 
-> ADRs relevantes: ADR-010 (Vite vs Next.js), ADR-011 (ECharts), ADR-012 (autenticação SPA)
+> ADRs relevantes: ADR-010 (Vite vs Next.js), ADR-011 (ECharts), ADR-012 (autenticação SPA), ADR-013 (Tailwind + Shadcn)
 
 ---
 
@@ -287,15 +288,25 @@ Receita Bruta
 
 **A fonte de verdade visual é `design_example/postoinsight/`.**
 
-Todo agente Frontend deve ler esses arquivos antes de implementar qualquer componente:
 - `PostoInsight.html` — tokens CSS completos (cores, espaçamentos, tipografia)
-- `layout.jsx` — Topbar, Sidebar, KpiCard, SectionCard, LineChart, StatusBadge, ChartLegend
+- `PostoInsight Standalone.html` — build standalone gerado pelo Claude Design (2026-05-08), referência visual final com todos os upgrades
+- `layout.jsx` — Topbar, Sidebar, KpiCard (com sparkline), SectionCard, StatusBadge, ChartLegend
 - `page-vendas.jsx`, `page-combustivel.jsx`, `page-conveniencia.jsx`, `page-dre.jsx`
-- `page-sync.jsx`, `page-settings.jsx`, `page-login.jsx`
-- `data.js` — shapes dos dados mock (referência dos contratos com a API)
 
-O design usa **CSS variables** definidas no HTML — não usa Tailwind nem CSS framework.
-Os charts no design são SVG customizados — na implementação real, usar **ECharts** (ADR-011).
+O design define a **identidade visual** (cores, tipografia, espaçamentos) — tokens migrados para `tailwind.config.ts` (ADR-013).
+Os charts são implementados com **ECharts** via `echarts-for-react` (ADR-011).
+Componentes de UI usam **Shadcn/ui** (em `src/components/ui/`) sobre Tailwind CSS v4.
+
+**Componentes de gráfico disponíveis em `apps/web/src/components/charts/`:**
+- `Sparkline` — mini linha com área, inline em KpiCards e tabelas
+- `DonutChart` — rosca com centro customizável
+- `DualAxisChart` — barras + linha em eixo Y duplo
+- `HeatmapChart` — mapa de calor semana × dia
+- `ScatterChart` — dispersão com quadrantes e bolhas
+- `WaterfallChart` — cascata positivo/negativo
+- `StackedAreaChart` — área empilhada multi-série
+- `LineAreaChart` — linha com área, múltiplas séries
+- `BarChart` — barras horizontais
 
 ---
 
@@ -339,6 +350,7 @@ Decisões já tomadas que devem ser respeitadas:
 | ADR-010 | Frontend | **Vite + React SPA** (não Next.js) |
 | ADR-011 | Charts | **ECharts** (não Recharts/Tremor) |
 | ADR-012 | Auth SPA | **Cookie HttpOnly** emitido pelo Fastify |
+| ADR-013 | Estilização | **Tailwind CSS v4 + Shadcn/ui** (não CSS manual) |
 
 ---
 
@@ -383,7 +395,7 @@ Depois: instalar o agente `.exe` no RDP com o arquivo `.env` configurado.
 - `packages/db` — Drizzle schema completo, migrations aplicadas até `0005_sync_state_unique_erp`, seed (Rede JAM)
 - `packages/shared` — tipos, `deriveSegmento()`
 - `apps/api` — Fastify + WebSocket `/agent/v1/connect`, pipeline pg-boss, `POST /admin/backfill`
-- `apps/api` — 6 grupos de endpoints: `/api/v1/vendas`, `/api/v1/combustivel`, `/api/v1/conveniencia`, `/api/v1/dre`, `/api/v1/locations`, `/api/v1/sync/status`
+- `apps/api` — 8 grupos de endpoints: `/api/v1/vendas`, `/api/v1/combustivel`, `/api/v1/conveniencia`, `/api/v1/dre`, `/api/v1/locations`, `/api/v1/sync/status`, `/api/v1/arla`, `/api/v1/lubrificantes`
 - `apps/api/src/lib/auth.ts` — middleware `requireTenantSession` (JWE decode, impersonation)
 - `apps/api/src/pipeline/refresh-analytics.ts` — refresh das 4 MVs
 - `apps/agent` — Extração SQL Server, WebSocket client, bundlado como `.exe`
@@ -399,10 +411,28 @@ Depois: instalar o agente `.exe` no RDP com o arquivo `.env` configurado.
 - Autenticação: `AuthContext` + `GET /auth/me` no boot + cookie HttpOnly (ADR-012)
 - Design tokens em `src/styles/tokens.css`, tema claro/escuro
 - Período ativo e location filter sincronizados com `searchParams` da URL
-- Componentes: `Topbar`, `Sidebar`, `AppLayout`, `KpiCard`, `SectionCard`, `StatusBadge`, `HorizBar`, `ChartLegend`, `LineAreaChart` (ECharts), `BarChart` (ECharts)
-- Páginas: `/login`, `/dashboard`, `/combustivel`, `/conveniencia`, `/dre`, `/sync`, `/settings`
+- **Componentes UI:** `Topbar`, `Sidebar`, `AppLayout`, `KpiCard` (com sparkline + deltas), `SectionCard`, `StatusBadge`, `HorizBar`, `ChartLegend`, `DrillDownTable` (grupo→subgrupo→produto expansível), `ProductDetailPanel` (painel lateral de detalhe)
+- **Componentes de gráfico ECharts:** `Sparkline`, `DonutChart`, `DualAxisChart`, `HeatmapChart`, `ScatterChart`, `WaterfallChart`, `StackedAreaChart`, `LineAreaChart`, `BarChart`
+- **Páginas implementadas com dados reais:**
+  - `/login` — autenticação com cookie HttpOnly
+  - `/dashboard` — KPIs+sparklines, dual-axis, donut mix, top-10 produtos, heatmap placeholder
+  - `/combustivel` — KPIs+sparklines, toggle linha/stacked, tabela com sparkline+seta por produto
+  - `/conveniencia` — KPIs+sparklines, evolução, donut mix, top-10 grupos, breakdown drill-down, scatter
+  - `/dre` — KPIs, waterfall, evolução margem por segmento, comparativo mês-a-mês
+  - `/arla` — KPIs, evolução, tabela volumétrica, DrillDownTable (subgrupo/produto)
+  - `/lubrificantes` — KPIs, evolução, donut mix, DrillDownTable + ProductDetailPanel
+  - `/sync` — status por location, histórico de jobs
+  - `/settings` — perfil do usuário, info do tenant
 - Proxy Vite `/api` e `/auth` → `http://localhost:3000`
 - **Estado atual: frontend carregando dados reais da API** (backfill JAM Rota 1 concluído)
+
+### ✅ Novos endpoints backend (2026-05-08 / 2026-05-14)
+- `GET /api/v1/conveniencia/top-grupos` — top N grupos da loja por receita, todos os segmentos
+- `GET /api/v1/arla/resumo|evolucao|produtos` — Arla 32 filtrado de mv_combustivel_diario (categoria_codigo='ARL')
+- `GET /api/v1/lubrificantes/resumo|evolucao|grupos` — lubrificantes filtrado de mv_conveniencia_diario
+- `GET /api/v1/vendas/top-produtos` — top N grupos por receita (mv_vendas_diario), chamado pelo Dashboard
+- `GET /api/v1/vendas/drill/subgrupos` — drill-down grupo→subgrupo via fato_venda
+- `GET /api/v1/vendas/drill/produtos` — drill-down subgrupo→produto via fato_venda
 
 ### ⚠️ Parcialmente feito
 - Backfill das 4 locations — apenas JAM Rota 1 (001) concluído. Torres, Imbé, Tramandaí pendentes.
@@ -411,7 +441,9 @@ Depois: instalar o agente `.exe` no RDP com o arquivo `.env` configurado.
 - Backfill completo das 3 locations restantes (002, 005, 006)
 - Deploy `apps/web` no Railway (build estático `dist/`)
 - `docs/ops/onboarding.md` — runbook para novos clientes
+- Heatmap padrão semanal — requer endpoint de dados por dia da semana
+- Stacked-area por hora na Conveniência — requer dado horário do ERP
 
 ---
 
-*Última atualização: 2026-05-04 — documento vivo, atualizado conforme o projeto evolui.*
+*Última atualização: 2026-05-14 — documento vivo, atualizado conforme o projeto evolui.*

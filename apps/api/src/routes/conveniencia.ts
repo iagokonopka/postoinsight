@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify'
-import { and, eq, gte, lte, inArray, sql, sum } from 'drizzle-orm'
+import { and, eq, gte, lte, inArray, sql, sum, desc } from 'drizzle-orm'
 import { db } from '../db.js'
 import { mvConvenienciaDiario as mv } from '@postoinsight/db'
 import { requireTenantSession } from '../lib/auth.js'
@@ -33,9 +33,9 @@ export const convenienciaRoutes: FastifyPluginAsync = async (app) => {
       throw err
     }
 
+    // Filtra apenas conveniência — lubrificantes e serviços têm páginas próprias
     const rows = await db
       .select({
-        segmento:        mv.segmento,
         receita_bruta:   sum(mv.receitaBruta).mapWith(Number),
         descontos:       sum(mv.descontos).mapWith(Number),
         receita_liquida: sum(mv.receitaLiquida).mapWith(Number),
@@ -46,51 +46,32 @@ export const convenienciaRoutes: FastifyPluginAsync = async (app) => {
       .from(mv)
       .where(and(
         eq(mv.tenantId, tenantId),
+        eq(mv.segmento, 'conveniencia'),
         gte(mv.dataVenda, dataInicio),
         lte(mv.dataVenda, dataFim),
         locationIds ? inArray(mv.locationId, locationIds) : undefined,
       ))
-      .groupBy(mv.segmento)
 
-    const totais = rows.reduce((acc, r) => {
-      acc.receita_bruta   += n(r.receita_bruta)
-      acc.descontos       += n(r.descontos)
-      acc.receita_liquida += n(r.receita_liquida)
-      acc.cmv             += n(r.cmv)
-      acc.margem_bruta    += n(r.margem_bruta)
-      acc.qtd_itens       += n(r.qtd_itens)
-      return acc
-    }, { receita_bruta: 0, descontos: 0, receita_liquida: 0, cmv: 0, margem_bruta: 0, qtd_itens: 0 })
-
-    const por_segmento = SEGMENTOS_LOJA.map(seg => {
-      const r = rows.find(x => x.segmento === seg)
-      const receita_bruta   = n(r?.receita_bruta)
-      const receita_liquida = n(r?.receita_liquida)
-      const margem_bruta    = n(r?.margem_bruta)
-      return {
-        segmento: seg,
-        receita_bruta:   round2(receita_bruta),
-        receita_liquida: round2(receita_liquida),
-        cmv:             round2(n(r?.cmv)),
-        margem_bruta:    round2(margem_bruta),
-        margem_pct:      pct(margem_bruta, receita_liquida),
-        participacao_pct: pct(receita_bruta, totais.receita_bruta),
-      }
-    })
+    const r = rows[0]
+    const receita_bruta   = n(r?.receita_bruta)
+    const descontos       = n(r?.descontos)
+    const receita_liquida = n(r?.receita_liquida)
+    const cmv             = n(r?.cmv)
+    const margem_bruta    = n(r?.margem_bruta)
+    const qtd_itens       = n(r?.qtd_itens)
 
     return reply.send({
       periodo: { inicio: dataInicio, fim: dataFim },
       locations: locationIds ?? 'all',
       totais: {
-        receita_bruta:   round2(totais.receita_bruta),
-        descontos:       round2(totais.descontos),
-        receita_liquida: round2(totais.receita_liquida),
-        cmv:             round2(totais.cmv),
-        margem_bruta:    round2(totais.margem_bruta),
-        margem_pct:      pct(totais.margem_bruta, totais.receita_liquida),
-        qtd_itens:       totais.qtd_itens,
+        receita_bruta:   round2(receita_bruta),
+        descontos:       round2(descontos),
+        receita_liquida: round2(receita_liquida),
+        cmv:             round2(cmv),
+        margem_bruta:    round2(margem_bruta),
+        margem_pct:      pct(margem_bruta, receita_liquida),
+        qtd_itens,
       },
-      por_segmento,
     })
   })
 
@@ -132,7 +113,8 @@ export const convenienciaRoutes: FastifyPluginAsync = async (app) => {
         gte(mv.dataVenda, dataInicio),
         lte(mv.dataVenda, dataFim),
         locationIds ? inArray(mv.locationId, locationIds) : undefined,
-        segmento ? eq(mv.segmento, segmento) : undefined,
+        // default para 'conveniencia' — lubrificantes/serviços têm rotas próprias
+        eq(mv.segmento, segmento ?? 'conveniencia'),
       ))
       .groupBy(periodoExpr)
       .orderBy(periodoExpr)
@@ -267,5 +249,69 @@ export const convenienciaRoutes: FastifyPluginAsync = async (app) => {
       .sort((a, b) => b.receita_bruta - a.receita_bruta)
 
     return reply.send({ categoria_codigo: categoriaCodigo, grupos })
+  })
+
+  // ---------------------------------------------------------------------
+  // GET /api/v1/conveniencia/top-grupos
+  // Top 10 grupos da conveniência por receita (excluindo lubrificantes/serviços)
+  // ---------------------------------------------------------------------
+  app.get('/top-grupos', async (req, reply) => {
+    const tenantId = req.tenantId!
+    let dataInicio: string, dataFim: string, locationIds: string[] | undefined
+    let limit = 10
+    try {
+      ({ dataInicio, dataFim } = parseDateRange(req.query as Record<string, unknown>))
+      locationIds = parseUuidArray((req.query as any).location_id, 'location_id')
+      const lim = parseInt((req.query as any).limit)
+      if (!isNaN(lim) && lim > 0 && lim <= 50) limit = lim
+    } catch (err) {
+      if (err instanceof BadQueryError) return reply.status(400).send({ error: err.message })
+      throw err
+    }
+
+    const rows = await db
+      .select({
+        grupo_id:        mv.grupoId,
+        grupo_descricao: sql<string | null>`MAX(${mv.grupoDescricao})`,
+        segmento:        sql<string>`MAX(${mv.segmento})`,
+        receita_bruta:   sum(mv.receitaBruta).mapWith(Number),
+        receita_liquida: sum(mv.receitaLiquida).mapWith(Number),
+        cmv:             sum(mv.cmv).mapWith(Number),
+        margem_bruta:    sum(mv.margemBruta).mapWith(Number),
+        qtd_itens:       sql<number>`COALESCE(SUM(${mv.qtdItens}), 0)`.mapWith(Number),
+      })
+      .from(mv)
+      .where(and(
+        eq(mv.tenantId, tenantId),
+        eq(mv.segmento, 'conveniencia'),
+        gte(mv.dataVenda, dataInicio),
+        lte(mv.dataVenda, dataFim),
+        locationIds ? inArray(mv.locationId, locationIds) : undefined,
+      ))
+      .groupBy(mv.grupoId)
+      .orderBy(desc(sum(mv.receitaBruta)))
+      .limit(limit)
+
+    const total = rows.reduce((acc, r) => acc + n(r.receita_bruta), 0)
+
+    return reply.send({
+      grupos: rows.map((r, i) => {
+        const receita_bruta   = n(r.receita_bruta)
+        const receita_liquida = n(r.receita_liquida)
+        const margem_bruta    = n(r.margem_bruta)
+        return {
+          rank:             i + 1,
+          grupo_id:         r.grupo_id,
+          grupo_descricao:  r.grupo_descricao ?? r.grupo_id,
+          segmento:         r.segmento,
+          receita_bruta:    round2(receita_bruta),
+          cmv:              round2(n(r.cmv)),
+          margem_bruta:     round2(margem_bruta),
+          margem_pct:       pct(margem_bruta, receita_liquida),
+          qtd_itens:        n(r.qtd_itens),
+          participacao_pct: pct(receita_bruta, total),
+        }
+      }),
+    })
   })
 }

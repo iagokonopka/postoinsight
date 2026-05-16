@@ -7,6 +7,8 @@ import { LoginPage } from '@/pages/login/LoginPage';
 import { DashboardPage } from '@/pages/dashboard/DashboardPage';
 import { CombustivelPage } from '@/pages/combustivel/CombustivelPage';
 import { ConvenienciaPage } from '@/pages/conveniencia/ConvenienciaPage';
+import { ArlaPage } from '@/pages/arla/ArlaPage';
+import { LubrificantesPage } from '@/pages/lubrificantes/LubrificantesPage';
 import { DrePage } from '@/pages/dre/DrePage';
 import { SyncPage } from '@/pages/sync/SyncPage';
 import { SettingsPage } from '@/pages/settings/SettingsPage';
@@ -25,7 +27,9 @@ export function App() {
               <Route index element={<Navigate to="/dashboard" replace />} />
               <Route path="/dashboard"   element={<DashboardPage />} />
               <Route path="/combustivel" element={<CombustivelPage />} />
+              <Route path="/arla"        element={<ArlaPage />} />
               <Route path="/conveniencia" element={<ConvenienciaPage />} />
+              <Route path="/lubrificantes" element={<LubrificantesPage />} />
               <Route path="/dre"         element={<DrePage />} />
               <Route path="/sync"        element={<SyncPage />} />
               <Route path="/settings"    element={<SettingsPage />} />

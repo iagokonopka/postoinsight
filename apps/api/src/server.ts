@@ -12,6 +12,8 @@ import { vendasRoutes } from './routes/vendas.js'
 import { combustivelRoutes } from './routes/combustivel.js'
 import { convenienciaRoutes } from './routes/conveniencia.js'
 import { dreRoutes } from './routes/dre.js'
+import { arlaRoutes } from './routes/arla.js'
+import { lubrificantesRoutes } from './routes/lubrificantes.js'
 
 const server = Fastify({
   logger: env.NODE_ENV === 'development'
@@ -52,6 +54,8 @@ await server.register(vendasRoutes,       { prefix: '/api/v1/vendas' })
 await server.register(combustivelRoutes,  { prefix: '/api/v1/combustivel' })
 await server.register(convenienciaRoutes, { prefix: '/api/v1/conveniencia' })
 await server.register(dreRoutes,          { prefix: '/api/v1/dre' })
+await server.register(arlaRoutes,         { prefix: '/api/v1/arla' })
+await server.register(lubrificantesRoutes, { prefix: '/api/v1/lubrificantes' })
 
 server.get('/health', async () => ({ status: 'ok', ts: new Date().toISOString() }))
 

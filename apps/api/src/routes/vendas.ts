@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify'
-import { and, eq, gte, lte, inArray, sql, sum } from 'drizzle-orm'
+import { and, eq, gte, lte, inArray, sql, sum, desc } from 'drizzle-orm'
 import { db } from '../db.js'
-import { mvVendasDiario as mv } from '@postoinsight/db'
+import { mvVendasDiario as mv, fatoVenda, dimProduto } from '@postoinsight/db'
 import { requireTenantSession } from '../lib/auth.js'
 import {
   BadQueryError, parseDateRange, parseUuidArray, parseEnum, n, pct, round2,
@@ -277,5 +277,224 @@ export const vendasRoutes: FastifyPluginAsync = async (app) => {
       .sort((a, b) => b.receita_bruta - a.receita_bruta)
 
     return reply.send({ segmento, grupos })
+  })
+
+  // ---------------------------------------------------------------------
+  // GET /api/v1/vendas/top-produtos
+  // Top N grupos por receita bruta — todos os segmentos.
+  // Chamado pelo DashboardPage. Usa mv_vendas_diario.
+  // Query params: data_inicio, data_fim, location_id?, limit? (default 10, max 50)
+  // ---------------------------------------------------------------------
+  app.get('/top-produtos', async (req, reply) => {
+    const tenantId = req.tenantId!
+    let dataInicio: string, dataFim: string, locationIds: string[] | undefined
+    let limit = 10
+    try {
+      ({ dataInicio, dataFim } = parseDateRange(req.query as Record<string, unknown>))
+      locationIds = parseUuidArray((req.query as any).location_id, 'location_id')
+      const lim = parseInt((req.query as any).limit)
+      if (!isNaN(lim) && lim > 0 && lim <= 50) limit = lim
+    } catch (err) {
+      if (err instanceof BadQueryError) return reply.status(400).send({ error: err.message })
+      throw err
+    }
+
+    const rows = await db
+      .select({
+        segmento:        mv.segmento,
+        grupo_id:        mv.grupoId,
+        grupo_descricao: sql<string | null>`MAX(${mv.grupoDescricao})`,
+        receita_bruta:   sum(mv.receitaBruta).mapWith(Number),
+        receita_liquida: sum(mv.receitaLiquida).mapWith(Number),
+        cmv:             sum(mv.cmv).mapWith(Number),
+        margem_bruta:    sum(mv.margemBruta).mapWith(Number),
+      })
+      .from(mv)
+      .where(and(
+        eq(mv.tenantId, tenantId),
+        gte(mv.dataVenda, dataInicio),
+        lte(mv.dataVenda, dataFim),
+        locationIds ? inArray(mv.locationId, locationIds) : undefined,
+      ))
+      .groupBy(mv.segmento, mv.grupoId)
+      .orderBy(desc(sum(mv.receitaBruta)))
+      .limit(limit)
+
+    const total = rows.reduce((acc, r) => acc + n(r.receita_bruta), 0)
+
+    return reply.send({
+      produtos: rows.map((r, i) => {
+        const receita_bruta   = n(r.receita_bruta)
+        const receita_liquida = n(r.receita_liquida)
+        const margem_bruta    = n(r.margem_bruta)
+        // Campos nomeados para bater com a interface TopProduto do DashboardPage:
+        // produto → nome do grupo, categoria → segmento
+        return {
+          rank:             i + 1,
+          produto:          r.grupo_descricao ?? String(r.grupo_id),
+          categoria:        r.segmento ?? '',
+          grupo_id:         r.grupo_id,
+          receita:          round2(receita_bruta),
+          cmv:              round2(n(r.cmv)),
+          margem_bruta:     round2(margem_bruta),
+          margem_pct:       pct(margem_bruta, receita_liquida),
+          participacao_pct: pct(receita_bruta, total),
+          qtd:              null, // mv_vendas_diario não tem qtd por grupo — placeholder
+        }
+      }),
+    })
+  })
+
+  // ---------------------------------------------------------------------
+  // GET /api/v1/vendas/drill/subgrupos
+  // Drill-down de grupo → subgrupos. Query em fato_venda JOIN dim_produto.
+  // Query params: data_inicio, data_fim, segmento (obrigatório), grupo_id (obrigatório), location_id?
+  // ---------------------------------------------------------------------
+  app.get('/drill/subgrupos', async (req, reply) => {
+    const tenantId = req.tenantId!
+    let dataInicio: string, dataFim: string, locationIds: string[] | undefined
+    let segmento: string, grupoId: number
+    try {
+      ({ dataInicio, dataFim } = parseDateRange(req.query as Record<string, unknown>))
+      locationIds = parseUuidArray((req.query as any).location_id, 'location_id')
+
+      const seg = (req.query as any).segmento
+      if (typeof seg !== 'string' || !seg.trim()) {
+        return reply.status(400).send({ error: 'Parâmetro "segmento" é obrigatório' })
+      }
+      segmento = seg.trim()
+
+      const gid = parseInt((req.query as any).grupo_id)
+      if (isNaN(gid)) {
+        return reply.status(400).send({ error: 'Parâmetro "grupo_id" deve ser um número inteiro' })
+      }
+      grupoId = gid
+    } catch (err) {
+      if (err instanceof BadQueryError) return reply.status(400).send({ error: err.message })
+      throw err
+    }
+
+    const rows = await db
+      .select({
+        subgrupo_id:        fatoVenda.subgrupoId,
+        subgrupo_descricao: sql<string | null>`MAX(${fatoVenda.subgrupoDescricao})`,
+        receita_bruta:      sum(fatoVenda.vlrTotal).mapWith(Number),
+        cmv: sql<number>`COALESCE(SUM(${fatoVenda.custoUnitario} * ${fatoVenda.qtdVenda}), 0)`.mapWith(Number),
+        desconto:           sum(fatoVenda.descontoTotal).mapWith(Number),
+        qtd_itens:          sql<number>`COUNT(*)`.mapWith(Number),
+      })
+      .from(fatoVenda)
+      .where(and(
+        eq(fatoVenda.tenantId, tenantId),
+        eq(fatoVenda.segmento, segmento),
+        eq(fatoVenda.grupoId, grupoId),
+        gte(fatoVenda.dataVenda, dataInicio),
+        lte(fatoVenda.dataVenda, dataFim),
+        locationIds ? inArray(fatoVenda.locationId, locationIds) : undefined,
+      ))
+      .groupBy(fatoVenda.subgrupoId)
+      .orderBy(desc(sum(fatoVenda.vlrTotal)))
+
+    const totalReceita = rows.reduce((acc, r) => acc + n(r.receita_bruta), 0)
+
+    return reply.send({
+      segmento,
+      grupo_id: grupoId,
+      subgrupos: rows.map(r => {
+        const receita_bruta = n(r.receita_bruta)
+        const cmv           = n(r.cmv)
+        const desconto      = n(r.desconto)
+        const receita_liq   = receita_bruta - desconto
+        const margem_bruta  = receita_liq - cmv
+        return {
+          subgrupo_id:        r.subgrupo_id,
+          subgrupo_descricao: r.subgrupo_descricao ?? `Subgrupo ${r.subgrupo_id}`,
+          receita_bruta:      round2(receita_bruta),
+          receita_liquida:    round2(receita_liq),
+          cmv:                round2(cmv),
+          margem_bruta:       round2(margem_bruta),
+          margem_pct:         pct(margem_bruta, receita_liq),
+          qtd_itens:          n(r.qtd_itens),
+          participacao_pct:   pct(receita_bruta, totalReceita),
+        }
+      }),
+    })
+  })
+
+  // ---------------------------------------------------------------------
+  // GET /api/v1/vendas/drill/produtos
+  // Drill-down de subgrupo → produtos individuais. Query em fato_venda.
+  // Query params: data_inicio, data_fim, subgrupo_id (obrigatório), location_id?, limit? (default 50)
+  // ---------------------------------------------------------------------
+  app.get('/drill/produtos', async (req, reply) => {
+    const tenantId = req.tenantId!
+    let dataInicio: string, dataFim: string, locationIds: string[] | undefined
+    let subgrupoId: number
+    let limit = 50
+    try {
+      ({ dataInicio, dataFim } = parseDateRange(req.query as Record<string, unknown>))
+      locationIds = parseUuidArray((req.query as any).location_id, 'location_id')
+
+      const sid = parseInt((req.query as any).subgrupo_id)
+      if (isNaN(sid)) {
+        return reply.status(400).send({ error: 'Parâmetro "subgrupo_id" deve ser um número inteiro' })
+      }
+      subgrupoId = sid
+
+      const lim = parseInt((req.query as any).limit)
+      if (!isNaN(lim) && lim > 0 && lim <= 200) limit = lim
+    } catch (err) {
+      if (err instanceof BadQueryError) return reply.status(400).send({ error: err.message })
+      throw err
+    }
+
+    const rows = await db
+      .select({
+        source_produto_id:  fatoVenda.sourceProdutoId,
+        descricao_produto:  sql<string>`MAX(${fatoVenda.descricaoProduto})`,
+        segmento:           sql<string | null>`MAX(${fatoVenda.segmento})`,
+        receita_bruta:      sum(fatoVenda.vlrTotal).mapWith(Number),
+        cmv: sql<number>`COALESCE(SUM(${fatoVenda.custoUnitario} * ${fatoVenda.qtdVenda}), 0)`.mapWith(Number),
+        desconto:           sum(fatoVenda.descontoTotal).mapWith(Number),
+        qtd_venda:          sum(fatoVenda.qtdVenda).mapWith(Number),
+        qtd_itens:          sql<number>`COUNT(*)`.mapWith(Number),
+      })
+      .from(fatoVenda)
+      .where(and(
+        eq(fatoVenda.tenantId, tenantId),
+        eq(fatoVenda.subgrupoId, subgrupoId),
+        gte(fatoVenda.dataVenda, dataInicio),
+        lte(fatoVenda.dataVenda, dataFim),
+        locationIds ? inArray(fatoVenda.locationId, locationIds) : undefined,
+      ))
+      .groupBy(fatoVenda.sourceProdutoId)
+      .orderBy(desc(sum(fatoVenda.vlrTotal)))
+      .limit(limit)
+
+    const totalReceita = rows.reduce((acc, r) => acc + n(r.receita_bruta), 0)
+
+    return reply.send({
+      subgrupo_id: subgrupoId,
+      produtos: rows.map(r => {
+        const receita_bruta = n(r.receita_bruta)
+        const cmv           = n(r.cmv)
+        const desconto      = n(r.desconto)
+        const receita_liq   = receita_bruta - desconto
+        const margem_bruta  = receita_liq - cmv
+        return {
+          source_produto_id:  r.source_produto_id,
+          descricao_produto:  r.descricao_produto,
+          segmento:           r.segmento,
+          receita_bruta:      round2(receita_bruta),
+          receita_liquida:    round2(receita_liq),
+          cmv:                round2(cmv),
+          margem_bruta:       round2(margem_bruta),
+          margem_pct:         pct(margem_bruta, receita_liq),
+          qtd_venda:          round2(n(r.qtd_venda)),
+          qtd_itens:          n(r.qtd_itens),
+          participacao_pct:   pct(receita_bruta, totalReceita),
+        }
+      }),
+    })
   })
 }

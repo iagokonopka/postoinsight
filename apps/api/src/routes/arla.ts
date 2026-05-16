@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify'
-import { and, eq, gte, lte, inArray, sql, sum, desc } from 'drizzle-orm'
+import { and, eq, gte, lte, inArray, sql, sum } from 'drizzle-orm'
 import { db } from '../db.js'
-import { mvCombustivelDiario as mv, fatoVenda } from '@postoinsight/db'
+import { mvCombustivelDiario as mv } from '@postoinsight/db'
 import { requireTenantSession } from '../lib/auth.js'
 import {
   BadQueryError, parseDateRange, parseUuidArray, parseIntArray, parseEnum, n, pct, round2,
@@ -9,15 +9,18 @@ import {
 
 const GRANULARIDADES = ['dia', 'semana', 'mes'] as const
 
+// Filtro fixo: apenas Arla 32 (categoria_codigo = 'ARL')
+const ARL = 'ARL'
+
 /**
- * Endpoints do Dashboard de Combustível — `analytics.mv_combustivel_diario`.
- * Specs: docs/specs/dashboard-combustivel.md
+ * Endpoints do Dashboard de Arla — `analytics.mv_combustivel_diario` filtrado por categoria_codigo = 'ARL'.
+ * Espelha a estrutura de combustivelRoutes, mas restrito ao segmento Arla 32.
  */
-export const combustivelRoutes: FastifyPluginAsync = async (app) => {
+export const arlaRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('preHandler', requireTenantSession)
 
   // ---------------------------------------------------------------------
-  // GET /api/v1/combustivel/resumo
+  // GET /api/v1/arla/resumo
   // ---------------------------------------------------------------------
   app.get('/resumo', async (req, reply) => {
     const tenantId = req.tenantId!
@@ -43,7 +46,7 @@ export const combustivelRoutes: FastifyPluginAsync = async (app) => {
       .from(mv)
       .where(and(
         eq(mv.tenantId, tenantId),
-        eq(mv.categoriaCodigo, 'CB'),   // apenas combustíveis — exclui Arla (ARL)
+        eq(mv.categoriaCodigo, ARL),
         gte(mv.dataVenda, dataInicio),
         lte(mv.dataVenda, dataFim),
         locationIds ? inArray(mv.locationId, locationIds) : undefined,
@@ -99,7 +102,7 @@ export const combustivelRoutes: FastifyPluginAsync = async (app) => {
   })
 
   // ---------------------------------------------------------------------
-  // GET /api/v1/combustivel/evolucao
+  // GET /api/v1/arla/evolucao
   // ---------------------------------------------------------------------
   app.get('/evolucao', async (req, reply) => {
     const tenantId = req.tenantId!
@@ -134,7 +137,7 @@ export const combustivelRoutes: FastifyPluginAsync = async (app) => {
       .from(mv)
       .where(and(
         eq(mv.tenantId, tenantId),
-        eq(mv.categoriaCodigo, 'CB'),   // apenas combustíveis — exclui Arla (ARL)
+        eq(mv.categoriaCodigo, ARL),
         gte(mv.dataVenda, dataInicio),
         lte(mv.dataVenda, dataFim),
         locationIds ? inArray(mv.locationId, locationIds) : undefined,
@@ -155,8 +158,8 @@ export const combustivelRoutes: FastifyPluginAsync = async (app) => {
   })
 
   // ---------------------------------------------------------------------
-  // GET /api/v1/combustivel/produtos
-  // Reaproveita o mesmo agrupamento do /resumo, mas retorna apenas o array.
+  // GET /api/v1/arla/produtos
+  // Retorna os grupos (produtos) de Arla com KPIs agregados.
   // ---------------------------------------------------------------------
   app.get('/produtos', async (req, reply) => {
     const tenantId = req.tenantId!
@@ -182,7 +185,7 @@ export const combustivelRoutes: FastifyPluginAsync = async (app) => {
       .from(mv)
       .where(and(
         eq(mv.tenantId, tenantId),
-        eq(mv.categoriaCodigo, 'CB'),   // apenas combustíveis — exclui Arla (ARL)
+        eq(mv.categoriaCodigo, ARL),
         gte(mv.dataVenda, dataInicio),
         lte(mv.dataVenda, dataFim),
         locationIds ? inArray(mv.locationId, locationIds) : undefined,
@@ -217,69 +220,5 @@ export const combustivelRoutes: FastifyPluginAsync = async (app) => {
       .sort((a, b) => b.volume_litros - a.volume_litros)
 
     return reply.send({ produtos })
-  })
-
-  // ---------------------------------------------------------------------
-  // GET /api/v1/combustivel/subgrupos
-  // Breakdown por subgrupo (Diesel / Gasolina etc.) via fato_venda.
-  // Mais granular que /produtos, que agrupa por grupo da MV (1 linha só).
-  // Query params: data_inicio, data_fim, location_id?
-  // ---------------------------------------------------------------------
-  app.get('/subgrupos', async (req, reply) => {
-    const tenantId = req.tenantId!
-    let dataInicio: string, dataFim: string, locationIds: string[] | undefined
-    try {
-      ({ dataInicio, dataFim } = parseDateRange(req.query as Record<string, unknown>))
-      locationIds = parseUuidArray((req.query as any).location_id, 'location_id')
-    } catch (err) {
-      if (err instanceof BadQueryError) return reply.status(400).send({ error: err.message })
-      throw err
-    }
-
-    const rows = await db
-      .select({
-        subgrupo_id:        fatoVenda.subgrupoId,
-        subgrupo_descricao: sql<string | null>`MAX(${fatoVenda.subgrupoDescricao})`,
-        receita_bruta:      sum(fatoVenda.vlrTotal).mapWith(Number),
-        cmv: sql<number>`COALESCE(SUM(${fatoVenda.custoUnitario} * ${fatoVenda.qtdVenda}), 0)`.mapWith(Number),
-        desconto:           sum(fatoVenda.descontoTotal).mapWith(Number),
-        qtd_venda:          sum(fatoVenda.qtdVenda).mapWith(Number),
-      })
-      .from(fatoVenda)
-      .where(and(
-        eq(fatoVenda.tenantId, tenantId),
-        eq(fatoVenda.categoriaCodigo, 'CB'),
-        gte(fatoVenda.dataVenda, dataInicio),
-        lte(fatoVenda.dataVenda, dataFim),
-        locationIds ? inArray(fatoVenda.locationId, locationIds) : undefined,
-      ))
-      .groupBy(fatoVenda.subgrupoId)
-      .orderBy(desc(sum(fatoVenda.vlrTotal)))
-
-    const totalReceita = rows.reduce((acc, r) => acc + n(r.receita_bruta), 0)
-    const totalVolume  = rows.reduce((acc, r) => acc + n(r.qtd_venda), 0)
-
-    return reply.send({
-      subgrupos: rows.map(r => {
-        const receita_bruta = n(r.receita_bruta)
-        const cmv           = n(r.cmv)
-        const desconto      = n(r.desconto)
-        const receita_liq   = receita_bruta - desconto
-        const margem_bruta  = receita_liq - cmv
-        const qtd_venda     = n(r.qtd_venda)
-        return {
-          subgrupo_id:        r.subgrupo_id,
-          subgrupo_descricao: r.subgrupo_descricao ?? `Subgrupo ${r.subgrupo_id}`,
-          receita_bruta:      round2(receita_bruta),
-          receita_liquida:    round2(receita_liq),
-          cmv:                round2(cmv),
-          margem_bruta:       round2(margem_bruta),
-          margem_pct:         pct(margem_bruta, receita_liq),
-          volume_litros:      round2(qtd_venda),
-          participacao_receita_pct: pct(receita_bruta, totalReceita),
-          participacao_volume_pct:  pct(qtd_venda, totalVolume),
-        }
-      }),
-    })
   })
 }

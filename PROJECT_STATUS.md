@@ -6,8 +6,8 @@
 ---
 
 ## Última atualização
-**Data:** 2026-05-04
-**Sessão:** Frontend mostrando dados reais — endpoints `/api/v1/locations` e `/api/v1/sync/status` implementados e deployados, migration corrigida e aplicada, dim_tempo populado, backfill JAM Rota 1 concluído (152k rows), 4 MVs refreshadas
+**Data:** 2026-05-08
+**Sessão:** Upgrade visual do frontend baseado no Claude Design — novos gráficos, sparklines nos KpiCards, top-10 grupos na Conveniência, endpoint `/api/v1/conveniencia/top-grupos` adicionado ao backend
 
 ---
 
@@ -83,21 +83,42 @@ Completa. Fontes de dados mapeadas, problema de negócio definido, stack decidid
   - Tema claro/escuro persistido em `localStorage` com CSS `data-theme`
   - **7 páginas implementadas** (visual fiel ao design de referência):
     - `/login` — LoginPage com validação, erro 401, redirect pós-login
-    - `/dashboard` — DashboardPage: KPIs, evolução temporal (ECharts), breakdown por segmento
-    - `/combustivel` — CombustivelPage: KPIs, evolução por produto, tabela detalhada com mini-bars
-    - `/conveniencia` — ConvenienciaPage: KPIs, evolução, breakdown com drill-down em categorias
-    - `/dre` — DrePage: seletor de mês, tabela DRE com comparativo vs mês anterior
+    - `/dashboard` — DashboardPage: KPIs com sparklines, dual-axis evolução, donut mix, top-10 produtos, heatmap placeholder
+    - `/combustivel` — CombustivelPage: KPIs com sparklines, toggle linha/área-empilhada, tabela com sparkline por produto + seta de tendência, ranking de bicos (placeholder)
+    - `/conveniencia` — ConvenienciaPage: KPIs com sparklines, evolução, donut mix, breakdown com drill-down em categorias, top-10 grupos, scatter qtd × margem
+    - `/dre` — DrePage: KPIs, waterfall Receita→Margem, evolução de margem por segmento, comparativo mês-a-mês
     - `/sync` — SyncPage: cards por location com status, botão de sync, histórico de jobs
     - `/settings` — SettingsPage: perfil do usuário, info do tenant, integrações
+  - **Componentes de gráfico ECharts implementados:**
+    - `Sparkline` — mini gráfico de linha com área, inline nos KpiCards e tabelas
+    - `DonutChart` — rosca com centro customizável e legenda
+    - `DualAxisChart` — barras de receita + linha de margem % (eixo Y duplo)
+    - `HeatmapChart` — mapa de calor (semana × dia da semana)
+    - `ScatterChart` — dispersão com quadrantes e bolhas proporcionais à receita
+    - `WaterfallChart` — cascata para DRE (positivo/negativo com cores)
+    - `StackedAreaChart` — área empilhada para evolução temporal multi-série
+    - `LineAreaChart` — linha com área para séries individuais
+    - `BarChart` — barras horizontais
+  - `KpiCard` upgradado: suporta `sparklineData`, `sparklineColor`, `deltaMes`, `deltaAno`
   - `AppLayout` protege rotas: redireciona `/login` se não autenticado
   - Proxy Vite configurado para `/api` e `/auth` → `http://localhost:3000`
-  - **Estado atual: telas renderizando, sem dados** — endpoints retornam 401 sem sessão ativa ou dados ainda não populados
+  - **Estado atual: frontend carregando dados reais da API** — backfill JAM Rota 1 concluído
+
+**Endpoints Backend — estado atual:**
+- ✅ `GET /api/v1/vendas/resumo`, `/evolucao`, `/segmentos`, `/grupos`
+- ✅ `GET /api/v1/combustivel/resumo`, `/evolucao`, `/produtos`
+- ✅ `GET /api/v1/conveniencia/resumo`, `/evolucao`, `/categorias`, `/grupos`, `/top-grupos` ← novo
+- ✅ `GET /api/v1/dre/mensal`, `/meses-disponiveis`
+- ✅ `GET /api/v1/vendas/top-produtos` ← rota chamada pelo frontend, ainda não implementada no backend
+- ✅ `GET /api/v1/locations`, `GET /api/v1/sync/status`
 
 **Pendente:**
 - ⚠️ Backfill das 3 locations restantes: JAM Torres (002), JAM Imbé (005), JAM Tramandaí (006)
 - ❌ Deploy `apps/web` no Railway (build estático via `pnpm build`)
+- ❌ `GET /api/v1/vendas/top-produtos` — endpoint chamado pelo DashboardPage mas não existe no backend
+- ❌ Heatmap padrão semanal — requer endpoint de dados por dia da semana
+- ❌ Stacked-area por hora — requer dado horário do ERP (não disponível)
 - ❌ Adaptar pipeline para gravar `raw_ingest_id` em `fato_venda` e rejeições em `sync_rejections`
-- ❌ Preencher `triggered_by`, `period_from`, `period_to` em `sync_jobs` no pipeline
 - ❌ Gaps de auth: `POST /auth/change-password`, rejeição de manager sem location
 - ❌ Onboarding runbook — `docs/ops/onboarding.md`
 
@@ -155,24 +176,25 @@ Completa. Fontes de dados mapeadas, problema de negócio definido, stack decidid
 
 Todas as specs MVP estão escritas. Sync WebPosto pausado (não implementar agora).
 
-### 🔴 Agora — Finalizar backfill + deploy web
+### 🔴 Agora — Deploy web + backfill restante
 
-1. **Backfill 3 locations restantes** — Torres (002), Imbé (005), Tramandaí (006)
+1. **Deploy `apps/web`** no Railway — `pnpm build` → servir `dist/` como static site
+2. **Implementar `GET /api/v1/vendas/top-produtos`** — endpoint chamado pelo DashboardPage (top-10 ranking), retorna produtos ordenados por receita
+3. **Backfill 3 locations restantes** — Torres (002), Imbé (005), Tramandaí (006)
    ```bash
    curl -X POST https://api-production-3a9c.up.railway.app/admin/backfill \
      -H "Content-Type: application/json" \
      -d '{"locationId":"5a416e5f-1378-49fa-83c3-3d72a6865ad2","from":"2026-01-01","to":"2026-05-03","batch_size":200,"delay_ms":200}'
    # repetir para b13a9212 e 5d2a80f7
    ```
-2. **Refresh MVs** após cada backfill concluído
-3. **Deploy `apps/web`** no Railway — `pnpm build` → servir `dist/` como static site
+4. **Refresh MVs** após cada backfill concluído
 
 ### 🟡 Pendente secundário
 
-- Migration para `password_changed_at` (users) e `next_run_at` (sync_state)
 - Adaptar pipeline para `raw_ingest_id` e `sync_rejections`
 - Onboarding runbook — `docs/ops/onboarding.md`
 - Sync automático agendado (hoje só backfill manual)
+- `POST /auth/change-password` + rejeição de manager sem location
 
 ---
 

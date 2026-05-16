@@ -1,6 +1,6 @@
 # PostoInsight — Product Requirements Document
 
-> Versão 1.1 · 2026-04-22
+> Versão 1.2 · 2026-05-08
 
 ---
 
@@ -75,32 +75,46 @@ Quando um gestor abre o PostoInsight pela manhã, ele precisa responder em menos
 - Indicação visual do status da última sincronização e horário
 - Suporte inicial a dois ERPs: Status (via agente RDP) e WebPosto (via API REST)
 
-### 4.2 Visão Geral de Vendas
+### 4.2 Visão Geral de Vendas (`/dashboard`)
 
-- Painel principal com totais de vendas do período selecionado
-- Filtros por: período (dia, semana, mês, intervalo customizado) e posto da rede
-- Breakdown de vendas por segmento: Combustível / Lubrificantes / Conveniência
-- Análise por grupo e subgrupo de produtos
-- Evolução temporal das vendas (gráfico de linha ou barra por período)
+- KPI cards com mini-gráfico de tendência (sparkline) e variações δ mês/ano
+- Gráfico de evolução dual-axis: barras de receita bruta + linha de margem % (eixo direito)
+- Donut de mix por segmento (combustível / lubrificantes / serviços / conveniência)
+- Ranking Top-10 produtos por receita, ordenável por receita ou margem %
+- Breakdown por segmento expansível com participação %, CMV e margem
+- Filtros por período (dia / semana / mês / mês anterior) e por location
 
-### 4.3 Análise de Vendas por Categoria
+### 4.3 Análise de Combustível (`/combustivel`)
 
-- Combustível: volume vendido por bico, receita, margem
-- Lubrificantes: receita, custo, margem bruta
-- Conveniência: receita por grupo, produtos mais vendidos, margem
-- Comparativo entre postos da rede
+- KPI cards com sparklines de volume e receita
+- Gráfico de evolução por produto com toggle linha / área empilhada e toggle volume / receita
+- Toggle para exibir ou ocultar Arla 32
+- Tabela de breakdown por produto: volume, participação %, receita, CMV, margem %, preço e custo por litro
+- Sparkline de 14 dias + seta de tendência (↑↓→) por produto na tabela
+- Placeholder para Ranking de Bicos (feature futura)
 
-### 4.4 DRE Mensal
+### 4.4 Análise de Conveniência e Serviços (`/conveniencia`)
 
-- Demonstrativo de Resultado por mês, por posto ou consolidado da rede
-- Estrutura: Receita Bruta → Descontos → Receita Líquida → CMV → Margem Bruta
-- Filtros por mês, período e posto
-- Possibilidade de navegar entre meses e comparar períodos
+- KPI cards com sparklines de receita e margem
+- Gráfico de evolução (área empilhada): receita bruta × margem bruta
+- Donut de mix por segmento da loja
+- Ranking Top-10 grupos da loja por receita (todos os segmentos não-combustível)
+- Breakdown por segmento com drill-down em categorias
+- Scatter plot: qtd vendida × margem % por categoria, bolha proporcional à receita, linhas de mediana formando quadrantes
 
-### 4.5 Exportação
+### 4.5 DRE Mensal (`/dre`)
+
+- Seletor de mês com navegação entre meses disponíveis
+- KPI cards do mês selecionado
+- Waterfall chart: Receita Bruta → (−) Descontos → (−) CMV → Margem Bruta
+- Gráfico de evolução de margem % nos últimos 6 meses, por segmento (linhas coloridas)
+- Tabela comparativa mês-a-mês com deltas inline e pílula YTD
+
+### 4.6 Exportação
 
 - Exportação de análises em formato Excel ou PDF
 - Escopo inicial: tabelas de vendas e DRE
+- Feature futura — não implementada no MVP
 
 ---
 

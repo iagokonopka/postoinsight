@@ -19,10 +19,16 @@ const SEGMENTO_MAP: Record<string, Segmento> = {
   EMP: 'conveniencia',
   LAN: 'conveniencia',
   PAT: 'conveniencia',
-  op:  'conveniencia',
+  // op — categoria 'CAFES' cadastrada com código minúsculo no ERP da JAM (bug de cadastro)
+  // normalizado para maiúsculo via deriveSegmento (case-insensitive)
+  OP:  'conveniencia',
+  // PRL — 'Produção Imbé': produção própria da lanchonete do posto (enroladinho, sanduíche)
+  // economicamente é conveniência — separado no ERP apenas para controle interno da JAM Imbé
+  PRL: 'conveniencia',
   LIV: 'conveniencia',
 }
 
 export function deriveSegmento(categoriaCodigo: string): Segmento | null {
-  return SEGMENTO_MAP[categoriaCodigo] ?? null
+  // Normaliza para maiúsculo para evitar bugs de cadastro no ERP (ex: 'op' vs 'OP')
+  return SEGMENTO_MAP[categoriaCodigo.toUpperCase()] ?? null
 }

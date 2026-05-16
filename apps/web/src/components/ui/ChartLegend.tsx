@@ -1,6 +1,7 @@
 interface LegendItem {
   color: string;
   label: string;
+  dashed?: boolean;
 }
 
 interface ChartLegendProps {
@@ -28,7 +29,8 @@ export function ChartLegend({ items }: ChartLegendProps) {
             width: 12,
             height: 2,
             borderRadius: 1,
-            background: item.color,
+            background: item.dashed ? 'transparent' : item.color,
+            borderTop: item.dashed ? `2px dashed ${item.color}` : 'none',
             display: 'inline-block',
           }} />
           {item.label}

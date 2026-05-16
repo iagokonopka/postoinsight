@@ -2,6 +2,10 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { SectionCard } from '@/components/ui/SectionCard';
+import { KpiCard } from '@/components/ui/KpiCard';
+import { ChartLegend } from '@/components/ui/ChartLegend';
+import { WaterfallChart, WaterfallStep } from '@/components/charts/WaterfallChart';
+import { LineAreaChart } from '@/components/charts/LineAreaChart';
 import { fBRL, fPct, fNum } from '@/lib/formatters';
 
 const SEGS = ['combustivel', 'lubrificantes', 'servicos', 'conveniencia'] as const;
@@ -21,7 +25,13 @@ const SEG_COLORS: Record<Seg, string> = {
   conveniencia:  'var(--color-segment-conveniencia)',
 };
 
-// Shapes da API
+const SEG_COLORS_HEX: Record<Seg, string> = {
+  combustivel:   '#0073BB',
+  lubrificantes: '#6B40C4',
+  servicos:      '#1D8102',
+  conveniencia:  '#EC7211',
+};
+
 interface MesDisponivel {
   meses: string[];
 }
@@ -48,7 +58,6 @@ function varPct(a: number, b: number | null | undefined): number | null {
 }
 
 export function DrePage() {
-  // Busca os meses disponíveis
   const { data: mesesData } = useQuery<MesDisponivel>({
     queryKey: ['dre-meses'],
     queryFn: () => api.get('/api/v1/dre/meses-disponiveis'),
@@ -57,25 +66,52 @@ export function DrePage() {
   const meses = mesesData?.meses ?? [];
   const [mesSel, setMesSel] = useState<string | null>(null);
 
-  // Usa o primeiro mês disponível por padrão
   const mesAtual = mesSel ?? meses[0] ?? null;
   const mesIdx = meses.indexOf(mesAtual ?? '');
   const mesAnterior = mesIdx >= 0 ? meses[mesIdx + 1] ?? null : null;
 
-  // Busca dados do DRE para os 2 meses
-  const queryMeses = [mesAtual, mesAnterior].filter(Boolean).join(',');
+  // Busca os últimos 6 meses para o gráfico de tendência
+  const queryMeses = meses.slice(0, 6).join(',');
   const { data: dreData } = useQuery<DreData>({
     queryKey: ['dre-mensal', queryMeses],
     queryFn: () => api.get(`/api/v1/dre/mensal?meses=${queryMeses}`),
     enabled: !!mesAtual,
   });
 
-  // Acessa os dados de cada segmento/mês a partir da estrutura de linhas
   function getVal(seg: Seg | '_total', mes: string, metric: MetricKey): number {
     if (!dreData) return 0;
     const linha = dreData.linhas.find((l) => l.segmento === seg);
     return linha?.periodos?.[mes]?.[metric] ?? 0;
   }
+
+  // KPI totais do mês atual (soma de todos segmentos)
+  const kpiVal = (metric: MetricKey) => mesAtual ? SEGS.reduce((a, s) => a + getVal(s, mesAtual, metric), 0) : null;
+  const kpiValAnterior = (metric: MetricKey) => mesAnterior ? SEGS.reduce((a, s) => a + getVal(s, mesAnterior, metric), 0) : null;
+
+  // Cascata waterfall
+  const waterfallSteps: WaterfallStep[] = mesAtual ? [
+    { label: 'Receita Bruta',   value: kpiVal('receita_bruta') ?? 0,   type: 'start' },
+    { label: 'Descontos',       value: kpiVal('descontos') ?? 0,       type: 'sub' },
+    { label: 'Rec. Líquida',    value: kpiVal('receita_liquida') ?? 0, type: 'total' },
+    { label: 'CMV',             value: kpiVal('cmv') ?? 0,             type: 'sub' },
+    { label: 'Margem Bruta',    value: kpiVal('margem_bruta') ?? 0,    type: 'total' },
+  ] : [];
+
+  // Dados de tendência de margem % por segmento (últimos 6 meses)
+  const trendMeses = meses.slice(0, 6).reverse(); // do mais antigo ao mais recente
+  const trendData = trendMeses.map((m) => {
+    const row: Record<string, unknown> = { label: mesLabel(m) };
+    for (const seg of SEGS) {
+      const rl = getVal(seg, m, 'receita_liquida');
+      const mb = getVal(seg, m, 'margem_bruta');
+      row[seg] = rl > 0 ? (mb / rl) * 100 : 0;
+    }
+    // consolidado
+    const totalRl = SEGS.reduce((a, s) => a + getVal(s, m, 'receita_liquida'), 0);
+    const totalMb = SEGS.reduce((a, s) => a + getVal(s, m, 'margem_bruta'), 0);
+    row['_total'] = totalRl > 0 ? (totalMb / totalRl) * 100 : 0;
+    return row;
+  });
 
   const cols = '180px repeat(4, 1fr) 1fr 72px';
 
@@ -110,7 +146,6 @@ export function DrePage() {
                   fontFamily: 'inherit', fontSize: 12,
                   fontWeight: sel ? 600 : 400,
                   cursor: 'pointer',
-                  transition: 'all 0.12s',
                 }}
               >
                 {mesLabel(m)}
@@ -123,13 +158,93 @@ export function DrePage() {
         </div>
         {mesAnterior && (
           <span style={{ fontSize: 11, color: 'var(--color-text-subtle)', marginLeft: 4 }}>
-            Comparativo com {mesLabel(mesAnterior)}
+            comparando com {mesLabel(mesAnterior)}
           </span>
         )}
       </div>
 
-      {/* Tabela DRE */}
-      <SectionCard>
+      {/* KPIs */}
+      {mesAtual && (
+        <div className="kpi-row">
+          {([
+            ['Receita Bruta',   'receita_bruta'],
+            ['Rec. Líquida',    'receita_liquida'],
+            ['CMV',             'cmv'],
+            ['Margem Bruta',    'margem_bruta'],
+          ] as [string, MetricKey][]).map(([label, key]) => (
+            <KpiCard
+              key={key}
+              label={label}
+              value={kpiVal(key)}
+              delta={mesAnterior ? varPct(kpiVal(key) ?? 0, kpiValAnterior(key)) : undefined}
+            />
+          ))}
+          <KpiCard
+            label="Margem %"
+            value={(() => {
+              const rl = kpiVal('receita_liquida') ?? 0;
+              const mb = kpiVal('margem_bruta') ?? 0;
+              return rl > 0 ? (mb / rl) * 100 : 0;
+            })()}
+            format="pct"
+            delta={mesAnterior ? (() => {
+              const rl = kpiVal('receita_liquida') ?? 0;
+              const mb = kpiVal('margem_bruta') ?? 0;
+              const rlA = kpiValAnterior('receita_liquida') ?? 0;
+              const mbA = kpiValAnterior('margem_bruta') ?? 0;
+              const pct = rl > 0 ? (mb / rl) * 100 : 0;
+              const pctA = rlA > 0 ? (mbA / rlA) * 100 : 0;
+              return pct - pctA;
+            })() : undefined}
+          />
+        </div>
+      )}
+
+      {/* Waterfall */}
+      {mesAtual && waterfallSteps.length > 0 && (
+        <SectionCard
+          title="Cascata: Receita Bruta → Margem Bruta"
+          subtitle={`${mesLabel(mesAtual)} · valores consolidados (todos os segmentos)`}
+        >
+          <div style={{ padding: 'var(--space-4) var(--space-5)' }}>
+            <WaterfallChart steps={waterfallSteps} height={300} />
+          </div>
+        </SectionCard>
+      )}
+
+      {/* Evolução de margem % por segmento (últimos 6 meses) */}
+      {trendData.length > 1 && (
+        <SectionCard
+          title="Evolução da Margem % por Segmento"
+          subtitle="Últimos 6 meses · linha grossa = consolidado"
+        >
+          <div style={{ padding: 'var(--space-4) var(--space-5) var(--space-2)' }}>
+            <LineAreaChart
+              data={trendData}
+              xKey="label"
+              series={[
+                { name: 'Consolidado',    dataKey: '_total',         color: 'var(--color-text-muted)', areaOpacity: 0 },
+                { name: 'Combustível',    dataKey: 'combustivel',    color: SEG_COLORS_HEX.combustivel, areaOpacity: 0 },
+                { name: 'Lubrificantes',  dataKey: 'lubrificantes',  color: SEG_COLORS_HEX.lubrificantes, areaOpacity: 0 },
+                { name: 'Serviços',       dataKey: 'servicos',       color: SEG_COLORS_HEX.servicos, areaOpacity: 0 },
+                { name: 'Conveniência',   dataKey: 'conveniencia',   color: SEG_COLORS_HEX.conveniencia, areaOpacity: 0 },
+              ]}
+              height={220}
+              formatY={(v) => fPct(v, 0)}
+            />
+            <ChartLegend items={[
+              { color: 'var(--color-text-muted)', label: 'Consolidado' },
+              { color: SEG_COLORS_HEX.combustivel, label: 'Combustível' },
+              { color: SEG_COLORS_HEX.lubrificantes, label: 'Lubrificantes' },
+              { color: SEG_COLORS_HEX.servicos, label: 'Serviços' },
+              { color: SEG_COLORS_HEX.conveniencia, label: 'Conveniência' },
+            ]} />
+          </div>
+        </SectionCard>
+      )}
+
+      {/* Tabela DRE clássica */}
+      <SectionCard title={mesAtual ? `DRE por Segmento — ${mesLabel(mesAtual)}` : 'DRE por Segmento'}>
         {/* Header */}
         <div style={{
           display: 'grid', gridTemplateColumns: cols,
@@ -164,14 +279,13 @@ export function DrePage() {
           </div>
         </div>
 
-        {/* Linhas da DRE */}
         {mesAtual && (
           <>
-            <DreRow label="RECEITA BRUTA"     metric="receita_bruta"  bold mes={mesAtual} mesAnterior={mesAnterior} getVal={getVal} cols={cols} />
-            <DreRow label="(-) Descontos"      metric="descontos"      mes={mesAtual} mesAnterior={mesAnterior} getVal={getVal} cols={cols} isCost />
+            <DreRow label="RECEITA BRUTA"      metric="receita_bruta"  bold mes={mesAtual} mesAnterior={mesAnterior} getVal={getVal} cols={cols} />
+            <DreRow label="(-) Descontos"       metric="descontos"      mes={mesAtual} mesAnterior={mesAnterior} getVal={getVal} cols={cols} isCost />
             <DreRow label="(=) RECEITA LÍQUIDA" metric="receita_liquida" bold mes={mesAtual} mesAnterior={mesAnterior} getVal={getVal} cols={cols} />
-            <DreRow label="(-) CMV"            metric="cmv"            bold isCost mes={mesAtual} mesAnterior={mesAnterior} getVal={getVal} cols={cols} />
-            <DreRow label="(=) MARGEM BRUTA"   metric="margem_bruta"   bold highlight mes={mesAtual} mesAnterior={mesAnterior} getVal={getVal} cols={cols} />
+            <DreRow label="(-) CMV"             metric="cmv"            bold isCost mes={mesAtual} mesAnterior={mesAnterior} getVal={getVal} cols={cols} />
+            <DreRow label="(=) MARGEM BRUTA"    metric="margem_bruta"   bold highlight mes={mesAtual} mesAnterior={mesAnterior} getVal={getVal} cols={cols} />
             <MargPctRow mes={mesAtual} mesAnterior={mesAnterior} getVal={getVal} cols={cols} />
           </>
         )}
@@ -212,7 +326,7 @@ interface DreRowProps {
 }
 
 function DreRow({ label, metric, bold, highlight, isCost, mes, mesAnterior, getVal, cols }: DreRowProps) {
-  const totalAtual   = SEGS.reduce((a, s) => a + getVal(s, mes, metric), 0);
+  const totalAtual    = SEGS.reduce((a, s) => a + getVal(s, mes, metric), 0);
   const totalAnterior = mesAnterior ? SEGS.reduce((a, s) => a + getVal(s, mesAnterior, metric), 0) : null;
   const delta = varPct(totalAtual, totalAnterior);
 
@@ -308,7 +422,6 @@ function MargPctRow({ mes, mesAnterior, getVal, cols }: Pick<DreRowProps, 'mes' 
 
 function VarCell({ value, isCost }: { value: number; isCost?: boolean }) {
   const positive = value >= 0;
-  // Para linhas de custo, variação positiva é ruim (custo subiu)
   const good = isCost ? !positive : positive;
   return (
     <span style={{

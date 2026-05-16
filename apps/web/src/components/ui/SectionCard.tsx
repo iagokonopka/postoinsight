@@ -2,12 +2,13 @@ import { type CSSProperties, type ReactNode } from 'react';
 
 interface SectionCardProps {
   title?: string;
+  subtitle?: string;
   action?: ReactNode;
   children: ReactNode;
   style?: CSSProperties;
 }
 
-export function SectionCard({ title, action, children, style }: SectionCardProps) {
+export function SectionCard({ title, subtitle, action, children, style }: SectionCardProps) {
   return (
     <div style={{
       background: 'var(--color-bg)',
@@ -25,15 +26,22 @@ export function SectionCard({ title, action, children, style }: SectionCardProps
           justifyContent: 'space-between',
           background: 'var(--color-bg-subtle)',
         }}>
-          <span style={{
-            fontSize: 10,
-            fontWeight: 600,
-            color: 'var(--color-text)',
-            textTransform: 'uppercase',
-            letterSpacing: '.08em',
-          }}>
-            {title}
-          </span>
+          <div>
+            <span style={{
+              fontSize: 10,
+              fontWeight: 600,
+              color: 'var(--color-text)',
+              textTransform: 'uppercase',
+              letterSpacing: '.08em',
+            }}>
+              {title}
+            </span>
+            {subtitle && (
+              <div style={{ fontSize: 10, color: 'var(--color-text-muted)', marginTop: 1, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>
+                {subtitle}
+              </div>
+            )}
+          </div>
           {action ?? null}
         </div>
       )}

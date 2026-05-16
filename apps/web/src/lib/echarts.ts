@@ -6,6 +6,10 @@ import * as echarts from 'echarts/core';
 import {
   LineChart,
   BarChart,
+  PieChart,
+  ScatterChart,
+  HeatmapChart,
+  CustomChart,
 } from 'echarts/charts';
 import {
   GridComponent,
@@ -13,6 +17,7 @@ import {
   LegendComponent,
   TitleComponent,
   DataZoomComponent,
+  VisualMapComponent,
 } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
 
@@ -20,11 +25,16 @@ import { CanvasRenderer } from 'echarts/renderers';
 echarts.use([
   LineChart,
   BarChart,
+  PieChart,
+  ScatterChart,
+  HeatmapChart,
+  CustomChart,
   GridComponent,
   TooltipComponent,
   LegendComponent,
   TitleComponent,
   DataZoomComponent,
+  VisualMapComponent,
   CanvasRenderer,
 ]);
 
