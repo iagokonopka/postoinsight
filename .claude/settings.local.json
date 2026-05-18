@@ -2,7 +2,10 @@
   "permissions": {
     "allow": [
       "Bash(wsl -d Ubuntu -- python3 /tmp/write_app_ts.py)",
-      "Bash(wsl -d Ubuntu -e bash -c \"grep -n 'segmento\\\\|lubrif\\\\|conveni' /home/dev/postoinsight/apps/api/src/routes/conveniencia.ts | head -30\")"
+      "Bash(wsl -d Ubuntu -e bash -c \"grep -n 'segmento\\\\|lubrif\\\\|conveni' /home/dev/postoinsight/apps/api/src/routes/conveniencia.ts | head -30\")",
+      "Bash(node_modules/.bin/tsc --noEmit)",
+      "Bash(ls //wsl.localhost/Ubuntu/home/dev/postoinsight/apps/web/src/lib/ 2>/dev/null || echo \"vazio\")",
+      "Read(///wsl.localhost/Ubuntu/home/dev/postoinsight/apps/web/src/**)"
     ],
     "additionalDirectories": [
       "\\home\\dev\\postoinsight\\docs\\agents",

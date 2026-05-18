@@ -109,8 +109,10 @@ ativo:    bg-sidebar-activeBg, text-sidebar-foreground
 
 | Seção | Item | Rota |
 |-------|------|------|
-| Análise | Visão Geral | `/` |
+| Análise | Visão Geral | `/dashboard` |
 | Análise | Combustível | `/combustivel` |
+| Análise | Arla 32 | `/arla` |
+| Análise | Lubrificantes | `/lubrificantes` |
 | Análise | Conveniência | `/conveniencia` |
 | Financeiro | DRE Mensal | `/dre` |
 | Sistema | Sincronização | `/sync` |

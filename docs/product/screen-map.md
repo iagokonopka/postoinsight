@@ -12,8 +12,10 @@
 /login                          ← Pública
 /                               ← Redireciona para /dashboard
 /dashboard                      ← Dashboard de Vendas (tela principal)
-/combustivel                    ← Dashboard de Combustível
-/conveniencia                   ← Dashboard de Conveniência
+/combustivel                    ← Dashboard de Combustível (apenas combustíveis, sem Arla)
+/arla                           ← Dashboard de Arla 32 (novo)
+/lubrificantes                  ← Dashboard de Lubrificantes (novo)
+/conveniencia                   ← Dashboard de Conveniência (apenas loja, sem lubrificantes)
 /dre                            ← DRE Mensal
 /sync                           ← Status de Sincronização
 /settings                       ← Configurações
@@ -38,9 +40,11 @@ Todas as telas autenticadas compartilham o mesmo shell:
 │  [Logo / APP_NAME]              │  [Breadcrumb]          │
 │                                 │  [Título da página]    │
 │  ── Análise ──                  │                        │
-│  > Dashboard de Vendas          │  [Conteúdo da rota]    │
-│    Dashboard Combustível        │                        │
-│    Dashboard Conveniência       │                        │
+│  > Visão Geral                  │  [Conteúdo da rota]    │
+│    Combustível                  │                        │
+│    Arla 32                      │                        │
+│    Lubrificantes                │                        │
+│    Conveniência                 │                        │
 │    DRE Mensal                   │                        │
 │                                 │                        │
 │  ── Operação ──                 │                        │
@@ -109,20 +113,63 @@ Todas as telas autenticadas compartilham o mesmo shell:
 
 **Spec detalhada:** `docs/specs/dashboard-combustivel.md`
 
+**Escopo:** apenas combustíveis — Gasolina Comum, Gasolina Aditivada, Diesel S10, Diesel S500, Etanol. Arla 32 tem página própria em `/arla`.
+
 **Elementos:**
 - Seletor de período + location (herdado)
 - KPI cards: Volume Total (litros), Receita Bruta, CMV, Margem Bruta, Margem %
-- Breakdown por produto (Gasolina Comum, Gasolina Aditivada, Diesel S10, Diesel S500, Etanol, Arla)
+- Breakdown por produto (Gasolina Comum, Gasolina Aditivada, Diesel S10, Diesel S500, Etanol)
 - Evolução de volume por produto (gráfico de área empilhada ou linhas)
 - Tabela por bico/bomba (se disponível no ERP)
 
 ---
 
-### 3.4 Dashboard de Conveniência — `/conveniencia`
+### 3.4 Dashboard de Arla 32 — `/arla`
+
+**Objetivo:** análise dedicada das vendas de Arla 32.
+
+**Spec detalhada:** `docs/specs/dashboard-arla.md` ← a ser criada
+
+**Endpoints:**
+- `GET /api/v1/arla/resumo`
+- `GET /api/v1/arla/evolucao`
+- `GET /api/v1/arla/produtos`
+
+**Elementos:**
+- Seletor de período + location (herdado)
+- KPI cards: Volume Total (litros), Receita Bruta, CMV, Margem Bruta, Margem %
+- Gráfico de evolução de volume e receita no período
+- Tabela de breakdown por produto Arla (caso haja mais de um SKU)
+
+---
+
+### 3.5 Dashboard de Lubrificantes — `/lubrificantes`
+
+**Objetivo:** análise dedicada das vendas de lubrificantes, filtros, fluidos e acessórios.
+
+**Spec detalhada:** `docs/specs/dashboard-lubrificantes.md` ← a ser criada
+
+**Endpoints:**
+- `GET /api/v1/lubrificantes/resumo`
+- `GET /api/v1/lubrificantes/evolucao`
+- `GET /api/v1/lubrificantes/grupos`
+
+**Elementos:**
+- Seletor de período + location (herdado)
+- KPI cards: Receita Bruta, CMV, Margem Bruta, Margem %, Qtd Itens
+- Gráfico de evolução de receita e margem no período
+- Breakdown por grupo (Lubrificantes, Filtros, Fluidos e Aditivos, Acessórios)
+- Ranking de top produtos por receita
+
+---
+
+### 3.6 Dashboard de Conveniência — `/conveniencia`
 
 **Objetivo:** análise da loja de conveniência — top produtos, grupos, giro.
 
 **Spec detalhada:** `docs/specs/dashboard-conveniencia.md`
+
+**Escopo:** apenas loja de conveniência — Alimentos, Bebidas, Tabacaria, Embalagens, Lanchonete, etc. Lubrificantes têm página própria em `/lubrificantes`.
 
 **Elementos:**
 - Seletor de período + location (herdado)
@@ -133,7 +180,7 @@ Todas as telas autenticadas compartilham o mesmo shell:
 
 ---
 
-### 3.5 DRE Mensal — `/dre`
+### 3.7 DRE Mensal — `/dre`
 
 **Objetivo:** demonstração de resultado estruturada por mês.
 
@@ -157,7 +204,7 @@ Todas as telas autenticadas compartilham o mesmo shell:
 
 ---
 
-### 3.6 Sincronização — `/sync`
+### 3.8 Sincronização — `/sync`
 
 **Objetivo:** monitorar a saúde da conexão e o histórico de syncs.
 
@@ -186,7 +233,7 @@ Todas as telas autenticadas compartilham o mesmo shell:
 
 ---
 
-### 3.7 Configurações — `/settings`
+### 3.9 Configurações — `/settings`
 
 **Objetivo:** gerenciar perfil, usuários, unidades e integrações do tenant.
 
@@ -194,7 +241,7 @@ Redireciona para `/settings/profile` por padrão.
 
 ---
 
-#### 3.7.1 Perfil — `/settings/profile`
+#### 3.9.1 Perfil — `/settings/profile`
 
 **Acesso:** todos os roles
 
@@ -207,7 +254,7 @@ Redireciona para `/settings/profile` por padrão.
 
 ---
 
-#### 3.7.2 Unidades — `/settings/locations`
+#### 3.9.2 Unidades — `/settings/locations`
 
 **Acesso:** `owner` apenas
 
@@ -218,7 +265,7 @@ Redireciona para `/settings/profile` por padrão.
 
 ---
 
-#### 3.7.3 Usuários — `/settings/users`
+#### 3.9.3 Usuários — `/settings/users`
 
 **Acesso:** `owner` apenas
 
@@ -229,7 +276,7 @@ Redireciona para `/settings/profile` por padrão.
 
 ---
 
-#### 3.7.4 Integrações — `/settings/integrations`
+#### 3.9.4 Integrações — `/settings/integrations`
 
 **Acesso:** `owner` apenas
 
@@ -261,6 +308,8 @@ Toda tela deve tratar os seguintes estados:
 |------|-------|---------|--------|
 | Dashboard de Vendas | ✅ (todas locations) | ✅ (só sua location) | ✅ (configurável) |
 | Dashboard Combustível | ✅ | ✅ | ✅ |
+| Dashboard Arla 32 | ✅ | ✅ | ✅ |
+| Dashboard Lubrificantes | ✅ | ✅ | ✅ |
 | Dashboard Conveniência | ✅ | ✅ | ✅ |
 | DRE Mensal | ✅ | ❌ | ❌ |
 | Sincronização | ✅ (leitura + ação) | ✅ (leitura) | ❌ |
@@ -278,6 +327,8 @@ Toda tela deve tratar os seguintes estados:
 /login
 /dashboard
 /combustivel
+/arla
+/lubrificantes
 /conveniencia
 /dre
 /sync
@@ -292,4 +343,4 @@ Todas as rotas exceto `/login` são protegidas por um componente `PrivateRoute` 
 
 ---
 
-*Última atualização: 2026-05-03*
+*Última atualização: 2026-05-18*

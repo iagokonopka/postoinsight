@@ -134,7 +134,16 @@ Completa. Fontes de dados mapeadas, problema de negócio definido, stack decidid
    - Estrutura de pastas conforme `docs/design/`
    - Design tokens de `docs/design/tokens.md`
    - Componentes de `docs/design/components.md`
-2. **Implementar páginas** na ordem: `/login` → `/dashboard` → `/combustivel` → `/conveniencia` → `/dre` → `/sync` → `/settings`
+2. **Implementar páginas** na ordem:
+   - [ ] `/login`
+   - [ ] `/dashboard`
+   - [ ] `/combustivel`  ← apenas combustíveis, sem Arla
+   - [ ] `/arla`         ← novo
+   - [ ] `/lubrificantes` ← novo
+   - [ ] `/conveniencia` ← apenas loja, sem lubrificantes
+   - [ ] `/dre`
+   - [ ] `/sync`
+   - [ ] `/settings`
 3. **Deploy `apps/web`** no Railway (build estático `dist/`)
 
 ### 🟡 Pendente secundário
