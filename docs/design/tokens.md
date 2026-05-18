@@ -1,290 +1,232 @@
 # PostoInsight — Design Tokens
 
-> Fonte de verdade para todos os valores de design.  
-> Todo token tem um nome semântico, um valor light e um valor dark.  
-> Nunca use valores hardcoded no código — sempre referencie pelo token.  
-> Última atualização: 2026-05-18
+> Fonte de verdade extraída diretamente do `<style>` de `docs/design/PostoInsight/PostoInsight.html`.
+> Valores exatos — sem aproximações. Use sempre `hsl(var(--nome))` — nunca valores hardcoded.
 
 ---
 
-## Como os tokens funcionam
+## CSS Variables — `:root` (light)
 
-Os tokens são variáveis CSS definidas em `apps/web/src/styles/globals.css` e registradas como extensão de tema em `tailwind.config.ts`. Toda classe Tailwind derivada deles (`bg-card`, `text-foreground`, `border-border`) usa automaticamente o valor correto para o tema ativo (light/dark).
+| Variável | Valor HSL | Uso |
+|----------|-----------|-----|
+| `--background` | `210 40% 98%` | Fundo da área de conteúdo (`body`, `.content`) |
+| `--foreground` | `222 47% 11%` | Texto principal padrão |
+| `--card` | `0 0% 100%` | Fundo de cards, topbar, modais |
+| `--card-foreground` | `222 47% 11%` | Texto dentro de cards |
+| `--popover` | `0 0% 100%` | Fundo de popovers/dropdowns |
+| `--popover-foreground` | `222 47% 11%` | Texto de popovers |
+| `--sidebar` | `217 33% 17%` | Fundo da sidebar |
+| `--sidebar-foreground` | `210 40% 96%` | Texto e ícones na sidebar |
+| `--sidebar-muted` | `215 25% 27%` | Cor do hover e separadores na sidebar |
+| `--sidebar-active` | `204 100% 47%` | Barra indicadora do item ativo (`#0073BB` equivalente em HSL) |
+| `--sidebar-active-bg` | `229 60% 8%` | Fundo do item ativo na sidebar |
+| `--primary` | `204 100% 37%` | Cor de ação principal (botões, links, anel de foco) |
+| `--primary-foreground` | `0 0% 100%` | Texto sobre fundo primário |
+| `--primary-subtle` | `204 100% 95%` | Fundo suave para badges/chips primários |
+| `--secondary` | `210 40% 96%` | Fundo de elementos secundários |
+| `--secondary-foreground` | `215 25% 27%` | Texto sobre fundo secundário |
+| `--muted` | `210 40% 96%` | Fundo muted (segmented control, tfoot, empty state) |
+| `--muted-foreground` | `215 16% 47%` | Texto secundário/auxiliar |
+| `--accent` | `210 40% 96%` | Fundo de acento (alias de muted no tema light) |
+| `--accent-foreground` | `222 47% 11%` | Texto sobre fundo de acento |
+| `--border` | `214 32% 91%` | Bordas de cards, tabelas, separadores |
+| `--input` | `214 32% 91%` | Borda de campos de input e select |
+| `--ring` | `204 100% 37%` | Anel de foco (mesmo que `--primary`) |
+| `--success` | `142 71% 45%` | Cor positiva (delta verde, badge-success) |
+| `--warning` | `38 92% 50%` | Cor de alerta (badge-warning, sync-dot.warn) |
+| `--danger` | `0 84% 60%` | Cor negativa (delta vermelho, badge-danger) |
+| `--success-subtle` | `138 76% 97%` | Fundo suave de badges de sucesso / DRE result row |
+| `--warning-subtle` | `48 100% 96%` | Fundo suave de badges de aviso |
+| `--danger-subtle` | `0 86% 97%` | Fundo suave de badges de perigo |
+| `--radius` | `0.5rem` | Raio padrão de cards e elementos grandes |
+| `--radius-sm` | `0.3rem` | Raio pequeno (não há CSS class dedicada — usado inline) |
 
-```css
-/* globals.css — padrão de uso */
-:root { --primary: 204 100% 37%; }
-html.dark { --primary: 204 100% 55%; }
+### Sombras (valores literais)
 
-/* No componente */
-className="bg-primary text-primary-foreground"
-/* Ou diretamente em CSS */
-background: hsl(var(--primary));
-```
-
----
-
-## 1. Paleta de Cores — Tokens Semânticos
-
-### Base
-
-| Token CSS | Tailwind class | Light | Dark | Uso |
-|-----------|---------------|-------|------|-----|
-| `--background` | `bg-background` | `hsl(210 40% 98%)` `#F8FAFC` | `hsl(222 47% 5%)` `#060914` | Fundo da content area |
-| `--foreground` | `text-foreground` | `hsl(222 47% 11%)` `#0F172A` | `hsl(210 40% 98%)` `#F8FAFC` | Texto principal |
-| `--card` | `bg-card` | `hsl(0 0% 100%)` `#FFFFFF` | `hsl(222 40% 8%)` `#0D1321` | Fundo de cards |
-| `--card-foreground` | `text-card-foreground` | `hsl(222 47% 11%)` | `hsl(210 40% 98%)` | Texto dentro de cards |
-| `--border` | `border-border` | `hsl(214 32% 91%)` `#E2E8F0` | `hsl(215 25% 16%)` `#1E2D3D` | Bordas e divisórias |
-| `--input` | `border-input` | `hsl(214 32% 91%)` | `hsl(215 25% 16%)` | Borda de inputs |
-| `--ring` | `ring-ring` | `hsl(204 100% 37%)` | `hsl(204 100% 55%)` | Focus ring |
-
-### Muted (secundário)
-
-| Token CSS | Tailwind class | Light | Dark | Uso |
-|-----------|---------------|-------|------|-----|
-| `--muted` | `bg-muted` | `hsl(210 40% 96%)` `#F1F5F9` | `hsl(215 25% 14%)` `#182030` | Fundo de linhas alternadas, estados hover suaves |
-| `--muted-foreground` | `text-muted-foreground` | `hsl(215 16% 47%)` `#64748B` | `hsl(215 16% 60%)` `#8FA3B8` | Texto secundário, labels, metadados |
-
-### Primary (cor de marca)
-
-| Token CSS | Tailwind class | Light | Dark | Uso |
-|-----------|---------------|-------|------|-----|
-| `--primary` | `bg-primary` | `hsl(204 100% 37%)` `#0073BB` | `hsl(204 100% 55%)` `#1AA3FF` | Ações primárias, links, destaque |
-| `--primary-foreground` | `text-primary-foreground` | `hsl(0 0% 100%)` | `hsl(0 0% 100%)` | Texto sobre fundo primary |
-| `--primary-subtle` | `bg-primary-subtle` | `hsl(204 100% 95%)` `#E6F4FF` | `hsl(204 50% 18%)` `#0D2D47` | Fundo de badges, highlights sutis |
-
-### Sidebar
-
-| Token CSS | Uso |
-|-----------|-----|
-| `--sidebar` `hsl(217 33% 17%)` `#1E2D44` (dark: `hsl(222 50% 6%)` `#090E1A`) | Fundo da sidebar |
-| `--sidebar-foreground` `hsl(210 40% 96%)` | Texto na sidebar |
-| `--sidebar-muted` `hsl(215 25% 27%)` `#2D3F57` | Separadores e hover na sidebar |
-| `--sidebar-active` `hsl(204 100% 55%)` `#1AA3FF` | Cor do item ativo (ícone + indicador) |
-| `--sidebar-active-bg` `hsl(222 50% 10%)` `#0D1829` | Fundo do item ativo |
-
-### Semânticos (status)
-
-| Token CSS | Tailwind class | Valor | Dark | Uso |
-|-----------|---------------|-------|------|-----|
-| `--success` | `text-success` | `hsl(142 71% 45%)` `#22C55E` | mesmo | Delta positivo, status ok, margem boa |
-| `--warning` | `text-warning` | `hsl(38 92% 50%)` `#F59E0B` | mesmo | Alertas, sync atrasado |
-| `--danger` | `text-danger` | `hsl(0 84% 60%)` `#EF4444` | mesmo | Delta negativo, erro, alerta crítico |
-| `--success-subtle` | `bg-success-subtle` | `hsl(138 76% 97%)` `#F0FDF4` | `hsl(142 30% 14%)` | Fundo de badge success |
-| `--warning-subtle` | `bg-warning-subtle` | `hsl(48 100% 96%)` `#FFFBEB` | `hsl(38 60% 14%)` | Fundo de badge warning |
-| `--danger-subtle` | `bg-danger-subtle` | `hsl(0 86% 97%)` `#FEF2F2` | `hsl(0 50% 16%)` | Fundo de badge danger |
-
-### Popover / Overlay
-
-| Token CSS | Light | Dark |
-|-----------|-------|------|
-| `--popover` | `hsl(0 0% 100%)` | `hsl(222 40% 8%)` |
-| `--popover-foreground` | `hsl(222 47% 11%)` | `hsl(210 40% 98%)` |
+| Variável | Valor |
+|----------|-------|
+| `--shadow-sm` | `0 1px 2px 0 hsl(222 47% 11% / 0.05)` |
+| `--shadow` | `0 1px 3px 0 hsl(222 47% 11% / 0.08), 0 1px 2px -1px hsl(222 47% 11% / 0.08)` |
+| `--shadow-md` | `0 4px 6px -1px hsl(222 47% 11% / 0.08), 0 2px 4px -2px hsl(222 47% 11% / 0.08)` |
 
 ---
 
-## 2. Paleta de Segmentos (gráficos)
+## CSS Variables — `html.dark`
 
-Cores fixas — não mudam entre light/dark. São as cores de identidade de cada segmento do negócio.
+| Variável | Valor HSL | Diferença principal |
+|----------|-----------|---------------------|
+| `--background` | `222 47% 5%` | Fundo muito escuro |
+| `--foreground` | `210 40% 98%` | Texto claro |
+| `--card` | `222 40% 8%` | Cards levemente mais claros que background |
+| `--card-foreground` | `210 40% 98%` | — |
+| `--popover` | `222 40% 8%` | — |
+| `--popover-foreground` | `210 40% 98%` | — |
+| `--sidebar` | `222 50% 4%` | Sidebar mais escura que background |
+| `--sidebar-foreground` | `210 40% 96%` | (igual ao light) |
+| `--sidebar-muted` | `217 33% 15%` | — |
+| `--sidebar-active` | `243 75% 65%` | Azul-violeta no dark (indigo) |
+| `--sidebar-active-bg` | `222 50% 9%` | — |
+| `--primary` | `243 75% 65%` | Muda para indigo no dark |
+| `--primary-foreground` | `0 0% 100%` | — |
+| `--primary-subtle` | `243 50% 18%` | — |
+| `--secondary` | `215 25% 18%` | — |
+| `--secondary-foreground` | `210 40% 96%` | — |
+| `--muted` | `215 25% 14%` | — |
+| `--muted-foreground` | `215 16% 60%` | — |
+| `--accent` | `215 25% 18%` | — |
+| `--accent-foreground` | `210 40% 98%` | — |
+| `--border` | `215 25% 16%` | Bordas quase invisíveis |
+| `--input` | `215 25% 16%` | — |
+| `--ring` | `243 75% 65%` | (igual ao primary dark) |
+| `--success-subtle` | `142 30% 14%` | Escuro no dark |
+| `--warning-subtle` | `38 60% 14%` | — |
+| `--danger-subtle` | `0 50% 16%` | — |
 
-| Token JS | Valor | Segmento |
-|----------|-------|---------|
-| `CHART_COLORS.combustivel` | `#0073BB` | Combustível (= primary) |
-| `CHART_COLORS.conveniencia` | `#EC7211` | Conveniência |
-| `CHART_COLORS.lubrificantes` | `#6B40C4` | Lubrificantes |
-| `CHART_COLORS.servicos` | `#0891B2` | Serviços |
-| `CHART_COLORS.arla` | `#1D8102` | Arla 32 |
-| `CHART_COLORS.positive` | `#16A34A` | Valores positivos em waterfall |
-| `CHART_COLORS.negative` | `#DC2626` | Valores negativos em waterfall |
-
-Série adicional (quando precisar de mais cores): `#DB2777`, `#D97706`, `#7C3AED`
+> **Nota:** `--success`, `--warning`, `--danger` não são redefinidos em dark — permanecem do `:root`.
+> A exceção é `.dre-row-result td` em dark: `color: hsl(140 70% 60%)` (verde mais brilhante).
 
 ---
 
-## 3. Tipografia
+## CSS Variables — `html.compact`
 
-### Fontes
+| Variável | Valor padrão | Valor compact | Uso |
+|----------|-------------|---------------|-----|
+| `--pad-card` | `20px` | `14px` | Padding lateral de cards |
+| `--pad-card-y` | `18px` | `12px` | Padding vertical de cards |
+| `--gap-grid` | `16px` | `12px` | Gap entre cards do grid |
+| `--gap-row` | `20px` | `14px` | Gap entre seções da página |
+| `--kpi-pad` | `18px` | `12px` | Padding interno dos KPI cards |
+| `--kpi-val-size` | `24px` | `20px` | Tamanho do valor principal do KPI |
+| `--row-pad-y` | `11px` | `8px` | Padding vertical das linhas de tabela |
 
-| Variável | Fonte | Fallback | Uso |
-|----------|-------|---------|-----|
-| `--font-sans` | `'Geist'` | `system-ui, -apple-system, sans-serif` | Todo texto da interface |
-| `--font-mono` | `'Geist Mono'` | `'JetBrains Mono', monospace` | Valores numéricos em tabelas, código |
+> O default do protótipo usa `html.compact` (`window.TWEAK_DEFAULTS.density = "compact"`).
 
-### Feature settings
+---
+
+## Tipografia
+
+### Font family
+
 ```css
 body {
-  font-feature-settings: 'cv11', 'ss01'; /* Geist: forma alternativa do 1 e letras */
+  font-family: 'Geist', system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  font-feature-settings: 'cv11', 'ss01';
   -webkit-font-smoothing: antialiased;
 }
-.mono { font-feature-settings: 'tnum' 1; } /* tabular-nums para alinhamento */
 ```
 
-### Escala
+### Classes utilitárias
 
-| Classe Tailwind | Tamanho | Line-height | Uso |
-|----------------|---------|------------|-----|
-| `text-[11px]` | 11px | 1.4 | Labels de KPI, th de tabela, badge, section label sidebar |
-| `text-sm` | 13px | 1.5 | Corpo principal, td de tabela, itens sidebar, descrições |
-| `text-base` | 14px | 1.5 | Base do `<body>` |
-| `text-[15px]` | 15px | 1.4 | Títulos de drawer, subtítulos de seção |
-| `text-lg` | 16px | 1.3 | Card title principal, DRE month label |
-| `text-xl` | 20px | 1.2 | Page title |
-| `text-2xl` | 24px | 1.1 | KPI value (modo default) |
-| `text-[20px]` | 20px | 1.1 | KPI value (modo compact) |
+| Classe | Definição | Uso |
+|--------|-----------|-----|
+| `.mono` | `font-family: 'Geist Mono', 'JetBrains Mono', monospace; font-feature-settings: 'tnum' 1` | Valores, timestamps, IDs técnicos |
+| `.tnum` | `font-variant-numeric: tabular-nums` | Números em colunas de tabela |
 
-### Pesos
+### Tamanhos por classe
 
-| Classe | Peso | Uso |
-|--------|------|-----|
-| `font-normal` | 400 | Corpo, texto secundário |
-| `font-medium` | 500 | Itens de navegação, labels de filtro, texto de badge |
-| `font-semibold` | 600 | Page title, card title, KPI value, cabeçalho de tabela quando bold |
-| `font-bold` | 700 | DRE result row, totais, valores de destaque máximo |
-
----
-
-## 4. Espaçamento e Densidade
-
-O sistema usa escala compacta. Os valores abaixo são os tokens de densidade — registrados como CSS variables e usados como classes Tailwind customizadas.
-
-| Token CSS | Valor compacto | Uso |
-|-----------|---------------|-----|
-| `--pad-card` | `16px` | Padding horizontal interno de cards |
-| `--pad-card-y` | `14px` | Padding vertical interno de cards |
-| `--gap-grid` | `14px` | Gap entre cards na grid |
-| `--gap-row` | `16px` | Gap entre seções verticais da página |
-| `--kpi-pad` | `14px` | Padding interno do KPI card |
-| `--kpi-val-size` | `22px` | Tamanho da fonte do valor principal do KPI |
-| `--row-pad-y` | `10px` | Padding vertical de linhas de tabela |
-
-### Espaçamentos fixos de estrutura
-
-| Elemento | Valor |
-|----------|-------|
-| Sidebar width | `240px` (`w-60`) |
-| Topbar height | `52px` |
-| Page header height | `56px` (com filtros) ou `48px` (sem filtros) |
-| Content padding | `p-5` (20px) |
-| Chart height padrão | `260px` |
-| Chart height tall | `300px` |
-| Chart height short (sparkline section) | `180px` |
-| KPI card min-height | `108px` |
-| Drawer width | `420px` |
-| Button height | `32px` (`h-8`) |
-| Input height | `32px` (`h-8`) |
-| Avatar size | `28px` |
+| Classe | `font-size` | `font-weight` | Uso |
+|--------|-------------|---------------|-----|
+| `.page-title` | `22px` | `600` | Título da página (`letter-spacing: -0.3px`) |
+| `.page-sub` | `13px` | `400` | Subtítulo da página |
+| `.card-title` | `13px` | `600` | Título de section card (`letter-spacing: -0.1px`) |
+| `.card-desc` | `12px` | `400` | Descrição de section card |
+| `.kpi-value` | `var(--kpi-val-size)` → `24px` / `20px` compact | `600` | Valor principal do KPI (`letter-spacing: -0.6px`) |
+| `.kpi-label` | `11px` | `500` | Label do KPI |
+| `.kpi-delta-label` | `11px` | `400` | Texto auxiliar do delta |
+| `.sb-section-label` | `10px` | `600` | Label de seção na sidebar (`letter-spacing: 1.4px`, uppercase) |
+| `.sb-item` | `13px` | `500` | Item de nav na sidebar |
+| `.sb-logo-name` | `14px` | `600` | Nome do produto na sidebar (`letter-spacing: -0.2px`) |
+| `.sb-logo-tag` | `10px` | `500` | Tagline na sidebar (`letter-spacing: 0.4px`) |
+| `.sb-tenant-name` | `12px` | `500` | Nome do tenant no footer da sidebar |
+| `.tbl th` | `11px` | `500` | Cabeçalho de tabela (`letter-spacing: 0.1px`) |
+| `.tbl td` | `13px` | `400` | Célula de tabela |
+| `.badge` | `11px` | `500` | Badge/chip |
+| `.dre-month-label` | `16px` | `600` | Label do mês no toolbar da DRE |
+| `.sync-time` | `11px` | `400` | Timestamp na lista de sync (Geist Mono) |
+| `.btn` | `13px` | `500` | Botões padrão |
+| `.btn-sm` | `12px` | `500` | Botões pequenos |
 
 ---
 
-## 5. Bordas e Raios
+## Estrutura de Layout
 
-| Token CSS | Valor | Uso |
-|-----------|-------|-----|
-| `--radius` | `0.5rem` / `8px` | Cards, dropdowns, modais, tooltips |
-| `--radius-sm` | `0.3rem` / `5px` | Badges, chips, pequenos elementos |
-| `--radius-full` | `999px` | Avatares, dots de status, pills |
-
-```css
-/* Tailwind config */
-borderRadius: {
-  DEFAULT: 'var(--radius)',
-  sm: 'var(--radius-sm)',
-  full: '999px',
-}
-```
+| Elemento | Valor | CSS |
+|----------|-------|-----|
+| Sidebar width | `240px` | `.sidebar { width: 240px; flex-shrink: 0 }` |
+| Topbar padding | `12px 24px` | `.topbar { padding: 12px 24px }` |
+| Content padding | `24px` | `.content { padding: 24px }` |
+| ChartBox height padrão | `280px` | `.chart-box { height: 280px }` |
+| ChartBox height tall | `320px` | `.chart-box.tall { height: 320px }` |
+| ChartBox height short | `200px` | `.chart-box.short { height: 200px }` |
+| KPI min-height | `116px` | `.kpi { min-height: 116px }` |
+| Drawer width | `420px` (máx `92vw`) | `.drawer { width: 420px; max-width: 92vw }` |
 
 ---
 
-## 6. Sombras
+## Bordas e Raios
 
-| Token CSS | Valor | Uso |
-|-----------|-------|-----|
-| `--shadow-sm` | `0 1px 2px 0 hsl(222 47% 11% / 0.05)` | Cards padrão |
-| `--shadow` | `0 1px 3px 0 hsl(222 47% 11% / 0.08), 0 1px 2px -1px hsl(222 47% 11% / 0.08)` | Cards com elevação |
-| `--shadow-md` | `0 4px 6px -1px hsl(222 47% 11% / 0.08), 0 2px 4px -2px hsl(222 47% 11% / 0.08)` | Drawer, dropdown, modal |
-
-No dark mode, as sombras são substituídas por bordas mais visíveis — sombra preta sobre preto não funciona.
-
----
-
-## 7. Animações e Transições
-
-| Elemento | Propriedade | Duração | Easing |
-|----------|------------|---------|--------|
-| Sidebar item hover | `background`, `color` | `120ms` | `ease` |
-| Botão hover | `background`, `opacity` | `120ms` | `ease` |
-| Drawer abertura | `transform` | `220ms` | `cubic-bezier(0.16, 1, 0.3, 1)` |
-| Drawer overlay | `opacity` | `180ms` | `ease` |
-| Toast entrada | `transform`, `opacity` | `200ms` | `ease` |
-| Página (troca de seção) | `opacity` | `150ms` | `ease` |
-| Gráfico (Recharts) | entrada padrão | `400ms` | Recharts default |
-| Sync dot pulse | `transform`, `opacity` | `2000ms` | `ease` (loop) |
+| Elemento | Valor | Origem |
+|----------|-------|--------|
+| `--radius` | `0.5rem` (8px) | `:root` — usado em `.card`, `.kpi`, `.empty-state` |
+| `--radius-sm` | `0.3rem` (≈5px) | `:root` — referenciado mas raramente aplicado via variável |
+| `.btn`, `.input`, `select.input` | `6px` literal | CSS das classes |
+| `.sb-item` | `6px` literal | CSS da classe |
+| `.segment` | `7px` | Container do segmented control |
+| `.segment button` | `5px` | Botões dentro do segmented |
+| `.heat-cell` | `5px` | Célula do heatmap |
+| `.avatar` | `999px` | Circular |
+| `.sync-dot` | `999px` | Dot de status circular |
+| `.sb-tenant-icon` | `6px` | Ícone do tenant na sidebar |
+| `.cfg-loc-avatar` | `6px` | Avatar de location nas configurações |
 
 ---
 
-## 8. Scrollbar
+## Cores de Segmento (Gráficos)
 
-```css
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 999px; }
-::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground) / 0.5); }
-```
+Extraídas de `charts.js` — constante `C`:
 
----
+| Segmento | Cor hex | Uso |
+|----------|---------|-----|
+| `combustivel` | `#0073BB` | Combustível (Gasolinas, Diesel, Etanol) |
+| `conveniencia` | `#EC7211` | Conveniência / loja |
+| `lubrificantes` | `#6B40C4` | Lubrificantes |
+| `arla` | `#1D8102` | Arla 32 |
+| `servicos` | `#0891b2` | Serviços |
+| `positive` (pos) | `#16a34a` | Delta positivo, trend up |
+| `negative` (neg) | `#dc2626` | Delta negativo, trend down |
+| `neutral` | `#64748b` | Sem variação (flat) |
 
-## 9. tailwind.config.ts — Estrutura de implementação
-
-```ts
-import type { Config } from 'tailwindcss';
-
-const config: Config = {
-  darkMode: ['class'],
-  content: ['./src/**/*.{ts,tsx}'],
-  theme: {
-    extend: {
-      colors: {
-        background:  'hsl(var(--background))',
-        foreground:  'hsl(var(--foreground))',
-        card:        { DEFAULT: 'hsl(var(--card))', foreground: 'hsl(var(--card-foreground))' },
-        border:      'hsl(var(--border))',
-        input:       'hsl(var(--input))',
-        ring:        'hsl(var(--ring))',
-        muted:       { DEFAULT: 'hsl(var(--muted))', foreground: 'hsl(var(--muted-foreground))' },
-        primary:     { DEFAULT: 'hsl(var(--primary))', foreground: 'hsl(var(--primary-foreground))', subtle: 'hsl(var(--primary-subtle))' },
-        success:     { DEFAULT: 'hsl(var(--success))', subtle: 'hsl(var(--success-subtle))' },
-        warning:     { DEFAULT: 'hsl(var(--warning))', subtle: 'hsl(var(--warning-subtle))' },
-        danger:      { DEFAULT: 'hsl(var(--danger))',  subtle: 'hsl(var(--danger-subtle))' },
-        sidebar:     {
-          DEFAULT:   'hsl(var(--sidebar))',
-          foreground:'hsl(var(--sidebar-foreground))',
-          muted:     'hsl(var(--sidebar-muted))',
-          active:    'hsl(var(--sidebar-active))',
-          activeBg:  'hsl(var(--sidebar-active-bg))',
-        },
-      },
-      fontFamily: {
-        sans: ['Geist', 'system-ui', '-apple-system', 'sans-serif'],
-        mono: ['Geist Mono', 'JetBrains Mono', 'monospace'],
-      },
-      borderRadius: {
-        DEFAULT: 'var(--radius)',
-        sm:      'var(--radius-sm)',
-        full:    '999px',
-      },
-      boxShadow: {
-        sm: 'var(--shadow-sm)',
-        DEFAULT: 'var(--shadow)',
-        md: 'var(--shadow-md)',
-      },
-    },
-  },
-};
-
-export default config;
-```
+Séries múltiplas (s1–s6): `#0073BB`, `#EC7211`, `#6B40C4`, `#1D8102`, `#0891b2`, `#db2777`
 
 ---
 
-*Este documento é a fonte de verdade. Qualquer token não listado aqui não existe no design system.*  
-*Para adicionar um token: documentar aqui primeiro, depois implementar em `globals.css` e `tailwind.config.ts`.*
+## Animações
+
+| Elemento | Transição/Animation | Valor |
+|----------|---------------------|-------|
+| `.sb-item` hover/active | `transition: background 0.12s, color 0.12s` | — |
+| `.btn` hover | `transition: background 0.12s, border-color 0.12s, opacity 0.12s` | — |
+| `.drawer` open/close | `transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1)` | translateX(100%) → translateX(0) |
+| `.drawer-overlay` open/close | `transition: opacity 0.18s` | 0 → 1 |
+| `.toast` show/hide | `transition: transform 0.2s, opacity 0.2s` | translateY(20px) + opacity:0 → translateY(0) + opacity:1 |
+| `.heat-cell` hover | `transition: transform 0.1s` | scale(1.05) |
+| `.sync-dot.ok::after` | `animation: pulse 2s infinite` | @keyframes: scale(1)→scale(1.8), opacity 1→0 |
+| `.spinner` | `animation: spin 0.7s linear infinite` | @keyframes: rotate(360deg) |
+
+---
+
+## Temas de Gráfico (charts.js)
+
+| Propriedade | Light | Dark |
+|-------------|-------|------|
+| Grid color | `#e2e8f0` | `#1f2937` |
+| Tick color | `#64748b` | `#94a3b8` |
+| Tooltip background | `#ffffff` | `#0f172a` |
+| Tooltip border | `#e2e8f0` | `#1f2937` |
+| Title color | `#0f172a` | `#f1f5f9` |
+| Body color | `#64748b` | `#94a3b8` |
+| Surface | `#ffffff` | `#0f172a` |
+
+> Sparklines SVG: fill com opacity `0.22`, stroke-width `1.4`. KPI spark: `.kpi-spark { opacity: 0.28 }` (dark: `0.38`).

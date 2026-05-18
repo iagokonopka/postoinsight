@@ -1,803 +1,552 @@
 # PostoInsight — Catálogo de Componentes
 
-> Cada componente tem: descrição, quando usar, anatomia, variantes e regras.  
-> O agente frontend não cria componentes visuais que não estejam catalogados aqui.  
-> Para adicionar um componente: documentar neste arquivo primeiro, depois implementar.  
-> Última atualização: 2026-05-18
+> Extraído diretamente do CSS em `docs/design/PostoInsight/PostoInsight.html`.
+> Valores exatos. Para cada componente: estrutura HTML, classes, variantes e regras.
 
 ---
 
-## Índice
+## Layout
 
-1. [Layout — AppShell](#1-appshell)
-2. [Layout — Sidebar](#2-sidebar)
-3. [Layout — Topbar](#3-topbar)
-4. [Layout — PageHeader](#4-pageheader)
-5. [Dados — KpiCard](#5-kpicard)
-6. [Dados — DataTable](#6-datatable)
-7. [Dados — SectionCard](#7-sectioncard)
-8. [Dados — FilterBar](#8-filterbar)
-9. [Feedback — StatusBadge](#9-statusbadge)
-10. [Feedback — DeltaTag](#10-deltatag)
-11. [Feedback — Toast](#11-toast)
-12. [Feedback — EmptyState](#12-emptystate)
-13. [Feedback — SkeletonLoader](#13-skeletonloader)
-14. [Overlay — Drawer](#14-drawer)
-15. [Gráficos — LineAreaChart](#15-lineareachart)
-16. [Gráficos — ComposedChart](#16-composedchart)
-17. [Gráficos — DonutChart](#17-donutchart)
-18. [Gráficos — BarChart](#18-barchart)
-19. [Gráficos — Sparkline](#19-sparkline)
-20. [Gráficos — Heatmap](#20-heatmap)
-21. [Primitivos Shadcn em uso](#21-primitivos-shadcn-em-uso)
+### AppShell
 
----
-
-## 1. AppShell
-
-**O que é:** Estrutura raiz da aplicação autenticada. Envolve toda a UI pós-login.
-
-**Anatomia:**
-```
-<div class="flex h-screen overflow-hidden bg-background">
-  <Sidebar />
-  <main class="flex flex-col flex-1 min-w-0 overflow-hidden">
-    <Topbar />
-    <div class="flex-1 overflow-y-auto">
-      {children}  ← conteúdo da página atual
+```html
+<body>          <!-- display: flex; overflow: hidden -->
+  <aside class="sidebar">…</aside>
+  <div class="main">
+    <header class="topbar">…</header>
+    <div class="content">
+      <section class="page active">…</section>
     </div>
-  </main>
-</div>
+  </div>
+</body>
 ```
 
-**Regras:**
-- `h-screen overflow-hidden` no root — nunca deixa a página inteira scrollar; apenas o conteúdo interno scrolla
-- Sidebar tem `flex-shrink-0` — nunca comprime
-- O conteúdo (`children`) é responsável pelo próprio `padding` interno
+**Regras críticas:**
+- `body`: `display: flex; overflow: hidden` — layout horizontal, sem scroll no body
+- `.main`: `flex: 1; display: flex; flex-direction: column; min-width: 0; overflow: hidden`
+- `.content`: `flex: 1; overflow-y: auto; padding: 24px` — único elemento com scroll
 
 ---
 
-## 2. Sidebar
+### Sidebar
 
-**O que é:** Navegação lateral fixa. Sempre visível em desktop.
-
-**Anatomia:**
-```
-<aside class="w-60 flex flex-col flex-shrink-0 bg-sidebar border-r border-sidebar-muted/50">
-
-  {/* Logo / brand */}
-  <div class="flex items-center gap-2.5 px-5 py-[18px] border-b border-sidebar-muted/60">
-    <LogoMark />  ← ícone de 28×28, gradient azul→roxo
+```html
+<aside class="sidebar">
+  <div class="sb-logo">
+    <svg>…</svg>
     <div>
-      <span class="text-sm font-semibold text-sidebar-foreground">PostoInsight</span>
-      <span class="block text-[10px] text-sidebar-foreground/50 tracking-wide">BI para redes</span>
+      <div class="sb-logo-name">PostoInsight</div>
+      <div class="sb-logo-tag">BI · Rede JAM</div>
     </div>
   </div>
-
-  {/* Navegação */}
-  <nav class="flex-1 overflow-y-auto px-3 py-4 flex flex-col gap-5">
-    <SidebarSection label="Análise" items={[...]} />
-    <SidebarSection label="Financeiro" items={[...]} />
-    <SidebarSection label="Sistema" items={[...]} />
+  <nav class="sb-nav">
+    <div>
+      <div class="sb-section-label">Análise</div>
+      <button class="sb-item active">
+        <svg>…</svg>
+        Visão Geral
+      </button>
+    </div>
+    <div style="margin-top: auto;">
+      <div class="sb-section-label">Operação</div>
+      <button class="sb-item">
+        …
+        <span class="sb-badge">OK</span>
+      </button>
+    </div>
   </nav>
-
-  {/* Footer — tenant + usuário */}
-  <div class="p-3 border-t border-sidebar-muted/60">
-    <TenantBadge />
+  <div class="sb-footer">
+    <div class="sb-tenant">
+      <div class="sb-tenant-icon">JM</div>
+      <div>
+        <div class="sb-tenant-name">Rede JAM</div>
+        <div class="sb-tenant-role">owner · isabela.k</div>
+      </div>
+    </div>
   </div>
-
 </aside>
 ```
 
-**SidebarItem — estados:**
-```
-inativo:  text-sidebar-foreground/70, bg-transparent
-hover:    bg-sidebar-muted/60, text-sidebar-foreground
-ativo:    bg-sidebar-activeBg, text-sidebar-foreground
-          + barra esquerda: w-[2.5px] h-[calc(100%-12px)] bg-sidebar-active rounded-full
-          + ícone: color sidebar-active
-```
-
-**Regras:**
-- Section labels: `text-[10px] font-semibold uppercase tracking-[1.4px] text-sidebar-foreground/40`
-- Ícones: Lucide, `size-[14px]`, `stroke-width={1.6}`
-- Badge de contagem (ex: "4 postos"): `text-[9px] font-semibold` pill `bg-sidebar-foreground/10`
-- `TenantBadge`: avatar 28×28 com gradiente, nome da rede, role do usuário
-- Nunca adicionar scroll horizontal — labels que não cabem usam truncate
-
-**Seções de navegação (mapeamento de rotas):**
-
-| Seção | Item | Rota |
-|-------|------|------|
-| Análise | Visão Geral | `/dashboard` |
-| Análise | Combustível | `/combustivel` |
-| Análise | Arla 32 | `/arla` |
-| Análise | Lubrificantes | `/lubrificantes` |
-| Análise | Conveniência | `/conveniencia` |
-| Financeiro | DRE Mensal | `/dre` |
-| Sistema | Sincronização | `/sync` |
-| Sistema | Configurações | `/settings` |
+| Classe | CSS relevante |
+|--------|--------------|
+| `.sidebar` | `width: 240px; flex-shrink: 0; background: hsl(var(--sidebar)); border-right: 1px solid hsl(var(--sidebar-muted) / 0.5)` |
+| `.sb-logo` | `padding: 18px 20px; border-bottom: 1px solid hsl(var(--sidebar-muted) / 0.6)` |
+| `.sb-logo-name` | `font-size: 14px; font-weight: 600; letter-spacing: -0.2px` |
+| `.sb-logo-tag` | `font-size: 10px; font-weight: 500; color: hsl(var(--sidebar-foreground) / 0.5); letter-spacing: 0.4px; margin-top: 1px` |
+| `.sb-nav` | `padding: 16px 12px; display: flex; flex-direction: column; gap: 20px; flex: 1; overflow-y: auto` |
+| `.sb-section-label` | `font-size: 10px; font-weight: 600; letter-spacing: 1.4px; text-transform: uppercase; color: hsl(var(--sidebar-foreground) / 0.4); padding: 0 8px; margin-bottom: 4px` |
+| `.sb-item` | `display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 6px; font-size: 13px; font-weight: 500; color: hsl(var(--sidebar-foreground) / 0.7); transition: background 0.12s, color 0.12s; position: relative` |
+| `.sb-item:hover` | `background: hsl(var(--sidebar-muted) / 0.6); color: hsl(var(--sidebar-foreground))` |
+| `.sb-item.active` | `background: hsl(var(--sidebar-active-bg)); color: hsl(var(--sidebar-foreground))` |
+| `.sb-item.active::before` | `content: ''; position: absolute; left: 0; top: 6px; bottom: 6px; width: 2.5px; background: hsl(var(--sidebar-active)); border-radius: 2px` — **barra azul esquerda** |
+| `.sb-item svg` | `width: 14px; height: 14px; stroke-width: 1.6; opacity: 0.85` |
+| `.sb-item.active svg` | `color: hsl(var(--sidebar-active)); opacity: 1` |
+| `.sb-badge` | `margin-left: auto; font-size: 9px; font-weight: 600; padding: 2px 6px; border-radius: 999px; background: hsl(var(--sidebar-foreground) / 0.1)` |
+| `.sb-footer` | `padding: 12px; border-top: 1px solid hsl(var(--sidebar-muted) / 0.6)` |
+| `.sb-tenant` | `display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 6px` |
+| `.sb-tenant-icon` | `width: 28px; height: 28px; border-radius: 6px; background: linear-gradient(135deg, #0073BB, #6B40C4); font-size: 11px; font-weight: 700; color: white` |
+| `.sb-tenant-name` | `font-size: 12px; font-weight: 500` |
+| `.sb-tenant-role` | `font-size: 10px; color: hsl(var(--sidebar-foreground) / 0.5)` |
 
 ---
 
-## 3. Topbar
+### Topbar
 
-**O que é:** Barra horizontal no topo do conteúdo. Contém breadcrumb, ações globais e user menu.
-
-**Anatomia:**
-```
-<header class="flex items-center gap-3 px-6 py-3 bg-card border-b border-border flex-shrink-0 h-[52px]">
-  <Breadcrumb />          ← "PostoInsight › Combustível"
-  <div class="ml-auto flex items-center gap-2">
-    <ThemeToggle />       ← ícone Sun/Moon
-    <NotificationBell />  ← ícone Bell (futuro)
-    <UserMenu />          ← avatar + dropdown
+```html
+<header class="topbar">
+  <div class="crumb">
+    <b id="crumb-page">Visão Geral</b>
+    <svg>…</svg>
+    <span id="crumb-context">Todas as unidades · Este mês</span>
+  </div>
+  <div class="topbar-right">
+    <div class="segment" id="period-tabs">…</div>
+    <!-- OU para DRE: -->
+    <div class="dre-toolbar" id="dre-date-toolbar">…</div>
+    <select class="input" id="location-select">…</select>
+    <button class="btn btn-outline" id="btn-sync">…</button>
+    <div class="avatar">IK</div>
   </div>
 </header>
 ```
 
-**Breadcrumb:**
-- Texto: `text-sm text-muted-foreground`
-- Separador: `›` em `opacity-50`
-- Último item (página atual): `font-semibold text-foreground`
-- Ocultar no mobile (`hidden sm:flex`)
+| Classe | CSS relevante |
+|--------|--------------|
+| `.topbar` | `display: flex; align-items: center; gap: 12px; padding: 12px 24px; background: hsl(var(--card)); border-bottom: 1px solid hsl(var(--border)); flex-shrink: 0` |
+| `.crumb` | `font-size: 13px; color: hsl(var(--muted-foreground)); white-space: nowrap; flex-shrink: 0` |
+| `.crumb b` | `color: hsl(var(--foreground)); font-weight: 600` |
+| `.crumb svg` | `width: 12px; height: 12px; opacity: 0.5` |
+| `.topbar-right` | `margin-left: auto; display: flex; align-items: center; gap: 8px` |
 
-**Regras:**
-- Nunca duplicar filtros de página na Topbar — filtros ficam no PageHeader
-- UserMenu é um Shadcn `DropdownMenu` com: nome do usuário, role, separador, "Sair"
+**Responsivo:** `@media (max-width: 1100px)` → `.crumb svg` e `#crumb-context` ocultos. `@media (max-width: 980px)` → `.crumb` inteiro oculto.
 
 ---
 
-## 4. PageHeader
+### ContentArea
 
-**O que é:** Cabeçalho interno de cada página. Fica dentro do conteúdo scrollável, abaixo da Topbar.
+| Classe | CSS |
+|--------|-----|
+| `.content` | `flex: 1; overflow-y: auto; padding: 24px` |
+| `.page` | `display: none; flex-direction: column; gap: var(--gap-row)` |
+| `.page.active` | `display: flex` |
+| `.page-head` | `display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap` |
+| `.page-title` | `font-size: 22px; font-weight: 600; letter-spacing: -0.3px; line-height: 1.2` |
+| `.page-sub` | `font-size: 13px; color: hsl(var(--muted-foreground)); margin-top: 4px` |
+| `.page-actions` | `display: flex; align-items: center; gap: 8px` |
 
-**Anatomia:**
-```
-<div class="px-5 pt-5 pb-4 flex items-end justify-between gap-4 flex-wrap">
-  <div>
-    <h1 class="text-xl font-semibold text-foreground tracking-tight">Visão Geral de Vendas</h1>
-    <p class="text-sm text-muted-foreground mt-1">Rede JAM · Abril 2026</p>  ← opcional
+---
+
+## Controles
+
+### Button
+
+| Variante | CSS |
+|----------|-----|
+| `.btn` (base) | `display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border-radius: 6px; font-size: 13px; font-weight: 500; border: 1px solid transparent; transition: background 0.12s, border-color 0.12s, opacity 0.12s` |
+| `.btn svg` | `width: 14px; height: 14px; stroke-width: 1.8` |
+| `.btn-outline` | `background: hsl(var(--card)); color: hsl(var(--foreground)); border-color: hsl(var(--border))` — hover: `background: hsl(var(--muted))` |
+| `.btn-primary` | `background: hsl(var(--primary)); color: hsl(var(--primary-foreground))` — hover: `opacity: 0.92` |
+| `.btn-ghost` | `background: transparent; color: hsl(var(--muted-foreground))` — hover: `background: hsl(var(--muted)); color: hsl(var(--foreground))` |
+| `.btn-icon` | `width: 34px; padding: 0; justify-content: center` |
+| `.btn-sm` | `height: 28px; padding: 0 10px; font-size: 12px` — svg: `12px` |
+
+---
+
+### Select / Input
+
+| Propriedade | Valor |
+|-------------|-------|
+| Height | `34px` |
+| Padding | `0 28px 0 12px` |
+| Border-radius | `6px` |
+| Border | `1px solid hsl(var(--input))` |
+| Font | `inherit; font-size: 13px` |
+| Chevron | SVG inline via `background-image` (stroke `#64748b`), `background-position: right 10px center` |
+| Focus | `border-color: hsl(var(--ring)); box-shadow: 0 0 0 3px hsl(var(--ring) / 0.15)` |
+
+---
+
+### SegmentedControl
+
+| Classe | CSS |
+|--------|-----|
+| `.segment` | `display: inline-flex; padding: 3px; background: hsl(var(--muted)); border-radius: 7px; gap: 2px` |
+| `.segment button` | `height: 28px; padding: 0 12px; border: none; background: transparent; font-size: 12px; font-weight: 500; color: hsl(var(--muted-foreground)); border-radius: 5px; transition: background 0.12s, color 0.12s` |
+| `.segment button:hover` | `color: hsl(var(--foreground))` |
+| `.segment button.active` | `background: hsl(var(--card)); color: hsl(var(--foreground)); box-shadow: var(--shadow-sm)` |
+
+---
+
+### Avatar
+
+| Propriedade | Valor |
+|-------------|-------|
+| Size | `32px × 32px` |
+| Border-radius | `999px` |
+| Background | `linear-gradient(135deg, #0073BB, #6B40C4)` |
+| Font | `font-size: 11px; font-weight: 700; color: white` |
+
+---
+
+## Cards
+
+### SectionCard
+
+```html
+<div class="card">
+  <div class="card-h">
+    <div>
+      <div class="card-title">Título</div>
+      <div class="card-desc">Descrição opcional</div>
+    </div>
+    <!-- slot direito opcional: segment, botão -->
   </div>
-  <PageActions />  ← filtros + botões de ação
+  <div class="card-b"><!-- conteúdo --></div>
 </div>
 ```
 
-**PageActions — componentes comuns:**
-- `PeriodSelector`: segmented control com "Hoje / Esta semana / Este mês / Mês anterior"
-- `LocationSelect`: Shadcn `Select` para filtrar por unidade
-- Botão de exportar (quando aplicável)
-
-**PeriodSelector:**
-```
-<div class="inline-flex p-[3px] bg-muted rounded-[7px] gap-0.5">
-  {periods.map(p => (
-    <button class={cn(
-      "h-7 px-3 text-xs font-medium rounded-[5px] transition-all duration-100",
-      active ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-    )}>{p.label}</button>
-  ))}
-</div>
-```
+| Classe | CSS |
+|--------|-----|
+| `.card` | `background: hsl(var(--card)); border: 1px solid hsl(var(--border)); border-radius: var(--radius); box-shadow: var(--shadow-sm)` |
+| `.card-h` | `padding: var(--pad-card-y) var(--pad-card) 8px; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px` |
+| `.card-b` | `padding: 0 var(--pad-card) var(--pad-card-y)` |
+| `.card-title` | `font-size: 13px; font-weight: 600; letter-spacing: -0.1px` |
+| `.card-desc` | `font-size: 12px; color: hsl(var(--muted-foreground)); margin-top: 3px` |
 
 ---
 
-## 5. KpiCard
+### KpiCard
 
-**O que é:** Card de métrica chave. Sempre aparece em grid na parte superior das páginas.
-
-**Anatomia:**
-```
-<div class="relative bg-card border border-border rounded shadow-sm overflow-hidden flex flex-col min-h-[108px] p-[14px]">
-
-  {/* Sparkline de fundo — decorativa */}
-  <Sparkline class="absolute inset-0 opacity-25 pointer-events-none z-0" />
-
-  {/* Conteúdo — z-index acima da sparkline */}
-  <div class="relative z-10 flex flex-col h-full">
-    <span class="text-[11px] font-medium text-muted-foreground flex items-center gap-1.5">
-      <Icon size={12} strokeWidth={1.6} />
-      Receita Bruta
-    </span>
-
-    <span class="text-[22px] font-semibold text-foreground tracking-tight tabular-nums mt-1.5 mb-2 leading-none">
-      R$ 284k
-    </span>
-
-    <div class="mt-auto flex flex-col gap-0.5">
-      <DeltaTag value={8.7} label="vs mês ant." />
-      <DeltaTag value={12.3} label="vs ano ant." />  ← opcional
+```html
+<div class="kpi-grid kpi-5">
+  <div class="kpi">
+    <svg class="kpi-spark">…</svg>  <!-- fundo absoluto, pointer-events: none -->
+    <div class="kpi-label">Receita Bruta</div>
+    <div class="kpi-value">R$ 1.240k</div>
+    <div class="kpi-deltas">
+      <div class="kpi-delta-row">
+        <span class="delta-pos">+8,2%</span>
+        <span class="kpi-delta-label">vs período ant.</span>
+      </div>
     </div>
   </div>
-
 </div>
 ```
 
-**Grid de KpiCards:**
-```
-{/* 5 cards */}
-<div class="grid gap-[14px] grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
-
-{/* 4 cards */}
-<div class="grid gap-[14px] grid-cols-2 lg:grid-cols-4">
-
-{/* 3 cards */}
-<div class="grid gap-[14px] grid-cols-1 sm:grid-cols-3">
-```
-
-**Regras:**
-- A sparkline é sempre decorativa — `aria-hidden`, `pointer-events-none`
-- Valor numérico usa `tabular-nums` para alinhamento estável
-- `DeltaTag` sempre mostra "vs mês ant." — "vs ano ant." é opcional
-- Nunca truncar o valor — se não couber, reduzir `kpi-val-size`
-- Ícone no label é opcional mas recomendado para diferenciação rápida
+| Classe | CSS |
+|--------|-----|
+| `.kpi-grid` | `display: grid; gap: var(--gap-grid)` |
+| `.kpi-5` | `repeat(auto-fit, minmax(160px, 1fr))` — `≥1280px`: `repeat(5, minmax(0,1fr))` |
+| `.kpi-4` | `repeat(auto-fit, minmax(190px, 1fr))` — `≥1100px`: `repeat(4, minmax(0,1fr))` |
+| `.kpi-3` | `repeat(auto-fit, minmax(220px, 1fr))` |
+| `.kpi` | `position: relative; background: hsl(var(--card)); border: 1px solid hsl(var(--border)); border-radius: var(--radius); padding: var(--kpi-pad); overflow: hidden; display: flex; flex-direction: column; min-height: 116px` |
+| `.kpi-label` | `font-size: 11px; font-weight: 500; color: hsl(var(--muted-foreground)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; position: relative; z-index: 1` |
+| `.kpi-label svg` | `width: 12px; height: 12px; opacity: 0.7` |
+| `.kpi-value` | `font-size: var(--kpi-val-size); font-weight: 600; letter-spacing: -0.6px; margin: 6px 0 8px; line-height: 1.1; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; position: relative; z-index: 1` |
+| `.kpi-deltas` | `display: flex; flex-direction: column; gap: 2px; font-size: 11px; margin-top: auto; position: relative; z-index: 1` |
+| `.kpi-delta-row` | `display: flex; align-items: center; gap: 6px` |
+| `.kpi-delta-label` | `font-size: 11px; color: hsl(var(--muted-foreground)); white-space: nowrap; text-transform: lowercase` |
+| `.kpi-spark` | `position: absolute; left: -2px; right: -2px; top: 0; bottom: -1px; height: auto; opacity: 0.28; pointer-events: none; z-index: 0` — dark: `opacity: 0.38` |
 
 ---
 
-## 6. DataTable
+### DeltaTag
 
-**O que é:** Tabela de dados analíticos. Usada em rankings, listas de produtos, histórico.
+| Classe | CSS |
+|--------|-----|
+| `.delta-pos` | `color: hsl(var(--success))` |
+| `.delta-neg` | `color: hsl(var(--danger))` |
+| `.delta-neu` | `color: hsl(var(--muted-foreground))` |
 
-**Anatomia:**
-```
-<div class="overflow-x-auto">
-  <table class="w-full text-sm border-collapse">
-    <thead>
-      <tr class="border-b border-border">
-        <th class="text-[11px] font-medium text-muted-foreground text-left px-3.5 py-2.5 first:pl-5 last:pr-5 whitespace-nowrap">
-          Produto
-        </th>
-        <th class="text-[11px] font-medium text-muted-foreground text-right px-3.5 py-2.5 tabular-nums">
-          Receita
-        </th>
-      </tr>
-    </thead>
+---
+
+## Tabelas
+
+### DataTable
+
+```html
+<div class="tbl-wrap">
+  <table class="tbl">
+    <thead><tr>
+      <th style="width: 28px;">#</th>
+      <th>Produto</th>
+      <th class="r">Receita</th>
+      <th style="width: 200px;">Peso</th>
+    </tr></thead>
     <tbody>
-      <tr class="border-b border-border last:border-0 hover:bg-muted/60 cursor-pointer transition-colors duration-100">
-        <td class="px-3.5 py-[10px] first:pl-5 last:pr-5 text-foreground">
-          {/* conteúdo da célula */}
+      <tr class="clickable">
+        <td><span class="row-rank">1</span></td>
+        <td>
+          <div class="seg-cell">
+            <span class="seg-dot" style="background:#0073BB"></span>
+            Gasolina Comum
+          </div>
         </td>
-        <td class="px-3.5 py-[10px] text-right tabular-nums text-foreground">
-          R$ 12.400
+        <td class="r">R$ 420.000</td>
+        <td>
+          <div class="bar-cell">
+            <div class="bar-track"><div class="bar-fill" style="width:72%"></div></div>
+            <span class="bar-num">72%</span>
+          </div>
         </td>
       </tr>
     </tbody>
-    <tfoot>
-      <tr class="border-t border-border bg-muted/40">
-        <td class="px-5 py-3 font-semibold text-foreground">Total</td>
-        <td class="px-3.5 py-3 text-right tabular-nums font-semibold">R$ 284k</td>
-      </tr>
-    </tfoot>
+    <tfoot><tr>
+      <td>TOTAL</td><td></td>
+      <td class="r">R$ 1.240k</td><td></td>
+    </tr></tfoot>
   </table>
 </div>
 ```
 
-**Células especiais:**
+| Classe | CSS |
+|--------|-----|
+| `.tbl-wrap` | `overflow-x: auto` |
+| `table.tbl` | `width: 100%; border-collapse: collapse; font-size: 13px` |
+| `.tbl thead tr` | `border-bottom: 1px solid hsl(var(--border))` |
+| `.tbl th` | `padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 500; color: hsl(var(--muted-foreground)); white-space: nowrap; letter-spacing: 0.1px` |
+| `.tbl th:first-child, td:first-child` | `padding-left: 20px` |
+| `.tbl th:last-child, td:last-child` | `padding-right: 20px` |
+| `.tbl th.r, .tbl td.r` | `text-align: right; font-variant-numeric: tabular-nums` |
+| `.tbl td` | `padding: var(--row-pad-y) 14px; border-bottom: 1px solid hsl(var(--border)); vertical-align: middle` |
+| `.tbl tbody tr:last-child td` | `border-bottom: 0` |
+| `.tbl tbody tr.clickable` | `cursor: pointer` — hover: `background: hsl(var(--muted) / 0.6)` |
+| `.tbl tfoot td` | `border-top: 1px solid hsl(var(--border)); border-bottom: 0; font-weight: 600; padding: 12px 14px; background: hsl(var(--muted) / 0.4)` |
+| `.row-rank` | `font-size: 12px; font-weight: 500; color: hsl(var(--muted-foreground)); font-variant-numeric: tabular-nums` |
+| `.seg-cell` | `display: flex; align-items: center; gap: 10px` |
+| `.seg-dot` | `width: 9px; height: 9px; border-radius: 2px; flex-shrink: 0` |
+| `.bar-cell` | `display: flex; align-items: center; gap: 8px; min-width: 120px` |
+| `.bar-track` | `flex: 1; height: 5px; background: hsl(var(--muted)); border-radius: 999px; overflow: hidden` |
+| `.bar-fill` | `height: 100%; border-radius: 999px; background: hsl(var(--primary))` |
+| `.bar-num` | `font-size: 11px; color: hsl(var(--muted-foreground)); font-variant-numeric: tabular-nums; min-width: 38px; text-align: right` |
+| `.spark-cell` | `display: flex; align-items: center; gap: 8px; min-width: 110px` |
+| `.spark-cell canvas` | `width: 72px !important; height: 22px !important; flex-shrink: 0` |
+| `.trend-up` | `color: hsl(var(--success)); font-size: 11px; font-weight: 600` |
+| `.trend-down` | `color: hsl(var(--danger)); font-size: 11px; font-weight: 600` |
+| `.trend-flat` | `color: hsl(var(--muted-foreground)); font-size: 11px` |
 
-```tsx
-{/* Ranking */}
-<td class="w-8 text-[12px] font-medium text-muted-foreground tabular-nums">#1</td>
+---
 
-{/* Segmento com dot de cor */}
-<td class="flex items-center gap-2.5">
-  <span class="w-2 h-2 rounded-[2px]" style={{ background: color }} />
-  Combustível
-</td>
+## Feedback
 
-{/* Barra de progresso inline */}
-<td class="min-w-[120px]">
-  <div class="flex items-center gap-2">
-    <div class="flex-1 h-[5px] bg-muted rounded-full overflow-hidden">
-      <div class="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} />
+### Badge
+
+| Variante | CSS |
+|----------|-----|
+| `.badge` (base) | `display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 500; border: 1px solid hsl(var(--border)); background: hsl(var(--muted)); color: hsl(var(--foreground))` |
+| `.badge-success` | `background: hsl(var(--success-subtle)); color: hsl(var(--success)); border-color: hsl(var(--success) / 0.3)` |
+| `.badge-warning` | `background: hsl(var(--warning-subtle)); color: hsl(var(--warning)); border-color: hsl(var(--warning) / 0.3)` |
+| `.badge-danger` | `background: hsl(var(--danger-subtle)); color: hsl(var(--danger)); border-color: hsl(var(--danger) / 0.3)` |
+| `.badge-primary` | `background: hsl(var(--primary-subtle)); color: hsl(var(--primary)); border-color: hsl(var(--primary) / 0.3)` |
+| `.badge-soft` | `background: hsl(var(--muted)); color: hsl(var(--muted-foreground)); border: none` |
+
+---
+
+### StatusDot
+
+| Classe | CSS |
+|--------|-----|
+| `.sync-dot` | `width: 10px; height: 10px; border-radius: 999px; flex-shrink: 0; position: relative` |
+| `.sync-dot.ok` | `background: hsl(var(--success))` |
+| `.sync-dot.ok::after` | `content: ''; position: absolute; inset: -3px; border-radius: 999px; border: 2px solid hsl(var(--success) / 0.3); animation: pulse 2s infinite` |
+| `.sync-dot.warn` | `background: hsl(var(--warning))` |
+| `.sync-dot.err` | `background: hsl(var(--danger))` |
+
+`@keyframes pulse { 0% { transform: scale(1); opacity: 1; } 100% { transform: scale(1.8); opacity: 0; } }`
+
+---
+
+### EmptyState
+
+| Classe | CSS |
+|--------|-----|
+| `.empty-state` | `display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 40px 24px; border: 1.5px dashed hsl(var(--border)); border-radius: var(--radius); background: hsl(var(--muted) / 0.3)` |
+| `.empty-icon` | `width: 40px; height: 40px; border-radius: 999px; background: hsl(var(--muted)); display: flex; align-items: center; justify-content: center; margin-bottom: 12px` |
+| `.empty-title` | `font-size: 14px; font-weight: 600; color: hsl(var(--foreground)); margin-bottom: 4px` |
+| `.empty-desc` | `font-size: 12px; max-width: 320px` |
+
+---
+
+### Toast
+
+| Classe | CSS |
+|--------|-----|
+| `.toast` | `position: fixed; right: 24px; bottom: 24px; background: hsl(var(--card)); border: 1px solid hsl(var(--border)); border-radius: var(--radius); box-shadow: var(--shadow-md); padding: 12px 16px; display: flex; align-items: center; gap: 10px; font-size: 13px; z-index: 50; transform: translateY(20px); opacity: 0; transition: transform 0.2s, opacity 0.2s` |
+| `.toast.show` | `transform: translateY(0); opacity: 1` |
+| `.toast.success .toast-icon` | `color: hsl(var(--success))` |
+| `.toast.info .toast-icon` | `color: hsl(var(--primary))` |
+
+---
+
+### Spinner
+
+| Classe | CSS |
+|--------|-----|
+| `.spinner` | `width: 14px; height: 14px; border: 2px solid hsl(var(--muted)); border-top-color: hsl(var(--primary)); border-radius: 999px; animation: spin 0.7s linear infinite` |
+| `.spinner-lg` | `width: 32px; height: 32px; border-width: 3px` |
+
+`@keyframes spin { to { transform: rotate(360deg); } }`
+
+---
+
+## Overlay
+
+### Drawer
+
+```html
+<div class="drawer-overlay"></div>
+<div class="drawer">
+  <div class="drawer-head">
+    <div class="drawer-title">Gasolina Comum</div>
+    <button class="btn btn-ghost btn-icon btn-sm">✕</button>
+  </div>
+  <div class="drawer-body">
+    <div class="drawer-row">
+      <span class="drawer-row-l">Volume total</span>
+      <span class="drawer-row-v">1.240 L</span>
     </div>
-    <span class="text-[11px] text-muted-foreground tabular-nums w-10 text-right">
-      {pct.toFixed(1)}%
-    </span>
   </div>
-</td>
-
-{/* Sparkline inline */}
-<td class="min-w-[110px]">
-  <div class="flex items-center gap-2">
-    <Sparkline width={72} height={22} data={trend} color={color} />
-    <DeltaTag value={delta} compact />
-  </div>
-</td>
-```
-
-**Regras:**
-- Colunas numéricas: sempre `text-right tabular-nums`
-- Linha clicável (drill-down): `cursor-pointer hover:bg-muted/60`
-- Linhas alternadas: nunca — usar apenas hover
-- `tfoot` só aparece quando há total/subtotal
-- Máximo de colunas visíveis em mobile: 3 (nome + 1 valor + delta)
-
----
-
-## 7. SectionCard
-
-**O que é:** Container padrão para cada seção de conteúdo. Agrupa título + conteúdo.
-
-**Anatomia:**
-```
-<div class="bg-card border border-border rounded shadow-sm">
-
-  {/* Header do card */}
-  <div class="flex items-start justify-between gap-3 px-[16px] pt-[14px] pb-2">
-    <div>
-      <h2 class="text-[13px] font-semibold text-foreground tracking-[-0.1px]">
-        Evolução de Vendas
-      </h2>
-      <p class="text-xs text-muted-foreground mt-0.5">Receita bruta e margem no período</p>
-    </div>
-    <div class="flex items-center gap-2">
-      {/* Ações do card: toggles, selects, botões */}
-    </div>
-  </div>
-
-  {/* Corpo do card */}
-  <div class="px-[16px] pb-[14px]">
-    {children}
-  </div>
-
 </div>
 ```
 
-**Variante sem header:**
-```
-<div class="bg-card border border-border rounded shadow-sm p-[16px]">
-  {children}
-</div>
-```
-
-**Regras:**
-- Nunca aninhar SectionCards
-- Ações no header do card: máximo 3 elementos
-- Separador entre header e body: nunca usar `<hr>` — o espaçamento é suficiente
-
----
-
-## 8. FilterBar
-
-**O que é:** Barra de filtros que aparece entre o PageHeader e o conteúdo.
-
-**Anatomia:**
-```
-<div class="flex items-center gap-2.5 flex-wrap px-5 pb-4">
-  <span class="text-[11px] font-medium text-muted-foreground">Filtrar por:</span>
-
-  <Select>          ← Shadcn Select — ex: "Todos os postos"
-  <Select>          ← Shadcn Select — ex: "Todas as categorias"
-
-  <div class="flex-1" />  ← spacer
-
-  <Button variant="outline" size="sm">
-    <Download size={12} />
-    Exportar
-  </Button>
-</div>
-```
-
-**Regras:**
-- Filtros à esquerda, ações à direita
-- Nunca duplicar o PeriodSelector do PageHeader na FilterBar
-- Máximo de 4 filtros antes de mover para um modal/drawer
+| Classe | CSS |
+|--------|-----|
+| `.drawer-overlay` | `position: fixed; inset: 0; background: hsl(222 47% 11% / 0.4); opacity: 0; pointer-events: none; transition: opacity 0.18s; z-index: 40` |
+| `.drawer-overlay.open` | `opacity: 1; pointer-events: auto` |
+| `.drawer` | `position: fixed; right: 0; top: 0; bottom: 0; width: 420px; max-width: 92vw; background: hsl(var(--card)); border-left: 1px solid hsl(var(--border)); box-shadow: var(--shadow-md); transform: translateX(100%); transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1); z-index: 41` |
+| `.drawer.open` | `transform: translateX(0)` |
+| `.drawer-head` | `padding: 18px 20px; border-bottom: 1px solid hsl(var(--border)); display: flex; align-items: center; gap: 10px` |
+| `.drawer-title` | `font-size: 15px; font-weight: 600; flex: 1; display: flex; align-items: center; gap: 10px` |
+| `.drawer-body` | `flex: 1; overflow-y: auto; padding: 20px` |
+| `.drawer-row` | `display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid hsl(var(--border)); font-size: 13px` |
+| `.drawer-row-l` | `color: hsl(var(--muted-foreground))` |
+| `.drawer-row-v` | `font-weight: 600; font-variant-numeric: tabular-nums` |
 
 ---
 
-## 9. StatusBadge
+## Gráficos
 
-**O que é:** Indicador de estado com cor semântica. Usado em sync status, conectores, alertas.
+### Sparkline (SVG inline — sem biblioteca)
 
-**Variantes:**
-```tsx
-// success
-<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium
-             bg-success-subtle text-success border border-success/30">
-  <span class="w-1.5 h-1.5 rounded-full bg-success" />
-  Online
-</span>
+Implementado em `charts.js` (`svgSpark()`) e na KpiCard.
 
-// warning
-bg-warning-subtle text-warning border-warning/30
-
-// danger
-bg-danger-subtle text-danger border-danger/30
-
-// neutral
-bg-muted text-muted-foreground border-border
-
-// primary
-bg-primary-subtle text-primary border-primary/30
-```
-
-**Dot pulsante (sync ativo):**
-```tsx
-<span class="relative w-2.5 h-2.5">
-  <span class="absolute inset-0 rounded-full bg-success animate-ping opacity-75" />
-  <span class="relative w-2.5 h-2.5 rounded-full bg-success block" />
-</span>
-```
+- ViewBox: `0 0 200 60`
+- Curva comprimida à metade inferior (`H * 0.45`)
+- Path suavizado com cubic-bezier (controle horizontal: `x0 + (x1-x0) * 0.5`)
+- Fill: cor do segmento com `fill-opacity: 0.22`
+- Stroke: `stroke-width: 1.4`, `stroke-linecap: round`, `stroke-linejoin: round`
+- No KpiCard: `.kpi-spark { position: absolute; left: -2px; right: -2px; top: 0; bottom: -1px; opacity: 0.28; pointer-events: none; z-index: 0 }`
 
 ---
 
-## 10. DeltaTag
+### Donut
 
-**O que é:** Indicador de variação percentual. Sempre acompanha um KPI.
-
-```tsx
-// positivo
-<span class="text-[11px] text-success flex items-center gap-1">
-  <ArrowUp size={10} strokeWidth={2.5} />
-  8,7%
-</span>
-
-// negativo
-<span class="text-[11px] text-danger flex items-center gap-1">
-  <ArrowDown size={10} strokeWidth={2.5} />
-  3,2%
-</span>
-
-// neutro (< 0.15% de variação)
-<span class="text-[11px] text-muted-foreground flex items-center gap-1">
-  <ArrowRight size={10} strokeWidth={2.5} />
-  0,0%
-</span>
-```
-
-**Com label:**
-```tsx
-<div class="flex items-center gap-1.5">
-  <DeltaTag value={8.7} />
-  <span class="text-[11px] text-muted-foreground lowercase">vs mês ant.</span>
-</div>
-```
-
-**Regras:**
-- Threshold neutro: `|value| < 0.15`
-- Valor em p.p. (pontos percentuais): exibir `p.p.` em vez de `%`
-- Nunca usar cor verde para "mais CMV" — positivo/negativo é contextual. Passar `invertColors` quando aumento é ruim.
+| Classe | CSS |
+|--------|-----|
+| `.donut-wrap` | `position: relative; width: 180px; height: 180px; margin: 8px auto` |
+| `.donut-center` | `position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none` |
+| `.donut-center-l` | `font-size: 10px; font-weight: 600; letter-spacing: 0.8px; color: hsl(var(--muted-foreground)); text-transform: uppercase` |
+| `.donut-center-v` | `font-size: 14px; font-weight: 600; margin-top: 2px; font-variant-numeric: tabular-nums` |
+| `.donut-legend` | `display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; margin-top: 16px` |
+| `.dl-row` | `display: flex; align-items: center; gap: 8px` |
+| `.dl-dot` | `width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0` |
+| `.dl-name` | `flex: 1; font-size: 12px; color: hsl(var(--muted-foreground))` |
+| `.dl-pct` | `font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums` |
 
 ---
 
-## 11. Toast
+### Heatmap
 
-**O que é:** Notificação temporária de sistema. Usado para confirmar ações e erros.
-
-```tsx
-<div class="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 px-4 py-3
-            bg-card border border-border rounded shadow-md text-sm text-foreground
-            transition-all duration-200 translate-y-0 opacity-100">
-  <CheckCircle size={18} class="text-success flex-shrink-0" />  ← ou AlertCircle para erro
-  Sync iniciado com sucesso
-</div>
-```
-
-**Regras:**
-- Duração: 3 segundos para sucesso, 6 segundos para erro (ou até o usuário fechar)
-- Nunca empilhar mais de 3 toasts
-- Usar Shadcn `Sonner` ou implementação própria — nunca `alert()`
+| Classe | CSS |
+|--------|-----|
+| `.heat-wrap` | `display: flex; gap: 8px` |
+| `.heat-days` | `display: flex; flex-direction: column; gap: 5px; padding-top: 22px` |
+| `.heat-day` | `height: 36px; font-size: 11px; color: hsl(var(--muted-foreground)); display: flex; align-items: center` |
+| `.heat-grid` | `flex: 1; display: flex; flex-direction: column; gap: 5px` |
+| `.heat-row` | `display: flex; gap: 5px` |
+| `.heat-head` | `display: flex; gap: 5px; margin-bottom: 4px` |
+| `.heat-wk` | `flex: 1; text-align: center; font-size: 10px; font-weight: 500; letter-spacing: 0.5px; text-transform: uppercase` |
+| `.heat-cell` | `flex: 1; height: 36px; border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 500; font-variant-numeric: tabular-nums; transition: transform 0.1s` — hover: `scale(1.05)` |
+| `.heat-legend` | `display: flex; align-items: center; justify-content: space-between; margin-top: 12px; font-size: 10px` |
+| `.legend-bar` | `flex: 1; height: 6px; margin: 0 10px; border-radius: 999px; background: linear-gradient(to right, hsl(var(--primary) / 0.1), hsl(var(--primary)))` |
 
 ---
 
-## 12. EmptyState
+### ChartBox
 
-**O que é:** Placeholder quando não há dados para exibir.
-
-```tsx
-<div class="flex flex-col items-center justify-center text-center py-10 px-6
-            border-[1.5px] border-dashed border-border rounded bg-muted/30">
-  <div class="w-10 h-10 rounded-full bg-muted flex items-center justify-center mb-3">
-    <BarChart2 size={18} class="text-muted-foreground" />
-  </div>
-  <p class="text-sm font-semibold text-foreground mb-1">Sem dados no período</p>
-  <p class="text-xs text-muted-foreground max-w-xs">
-    Nenhuma venda registrada para os filtros selecionados.
-  </p>
-</div>
-```
-
-**Regras:**
-- Sempre dentro de um SectionCard
-- Nunca usar EmptyState como estado de loading — usar SkeletonLoader
-- Texto deve ser específico ao contexto, não genérico ("Sem dados")
+| Classe | CSS |
+|--------|-----|
+| `.chart-box` | `position: relative; height: 280px` |
+| `.chart-box.tall` | `height: 320px` |
+| `.chart-box.short` | `height: 200px` |
 
 ---
 
-## 13. SkeletonLoader
+### Layouts de linha (grid de seções)
 
-**O que é:** Placeholder animado durante carregamento de dados.
-
-```tsx
-// KPI skeleton
-<div class="h-[108px] rounded bg-muted animate-pulse" />
-
-// Table skeleton
-{Array.from({length: 5}).map((_, i) => (
-  <tr key={i} class="border-b border-border">
-    <td class="px-5 py-[10px]"><div class="h-4 w-32 bg-muted rounded animate-pulse" /></td>
-    <td class="px-3.5 py-[10px] text-right"><div class="h-4 w-20 bg-muted rounded animate-pulse ml-auto" /></td>
-  </tr>
-))}
-
-// Chart skeleton
-<div class="h-[260px] rounded bg-muted animate-pulse" />
-```
-
-**Regras:**
-- Sempre usar o mesmo layout do componente que vai substituir — nunca um spinner genérico no lugar de uma tabela
-- Cor: `bg-muted animate-pulse` — nunca usar cores mais escuras que o fundo do card
+| Classe | CSS | Breakpoint |
+|--------|-----|------------|
+| `.row` | `display: grid; gap: var(--gap-grid)` | — |
+| `.row-2-1` | `grid-template-columns: 2fr 1fr` | `≤1180px` → `1fr` |
+| `.row-1-1` | `grid-template-columns: 1fr 1fr` | `≤1180px` → `1fr` |
+| `.row-3-2` | `grid-template-columns: 3fr 2fr` | `≤1180px` → `1fr` |
 
 ---
 
-## 14. Drawer
+## Específicos por Página
 
-**O que é:** Painel lateral que desliza da direita. Usado para drill-down de detalhes.
+### DRE
 
-**Anatomia:**
-```tsx
-{/* Overlay */}
-<div class={cn(
-  "fixed inset-0 z-40 bg-foreground/40 transition-opacity duration-180",
-  open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
-)} onClick={onClose} />
-
-{/* Painel */}
-<div class={cn(
-  "fixed right-0 top-0 bottom-0 z-41 w-[420px] max-w-[92vw] bg-card border-l border-border shadow-md",
-  "flex flex-col overflow-hidden",
-  "transition-transform duration-220 ease-[cubic-bezier(0.16,1,0.3,1)]",
-  open ? "translate-x-0" : "translate-x-full"
-)}>
-
-  {/* Header */}
-  <div class="flex items-center gap-2.5 px-5 py-[18px] border-b border-border flex-shrink-0">
-    <h2 class="flex-1 text-[15px] font-semibold text-foreground flex items-center gap-2.5">
-      <Fuel size={16} />
-      Gasolina Comum
-    </h2>
-    <button onClick={onClose} class="btn-ghost btn-icon">
-      <X size={16} />
-    </button>
-  </div>
-
-  {/* Body */}
-  <div class="flex-1 overflow-y-auto p-5">
-    <DrawerRow label="Receita" value="R$ 84.200" />
-    <DrawerRow label="Volume" value="28.400 L" />
-    ...
-  </div>
-
-</div>
-```
-
-**DrawerRow:**
-```tsx
-<div class="flex items-center justify-between py-2.5 border-b border-border last:border-0 text-sm">
-  <span class="text-muted-foreground">{label}</span>
-  <span class="font-semibold text-foreground tabular-nums">{value}</span>
-</div>
-```
+| Classe | CSS |
+|--------|-----|
+| `.dre-toolbar` | `display: flex; align-items: center; gap: 12px` — na topbar, substitui o `.segment` de período |
+| `.dre-month-btn` | `width: 34px; height: 34px; border: 1px solid hsl(var(--border)); border-radius: 6px; background: hsl(var(--card)); cursor: pointer` — hover: `background: hsl(var(--muted)); border-color: hsl(var(--ring) / 0.5)` |
+| `.dre-month-btn svg` | `width: 14px; height: 14px` |
+| `.dre-month-label` | `font-size: 16px; font-weight: 600; min-width: 110px; text-align: center` |
+| `.dre-row td` | `padding: 12px 14px` |
+| `.dre-row-total td` | `border-top: 2px solid hsl(var(--border)); font-weight: 600; background: hsl(var(--muted) / 0.4)` |
+| `.dre-row-result td` | `border-top: 2px solid hsl(var(--success) / 0.3); background: hsl(var(--success-subtle)); font-weight: 700; color: hsl(var(--success))` — dark: `color: hsl(140 70% 60%)` |
 
 ---
 
-## 15. LineAreaChart
+### Sync
 
-**Recharts `AreaChart`** com gradiente de área.
-
-```tsx
-<AreaChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
-  <defs>
-    <linearGradient id="grad-receita" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="5%" stopColor={CHART_COLORS.combustivel} stopOpacity={0.5} />
-      <stop offset="95%" stopColor={CHART_COLORS.combustivel} stopOpacity={0.05} />
-    </linearGradient>
-  </defs>
-  <CartesianGrid vertical={false} stroke={CHART_GRID.stroke} />
-  <XAxis dataKey="label" tick={CHART_TICK} tickLine={false} axisLine={false} />
-  <YAxis tick={CHART_TICK} tickLine={false} axisLine={false} tickFormatter={fmtBRLk} />
-  <Tooltip content={<CustomTooltip />} />
-  <Area type="monotone" dataKey="receita" stroke={CHART_COLORS.combustivel}
-        fill="url(#grad-receita)" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
-</AreaChart>
-```
-
-**Regras:**
-- `dot={false}` sempre — pontos só aparecem no hover via `activeDot`
-- `type="monotone"` para suavidade
-- Grid: apenas linhas horizontais (`vertical={false}`)
-- Eixos: sem linha (`axisLine={false}`), sem tick (`tickLine={false}`)
-- `CustomTooltip` sempre — nunca o tooltip padrão do Recharts
+| Classe | CSS |
+|--------|-----|
+| `.sync-grid` | `display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap-grid)` |
+| `.sync-card` | `padding: var(--pad-card)` |
+| `.sync-status-row` | `display: flex; align-items: center; gap: 10px; margin-top: 12px` |
+| `.sync-stat` | `font-size: 11px; color: hsl(var(--muted-foreground)); margin-top: 2px` |
+| `.sync-stat b` | `color: hsl(var(--foreground)); font-weight: 600` |
+| `.sync-list` | `display: flex; flex-direction: column` |
+| `.sync-row` | `display: flex; align-items: center; gap: 14px; padding: 12px 20px; border-bottom: 1px solid hsl(var(--border)); font-size: 12px` |
+| `.sync-time` | `color: hsl(var(--muted-foreground)); font-family: 'Geist Mono', monospace; font-size: 11px; min-width: 130px` |
+| `.sync-loc` | `font-weight: 500; min-width: 130px` |
+| `.sync-recs` | `margin-left: auto; color: hsl(var(--muted-foreground)); font-variant-numeric: tabular-nums` |
 
 ---
 
-## 16. ComposedChart
+### Settings
 
-**Recharts `ComposedChart`** para linha + barra combinados.
-
-**Casos de uso:** DRE (receita barra + margem linha), evolução com benchmark.
-
-```tsx
-<ComposedChart data={data}>
-  <CartesianGrid vertical={false} stroke={CHART_GRID.stroke} />
-  <XAxis dataKey="label" tick={CHART_TICK} tickLine={false} axisLine={false} />
-  <YAxis yAxisId="left" tick={CHART_TICK} tickLine={false} axisLine={false} tickFormatter={fmtBRLk} />
-  <YAxis yAxisId="right" orientation="right" tick={CHART_TICK} tickLine={false} axisLine={false} tickFormatter={v => v + '%'} />
-  <Tooltip content={<CustomTooltip />} />
-  <Legend iconType="circle" iconSize={8} />
-  <Bar yAxisId="left" dataKey="receita" fill={CHART_COLORS.combustivel} radius={[3,3,0,0]} maxBarSize={40} />
-  <Line yAxisId="right" type="monotone" dataKey="margemPct" stroke={CHART_COLORS.conveniencia}
-        strokeWidth={2} dot={false} strokeDasharray="6 4" />
-</ComposedChart>
-```
+| Classe | CSS |
+|--------|-----|
+| `.cfg-grid` | `display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap-grid)` |
+| `.cfg-row` | `display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid hsl(var(--border))` |
+| `.cfg-label` | `font-size: 12px; color: hsl(var(--muted-foreground))` |
+| `.cfg-value` | `font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 8px` |
+| `.cfg-loc-list` | `display: flex; flex-direction: column` |
+| `.cfg-loc-row` | `display: flex; align-items: center; gap: 12px; padding: 12px 20px; border-bottom: 1px solid hsl(var(--border))` |
+| `.cfg-loc-avatar` | `width: 32px; height: 32px; border-radius: 6px; background: hsl(var(--primary-subtle)); color: hsl(var(--primary)); font-size: 11px; font-weight: 600; flex-shrink: 0` |
+| `.cfg-loc-name` | `font-size: 13px; font-weight: 500` |
+| `.cfg-loc-meta` | `font-size: 11px; color: hsl(var(--muted-foreground)); margin-top: 2px` |
 
 ---
 
-## 17. DonutChart
+## Scrollbar customizada
 
-**Recharts `PieChart`** com `innerRadius` alto.
-
-```tsx
-<PieChart>
-  <Pie data={data} dataKey="value" innerRadius="65%" outerRadius="90%"
-       paddingAngle={2} strokeWidth={0}>
-    {data.map((entry, i) => (
-      <Cell key={i} fill={entry.color} />
-    ))}
-  </Pie>
-  <Tooltip content={<CustomTooltip />} />
-</PieChart>
+```css
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground) / 0.5); }
 ```
-
-**Centro customizável** — absoluto sobre o PieChart:
-```tsx
-<div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-  <span class="text-[10px] font-semibold uppercase tracking-[0.8px] text-muted-foreground">Total</span>
-  <span class="text-[14px] font-semibold text-foreground tabular-nums mt-0.5">R$ 284k</span>
-</div>
-```
-
-**Legenda do Donut** (fora do gráfico):
-```tsx
-<div class="grid grid-cols-2 gap-x-3.5 gap-y-2.5 mt-4">
-  {data.map(d => (
-    <div class="flex items-center gap-2">
-      <span class="w-2 h-2 rounded-[2px] flex-shrink-0" style={{ background: d.color }} />
-      <span class="flex-1 text-xs text-muted-foreground truncate">{d.name}</span>
-      <span class="text-xs font-semibold text-foreground tabular-nums">{d.pct}%</span>
-    </div>
-  ))}
-</div>
-```
-
----
-
-## 18. BarChart
-
-**Recharts `BarChart`** horizontal ou vertical.
-
-**Horizontal** (rankings):
-```tsx
-<BarChart layout="vertical" data={data}>
-  <CartesianGrid horizontal={false} stroke={CHART_GRID.stroke} />
-  <XAxis type="number" tick={CHART_TICK} tickLine={false} axisLine={false} tickFormatter={fmtBRLk} />
-  <YAxis type="category" dataKey="name" tick={CHART_TICK} tickLine={false} axisLine={false} width={120} />
-  <Tooltip content={<CustomTooltip />} />
-  <Bar dataKey="value" fill={CHART_COLORS.combustivel} radius={[0,3,3,0]} maxBarSize={24} />
-</BarChart>
-```
-
----
-
-## 19. Sparkline
-
-**SVG inline** — sem Recharts.
-
-```tsx
-function Sparkline({ data, color, width = 200, height = 60, opacity = 0.25 }) {
-  const min = Math.min(...data);
-  const max = Math.max(...data);
-  const range = max - min || 1;
-  const xs = data.map((_, i) => (i / (data.length - 1)) * width);
-  const ys = data.map(v => height - 4 - ((v - min) / range) * (height * 0.45));
-  const path = buildSmoothPath(xs, ys);
-  const area = `${path} L ${width},${height} L 0,${height} Z`;
-
-  return (
-    <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none"
-         style={{ opacity, display: 'block', width: '100%', height: '100%' }}
-         aria-hidden="true">
-      <path d={area} fill={color} fillOpacity={0.22} />
-      <path d={path} fill="none" stroke={color} strokeWidth={1.4}
-            strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
-    </svg>
-  );
-}
-```
-
-**Casos de uso:**
-- `opacity={0.25}` — sparkline de fundo do KpiCard
-- `opacity={1}` — sparkline inline em células de tabela (menor, sem área)
-
----
-
-## 20. Heatmap
-
-**CSS Grid + lógica de cor em JS** — sem biblioteca.
-
-```tsx
-function Heatmap({ data, weeks, days }) {
-  const max = Math.max(...data.flat());
-
-  return (
-    <div class="flex gap-2">
-      {/* Labels de dia */}
-      <div class="flex flex-col gap-[5px] pt-[22px]">
-        {days.map(d => (
-          <div class="h-9 flex items-center text-[11px] text-muted-foreground">{d}</div>
-        ))}
-      </div>
-
-      {/* Grid */}
-      <div class="flex-1 flex flex-col gap-[5px]">
-        {/* Labels de semana */}
-        <div class="flex gap-[5px] mb-1">
-          {weeks.map(w => (
-            <div class="flex-1 text-center text-[10px] font-medium text-muted-foreground uppercase tracking-wide">{w}</div>
-          ))}
-        </div>
-
-        {/* Células */}
-        {days.map((_, di) => (
-          <div class="flex gap-[5px]">
-            {weeks.map((_, wi) => {
-              const value = data[di][wi];
-              const intensity = value / max;
-              return (
-                <div class="flex-1 h-9 rounded-[5px] flex items-center justify-center
-                            text-[10px] font-medium tabular-nums transition-transform hover:scale-105"
-                     style={{
-                       background: `hsl(204 100% ${97 - intensity * 60}%)`,
-                       color: intensity > 0.5 ? 'white' : 'hsl(var(--foreground))'
-                     }}>
-                  {value > 0 ? fmtK(value) : ''}
-                </div>
-              );
-            })}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-```
-
----
-
-## 21. Primitivos Shadcn em uso
-
-Componentes instalados via Shadcn CLI. Nunca reescrever do zero — usar os componentes do Shadcn e estilizar via `className`.
-
-| Componente | Uso no PostoInsight | Customizações |
-|------------|--------------------|-|
-| `Button` | Ações primárias, outline, ghost, icon | `size="sm"` é o padrão (h-8) |
-| `Select` | Filtros de período e location | Trigger com `h-8 text-sm` |
-| `Card` | Base para SectionCard | Não usar diretamente — usar SectionCard |
-| `Badge` | Status, segmentos | Estender com variantes semânticas |
-| `Table` | Base para DataTable | Não usar diretamente — usar DataTable |
-| `Tabs` | Alternância de visualização dentro de cards | `size="sm"` |
-| `Dialog` | Modais de confirmação | Nunca para formulários complexos |
-| `Tooltip` | Info adicional em ícones e valores truncados | Delay 400ms |
-| `Separator` | Divisórias verticais na Topbar | |
-| `Skeleton` | Loading states | Usar dimensões exatas do componente alvo |
-| `Avatar` | User menu, TenantBadge | Fallback com iniciais |
-| `DropdownMenu` | User menu, ações de contexto | |
-| `Sheet` | Alternativa mobile ao Drawer | Apenas mobile |
-| `Alert` | Banners de erro de sync | Variantes: default, destructive |
-| `Input` | Formulários de settings | `h-8 text-sm` |
-| `Label` | Labels de formulário | Sempre associado ao Input via `htmlFor` |
-| `Sonner` | Toast notifications | Substituir implementação manual |
-
----
-
-*Componente não está aqui? Não implementar sem antes adicionar a spec neste documento.*

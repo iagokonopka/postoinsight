@@ -1,378 +1,413 @@
 # PostoInsight — Padrões de Composição de Páginas
 
-> Define como os componentes se combinam para formar páginas e seções completas.  
-> Antes de implementar uma nova tela, verificar se o padrão já existe aqui.  
-> Se não existir, documentar antes de implementar.  
-> Última atualização: 2026-05-18
+> Fonte de verdade visual: `docs/design/PostoInsight/PostoInsight.html`
+> Arla 32 → `/arla` (página própria). Lubrificantes → `/lubrificantes` (página própria).
+> Combustível → apenas combustíveis. Conveniência → apenas loja.
 
 ---
 
-## Índice
-
-1. [Estrutura geral de uma página BI](#1-estrutura-geral-de-uma-página-bi)
-2. [Padrão: Dashboard com KPIs + Gráfico + Tabela](#2-padrão-dashboard-com-kpis--gráfico--tabela)
-3. [Padrão: Página de análise por categoria](#3-padrão-página-de-análise-por-categoria)
-4. [Padrão: DRE Mensal](#4-padrão-dre-mensal)
-5. [Padrão: Página de sistema (Sync / Settings)](#5-padrão-página-de-sistema-sync--settings)
-6. [Layouts de grid de seções](#6-layouts-de-grid-de-seções)
-7. [Padrão de loading](#7-padrão-de-loading)
-8. [Padrão de drill-down com Drawer](#8-padrão-de-drill-down-com-drawer)
-9. [Padrão de filtros e estado reativo](#9-padrão-de-filtros-e-estado-reativo)
-10. [Regras de responsividade](#10-regras-de-responsividade)
-
----
-
-## 1. Estrutura geral de uma página BI
-
-Toda página de análise segue esta estrutura vertical:
+## Estrutura comum a todas as páginas
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│  PageHeader                                             │
-│  ├─ Título + subtítulo (tenant + período)              │  px-5 pt-5 pb-4
-│  └─ PeriodSelector + LocationSelect                    │
-├─────────────────────────────────────────────────────────┤
-│  FilterBar (opcional — apenas quando há filtros extra)  │  px-5 pb-4
-├─────────────────────────────────────────────────────────┤
-│  Conteúdo                                               │  px-5 pb-5 flex flex-col gap-4
-│  ├─ KPI Row                                            │
-│  ├─ Seção principal (gráfico largo)                    │
-│  ├─ Seção secundária (2 colunas)                       │
-│  └─ Seção de tabela                                    │
-└─────────────────────────────────────────────────────────┘
-```
-
-**Wrapper do conteúdo:**
-```tsx
-<div class="px-5 pb-5 flex flex-col gap-4">
-  {/* seções aqui */}
-</div>
-```
-
-**Regras:**
-- `gap-4` (16px) entre seções — nunca mais
-- Nunca usar `margin` — sempre `gap` no container
-- O scroll é do container externo — o conteúdo não define `overflow`
-- Última seção não precisa de `mb` — o `pb-5` do container cobre
-
----
-
-## 2. Padrão: Dashboard com KPIs + Gráfico + Tabela
-
-**Usado em:** Visão Geral de Vendas (`/`)
-
-```tsx
-<div class="px-5 pb-5 flex flex-col gap-4">
-
-  {/* 1. KPI Row — 5 cards */}
-  <div class="grid gap-[14px] grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
-    <KpiCard label="Receita Bruta" ... />
-    <KpiCard label="CMV" ... />
-    <KpiCard label="Margem Bruta" ... />
-    <KpiCard label="Margem %" ... />
-    <KpiCard label="Itens Vendidos" ... />
-  </div>
-
-  {/* 2. Gráfico principal + Donut — 2/3 | 1/3 */}
-  <div class="grid gap-4 grid-cols-1 xl:grid-cols-[2fr_1fr]">
-    <SectionCard title="Evolução de Vendas" desc="Receita bruta e margem no período">
-      <div class="h-[260px]">
-        <LineAreaChart ... />
-      </div>
-    </SectionCard>
-
-    <SectionCard title="Por Segmento" desc="Participação na receita bruta">
-      <div class="relative h-[180px]">
-        <DonutChart ... />
-      </div>
-      <DonutLegend ... />
-    </SectionCard>
-  </div>
-
-  {/* 3. Tabela de ranking — largura total */}
-  <SectionCard title="Top 10 Produtos" desc="Por receita bruta no período">
-    <DataTable ... />
-  </SectionCard>
-
-</div>
-```
-
----
-
-## 3. Padrão: Página de análise por categoria
-
-**Usado em:** Combustível (`/combustivel`), Conveniência (`/conveniencia`)
-
-```tsx
-<div class="px-5 pb-5 flex flex-col gap-4">
-
-  {/* 1. KPI Row — 4 cards específicos da categoria */}
-  <div class="grid gap-[14px] grid-cols-2 lg:grid-cols-4">
-    <KpiCard ... />
-    <KpiCard ... />
-    <KpiCard ... />
-    <KpiCard ... />
-  </div>
-
-  {/* 2. Gráfico de evolução — largura total */}
-  <SectionCard title="Evolução" actions={<ModeToggle />}>
-    <div class="h-[260px]">
-      <LineAreaChart ou ComposedChart />
+<section class="page [active]">
+  <!-- 1. Cabeçalho da página -->
+  <div class="page-head">
+    <div>
+      <h1 class="page-title">…</h1>
+      <div class="page-sub">…</div>
     </div>
-  </SectionCard>
-
-  {/* 3. Duas seções lado a lado — 3/5 | 2/5 */}
-  <div class="grid gap-4 grid-cols-1 xl:grid-cols-[3fr_2fr]">
-    <SectionCard title="Tabela detalhada">
-      <DataTable ... />
-    </SectionCard>
-
-    <SectionCard title="Heatmap / Scatter">
-      <Heatmap ou ScatterChart />
-    </SectionCard>
+    <div class="page-actions">
+      <!-- botões ou segment de modo -->
+    </div>
   </div>
 
+  <!-- 2. KPI row -->
+  <div class="kpi-grid kpi-N">…</div>
+
+  <!-- 3+ seções de gráfico / tabela -->
+  <div class="row row-X-Y">
+    <div class="card">…</div>
+    <div class="card">…</div>
+  </div>
+</section>
+```
+
+O toolbar na topbar (`.segment` de período ou `.dre-toolbar`) é global — não faz parte do `<section class="page">`.
+
+---
+
+## /dashboard — Visão Geral
+
+**Rota React:** `/dashboard` → `DashboardPage`  
+**Fonte HTML:** `#page-visao-geral`
+
+### Estrutura vertical
+
+1. **page-head** — título "Visão Geral", subtitle, botão "Exportar" (`.btn-outline.btn-sm`)
+2. **KPI row** — `.kpi-grid.kpi-5` (5 cards)
+3. **`.row.row-3-2`**
+   - Card: "Evolução de Receita & Margem" — `.chart-box` (280px), AreaChart empilhado + linha de margem % no eixo direito (tracejada, desativada por default)
+   - Card: "Mix por Segmento" — `.donut-wrap` (180px) + `.donut-legend` (grid 2 colunas)
+4. **`.row.row-2-1`**
+   - Card: "Top 10 Produtos por Receita" — tabela com segment "Receita / Margem %" no `.card-h`
+   - Card: "Padrão Semanal" — heatmap (dias da semana × semanas)
+
+### KPIs (5 cards — `kpi-5`)
+
+| # | Label | Endpoint |
+|---|-------|----------|
+| 1 | Receita Bruta | `GET /api/v1/vendas/resumo` |
+| 2 | Margem Bruta % | idem |
+| 3 | Volume Combustível | idem |
+| 4 | Ticket Médio | idem |
+| 5 | CMV % | idem |
+
+### Tabela Top Produtos
+
+Colunas: `#` (rank), Produto (seg-dot + nome), Categoria, Peso (bar-cell), Receita (r), Margem % (r), Qtd (r)  
+Toggle no header: "Receita / Margem %" — `.segment` no `.card-h`  
+Endpoint: `GET /api/v1/vendas/top-produtos`
+
+### Comportamentos especiais
+
+- Topbar: `.segment` de período (Hoje / Semana / Mês / Mês ant.) + select de location + botão "Sincronizar"
+- Donut: clique em fatia filtra a tabela Top Produtos por segmento
+- Heatmap: endpoint a implementar (dados por dia da semana) — por ora EmptyState ou dado mockado
+
+---
+
+## /combustivel — Combustível
+
+**Rota React:** `/combustivel`  
+**Fonte HTML:** `#page-combustivel`
+
+**Escopo:** apenas combustíveis — Gasolina Comum, Gasolina Aditivada, Diesel S10, Diesel S500, Etanol.  
+**Não inclui Arla 32** — tem página própria `/arla`.
+
+### Estrutura vertical
+
+1. **page-head** — título "Combustível", subtitle "Volumes, receitas e margens por produto."
+   - `.page-actions`: segment "Volume / Receita" + segment "Sem Arla 32 / Com Arla 32"
+2. **KPI row** — `.kpi-grid.kpi-5` (5 cards)
+3. **`.row.row-3-2`**
+   - Card: "Evolução por produto" — `.chart-box.tall` (320px), multi-line por produto
+   - Card: "Mix de Combustível" — `.donut-wrap` + `.donut-legend`
+4. **`.row.row-2-1`**
+   - Card: "Breakdown por produto" — tabela com spark e tendência 14d
+   - Card: "Ranking de Bicos" — EmptyState ("Disponível em breve")
+
+### KPIs (5 cards — `kpi-5`)
+
+| # | Label | Endpoint |
+|---|-------|----------|
+| 1 | Volume Total | `GET /api/v1/combustivel/resumo` |
+| 2 | Receita Bruta | idem |
+| 3 | Margem Bruta | idem |
+| 4 | Margem % | idem |
+| 5 | Preço Médio/L | idem |
+
+### Tabela Breakdown
+
+Colunas: Produto (seg-dot + nome), Volume (r), Part. % (r), Receita (r), Margem % (r), Preço/L (r), Custo/L (r), Tendência 14d (spark-cell)  
+Endpoint: `GET /api/v1/combustivel/subgrupos`
+
+### Comportamentos especiais
+
+- Topbar: `.segment` de período + select location + botão Sincronizar
+- Segment "Volume / Receita" no `.page-actions`: alterna métrica do gráfico e título da coluna na tabela
+- Segment "Sem Arla 32 / Com Arla 32" no `.page-actions`: inclui/exclui Arla dos totais e do gráfico
+- Gráfico multi-série: `GET /api/v1/combustivel/evolucao?por_produto=true`
+
+---
+
+## /arla — Arla 32
+
+**Rota React:** `/arla`  
+**Fonte HTML:** não existe no HTML de referência — extraído de `apps/web/src/components/layout/Sidebar.tsx` e specs do backend.
+
+**Escopo:** exclusivamente Arla 32 (categoria_codigo = 'ARL').  
+**Cor de destaque:** `#0891B2` (segmentos.servicos no chart-theme, usado pelo arla no código backend).
+
+### Estrutura vertical (a implementar)
+
+1. **page-head** — título "Arla 32", subtitle "Volumes e margens do produto"
+   - `.page-actions`: segment "Linha / Área" + segment "Volume / Receita"
+2. **KPI row** — `.kpi-grid.kpi-5` (5 cards)
+3. **`.row.row-3-2`** (ou `.row-1-1`)
+   - Card: "Evolução" — `.chart-box` ou `.chart-box.tall`, linha ou área conforme toggle
+4. **Card fullwidth**: tabela de produtos
+
+### KPIs (5 cards — `kpi-5`)
+
+| # | Label | Endpoint |
+|---|-------|----------|
+| 1 | Volume Total | `GET /api/v1/arla/resumo` |
+| 2 | Receita Bruta | idem |
+| 3 | CMV | idem |
+| 4 | Margem Bruta | idem |
+| 5 | Margem % | idem |
+
+### Tabela de Produtos
+
+Colunas: Produto, Volume, Receita, CMV, Margem, Margem %  
+Endpoint: `GET /api/v1/arla/produtos`
+
+### Comportamentos especiais
+
+- Topbar: `.segment` de período + select location
+- Evolução: `GET /api/v1/arla/evolucao`
+- Cor `#0891B2` nos gráficos e sparklines
+
+---
+
+## /lubrificantes — Lubrificantes
+
+**Rota React:** `/lubrificantes`  
+**Fonte HTML:** não existe no HTML de referência — baseado na estrutura de Arla e Conveniência.
+
+**Escopo:** apenas lubrificantes (filtro em mv_conveniencia_diario).  
+**Cor de destaque:** `#7C3AED` (variante de `#6B40C4` do design system).
+
+### Estrutura vertical (a implementar)
+
+1. **page-head** — título "Lubrificantes", subtitle
+   - `.page-actions`: segment "Receita / Volume"
+2. **KPI row** — `.kpi-grid.kpi-4` (4 cards)
+3. **`.row.row-3-2`**
+   - Card: "Evolução" — `.chart-box` line/area
+   - Card: "Mix por grupo" — `.donut-wrap` + `.donut-legend`
+4. **Card fullwidth**: tabela de grupos
+
+### KPIs (4 cards — `kpi-4`)
+
+| # | Label | Endpoint |
+|---|-------|----------|
+| 1 | Receita Bruta | `GET /api/v1/lubrificantes/resumo` |
+| 2 | CMV | idem |
+| 3 | Margem Bruta | idem |
+| 4 | Margem % | idem |
+
+### Tabela de Grupos
+
+Colunas: Grupo (seg-dot + nome), Receita (r), Part. % (bar-cell), Margem % (r)  
+Endpoint: `GET /api/v1/lubrificantes/grupos`
+
+### Comportamentos especiais
+
+- Topbar: `.segment` de período + select location
+- Evolução: `GET /api/v1/lubrificantes/evolucao`
+
+---
+
+## /conveniencia — Conveniência
+
+**Rota React:** `/conveniencia`  
+**Fonte HTML:** `#page-conveniencia`
+
+**Escopo:** apenas loja — alimentos, bebidas, tabacaria, embalagens, lanchonete, etc.  
+**Não inclui lubrificantes** — tem página própria `/lubrificantes`.
+
+> **Atenção:** O HTML de referência mostra "Conveniência & Serviços" com toggles para Todos / Conveniência / Serviços / Lubrificantes. Essa estrutura é **obsoleta** — a decisão de produto separou Arla e Lubrificantes em páginas próprias. A versão React implementa apenas a loja.
+
+### Estrutura vertical
+
+1. **page-head** — título "Conveniência", subtitle "Loja — período selecionado"
+2. **KPI row** — `.kpi-grid.kpi-4` (4 cards)
+3. **`.row.row-3-2`**
+   - Card: "Receita × Margem Bruta" — `.chart-box` (280px), AreaChart empilhado
+   - Card: "Mix da Loja" — `.donut-wrap` + `.donut-legend`
+4. **Card fullwidth**: "Matriz de Categorias" — `.chart-box.tall` (320px), ScatterChart (qtd × margem %, tamanho da bolha = receita, medianas formando 4 quadrantes)
+5. **Card fullwidth**: "Breakdown por categoria" — tabela com drill-down
+
+### KPIs (4 cards — `kpi-4`)
+
+| # | Label | Endpoint |
+|---|-------|----------|
+| 1 | Receita Bruta | `GET /api/v1/conveniencia/resumo` |
+| 2 | Ticket Médio | idem (campo `ticket_medio`) |
+| 3 | Margem Bruta | idem |
+| 4 | Margem % | idem |
+
+### Tabela Breakdown
+
+Colunas: Categoria (seg-dot + nome), Peso (bar-cell), Qtd (r), Receita (r), CMV (r), Margem (r), Margem % (r)  
+Clique na linha → abre Drawer com produtos da categoria.  
+Endpoint: `GET /api/v1/conveniencia/top-grupos`
+
+### Comportamentos especiais
+
+- Topbar: `.segment` de período + select location
+- Clique na linha da tabela → `.drawer.open` com `.drawer-row` para cada produto
+- ScatterChart: `GET /api/v1/conveniencia/categorias` (sem parâmetro de segmento obrigatório)
+- Donut: `GET /api/v1/conveniencia/top-grupos` (top grupos por receita)
+
+---
+
+## /dre — DRE Mensal
+
+**Rota React:** `/dre`  
+**Fonte HTML:** `#page-dre`
+
+### Estrutura vertical
+
+1. **page-head** — título "DRE Mensal", subtitle "Demonstrativo de resultado por mês"
+2. **KPI row** — `.kpi-grid.kpi-4` (4 cards)
+3. **`.row.row-1-1`**
+   - Card: "Waterfall do mês" — `.chart-box.tall` (320px), BarChart waterfall
+   - Card: "Margem % — últimos 6 meses" — `.chart-box.tall` (320px), multi-line por segmento
+4. **Card fullwidth**: "Detalhamento mês a mês" — tabela com 8 colunas (Linha, M-5..M-1, Atual, δ, YTD)
+
+### KPIs (4 cards — `kpi-4`)
+
+Extrair do endpoint `GET /api/v1/dre` para o mês selecionado:
+Receita Bruta, CMV, Margem Bruta, Margem %.
+
+### Toolbar especial
+
+Na **topbar**, no lugar do `.segment` de período, exibe `.dre-toolbar`:
+- `.dre-month-btn` (seta esquerda) — mês anterior
+- `select.input` — seletor de mês (Janeiro…Dezembro)
+- `select.input` — seletor de ano (2024, 2025, 2026…)
+- `.dre-month-btn` (seta direita) — próximo mês
+
+### Tabela DRE
+
+Linhas especiais:
+- `.dre-row-total` → `border-top: 2px solid border`, fundo muted/40, `font-weight: 600`
+- `.dre-row-result` → `border-top: 2px solid success/30`, fundo `success-subtle`, `font-weight: 700`, cor `success`
+
+Linhas da DRE:
+1. Receita Bruta
+2. (–) Descontos
+3. = Receita Líquida (`.dre-row-total`)
+4. (–) CMV
+5. = Margem Bruta (`.dre-row-result`)
+6. Margem % (`.dre-row-result`)
+
+### Comportamentos especiais
+
+- Topbar: `.dre-toolbar` substituindo `.segment` de período (controlado via `id="dre-date-toolbar"` com `display:none` → visível apenas na rota `/dre`)
+- Waterfall usa BarChart com segmentos positivos/negativos
+- `.dre-month-label` não existe na implementação React (foi substituído pelos dois selects)
+
+---
+
+## /sync — Sincronização
+
+**Rota React:** `/sync`  
+**Fonte HTML:** `#page-sincronizacao`
+
+### Estrutura vertical
+
+1. **page-head** — título "Sincronização", subtitle, botão "Sincronizar agora" (`.btn-primary`)
+2. **`.sync-grid`** (grid 2 colunas)
+   - Card `.sync-card`: "Status · Status ERP" — `.sync-dot.ok` + badge + `.sync-stat`
+   - Card `.sync-card`: "Status · WebPosto ERP" — `.sync-dot.warn` + badge + `.sync-stat`
+3. **Card fullwidth**: "Histórico de execuções" — `.sync-list` com `.sync-row`s
+
+### Estrutura de um sync-card
+
+```html
+<div class="card sync-card">
+  <div class="card-title">Status · Status ERP</div>
+  <div class="sync-stat">Agente RDP — Windows Server · v2.4.1</div>
+  <div class="sync-status-row">
+    <div class="sync-dot ok"></div>
+    <span>Conectado</span>
+    <span class="badge badge-success">Última sync OK</span>
+  </div>
+  <div class="sync-stat">Próxima sync: <b>03:00 BRT</b> · watermark: <b>16/05 22:48</b></div>
 </div>
 ```
 
----
+### Estrutura de um sync-row (histórico)
 
-## 4. Padrão: DRE Mensal
-
-**Usado em:** DRE (`/dre`)
-
-```tsx
-<div class="px-5 pb-5 flex flex-col gap-4">
-
-  {/* 1. Seletor de mês — no PageHeader, não no FilterBar */}
-  {/* (parte do PageHeader actions) */}
-  <div class="flex items-center gap-2">
-    <Button variant="outline" size="sm" onClick={prevMonth}><ChevronLeft size={14} /></Button>
-    <span class="text-base font-semibold min-w-[110px] text-center">Abril 2026</span>
-    <Button variant="outline" size="sm" onClick={nextMonth}><ChevronRight size={14} /></Button>
-  </div>
-
-  {/* 2. KPI Row — 3 cards de resumo do mês */}
-  <div class="grid gap-[14px] grid-cols-1 sm:grid-cols-3">
-    <KpiCard label="Receita Líquida" ... />
-    <KpiCard label="Margem Bruta" ... />
-    <KpiCard label="Resultado" ... />
-  </div>
-
-  {/* 3. Tabela DRE — largura total */}
-  <SectionCard title="DRE Mensal — Abril 2026">
-    <DreTabelaCompleta ... />
-  </SectionCard>
-
-  {/* 4. Gráfico de evolução — 6 meses */}
-  <SectionCard title="Evolução de Margem" desc="Últimos 6 meses por segmento">
-    <div class="h-[260px]">
-      <MultiLineChart ... />
-    </div>
-  </SectionCard>
-
+```html
+<div class="sync-row">
+  <span class="sync-time">16/05 22:48</span>
+  <span class="sync-dot ok"></span>
+  <span class="sync-loc">JAM Centro</span>
+  <span class="badge badge-success">OK</span>
+  <span class="sync-recs">+1.240 registros</span>
 </div>
 ```
 
-**DreTabelaCompleta — estrutura de linhas:**
+### Comportamentos especiais
 
-| Tipo de linha | Classe | Comportamento |
-|--------------|--------|--------------|
-| Receita Bruta (topo) | `dre-row` | Normal |
-| Deduções (−) | `dre-row` | Valor em `text-danger` |
-| Subtotal | `dre-row-total` | `border-t-2 font-semibold bg-muted/40` |
-| Resultado Final | `dre-row-result` | `border-t-2 border-success/30 bg-success-subtle font-bold text-success` |
+- Topbar: sem `.segment` de período (sincronização é tempo-real)
+- Botão "Sincronizar agora" → `POST /api/v1/sync/trigger` → toast de confirmação
+- StatusDot `.ok` tem anel pulsante via `@keyframes pulse`
 
 ---
 
-## 5. Padrão: Página de sistema (Sync / Settings)
+## /settings — Configurações
 
-**Usado em:** Sincronização (`/sync`), Configurações (`/settings`)
+**Rota React:** `/settings`  
+**Fonte HTML:** `#page-configuracoes`
 
-```tsx
-<div class="px-5 pb-5 flex flex-col gap-4">
+### Estrutura vertical
 
-  {/* Grid de 2 colunas — status cards */}
-  <div class="grid gap-4 grid-cols-1 sm:grid-cols-2">
-    <SectionCard title="Status da Rede">
-      {/* status geral + dot pulsante */}
-    </SectionCard>
-    <SectionCard title="Última Sincronização">
-      {/* timestamp + botão forçar sync */}
-    </SectionCard>
+1. **page-head** — título "Configurações", subtitle "Tenant, locations, usuários e integrações."
+2. **`.cfg-grid`** (grid 2 colunas)
+   - Card: "Tenant" — `.cfg-row` para Nome, Plano, Fuso horário, Idioma, Tenant ID
+   - Card: "Integração — Status ERP" — `.cfg-row` para Host, Database, Usuário, Watermark, Agente
+3. **Card fullwidth**: "Locations" — `.cfg-loc-list` com `.cfg-loc-row` para cada location
+4. **Card fullwidth**: "Usuários" — `.cfg-loc-list` com `.cfg-loc-row` para cada usuário (avatar + role badge)
+
+### Estrutura de cfg-loc-row (locations)
+
+```html
+<div class="cfg-loc-row">
+  <div class="cfg-loc-avatar">J1</div>
+  <div>
+    <div class="cfg-loc-name">JAM Centro</div>
+    <div class="cfg-loc-meta">source_id: 001 · Status ERP</div>
   </div>
-
-  {/* Lista de locations — largura total */}
-  <SectionCard title="Unidades">
-    <div class="flex flex-col divide-y divide-border">
-      {locations.map(loc => <LocationRow key={loc.id} {...loc} />)}
-    </div>
-  </SectionCard>
-
-  {/* Histórico de sync — largura total */}
-  <SectionCard title="Histórico">
-    <DataTable ... />
-  </SectionCard>
-
+  <span class="badge badge-success">Ativo</span>
 </div>
 ```
 
----
+### Estrutura de cfg-loc-row (usuários)
 
-## 6. Layouts de grid de seções
-
-Breakpoint: `xl` (1280px) para colunas lado a lado. Abaixo disso, sempre uma coluna.
-
-```tsx
-{/* Dois cards iguais */}
-<div class="grid gap-4 grid-cols-1 xl:grid-cols-2">
-
-{/* Principal + secundário (2/3 | 1/3) */}
-<div class="grid gap-4 grid-cols-1 xl:grid-cols-[2fr_1fr]">
-
-{/* Principal + detalhe (3/5 | 2/5) */}
-<div class="grid gap-4 grid-cols-1 xl:grid-cols-[3fr_2fr]">
-
-{/* Três colunas iguais */}
-<div class="grid gap-4 grid-cols-1 sm:grid-cols-3">
+```html
+<div class="cfg-loc-row">
+  <div class="cfg-loc-avatar" style="background:linear-gradient(135deg,#0073BB,#6B40C4);color:white;">IK</div>
+  <div style="flex:1">
+    <div class="cfg-loc-name">Isabela Kraus</div>
+    <div class="cfg-loc-meta">isabela@redejam.com.br · acesso a todas as locations</div>
+  </div>
+  <span class="badge badge-primary">owner</span>
+</div>
 ```
 
-**Regras:**
-- Nunca usar mais de 3 colunas em nível de seção
-- Grid de KPIs é separado do grid de seções — nunca misturar
-- `xl:` é o breakpoint de referência para colunas — `lg:` apenas em exceções justificadas
+### Comportamentos especiais
+
+- Topbar: sem `.segment` de período
+- Campo "Watermark" e "Agente" em `.cfg-value.mono`
+- Tenant ID e Host/Database em `.cfg-value.mono`
+- Usuários owner têm avatar com gradient; managers/viewers têm avatar com `background: hsl(var(--primary-subtle))` e `color: hsl(var(--primary))`
 
 ---
 
-## 7. Padrão de loading
+## Topbar por rota — resumo
 
-Toda página que depende de dados da API usa o padrão de loading com Skeleton:
-
-```tsx
-function VendasPage() {
-  const { data, isLoading } = useVendas(filters);
-
-  if (isLoading) return <VendasPageSkeleton />;
-  if (!data) return <EmptyState />;
-
-  return <VendasPageContent data={data} />;
-}
-
-function VendasPageSkeleton() {
-  return (
-    <div class="px-5 pb-5 flex flex-col gap-4">
-      {/* KPI skeletons */}
-      <div class="grid gap-[14px] grid-cols-2 lg:grid-cols-5">
-        {Array.from({length: 5}).map((_, i) => (
-          <div key={i} class="h-[108px] rounded bg-muted animate-pulse" />
-        ))}
-      </div>
-      {/* Chart skeleton */}
-      <div class="h-[308px] rounded bg-muted animate-pulse" />
-      {/* Table skeleton */}
-      <div class="h-[320px] rounded bg-muted animate-pulse" />
-    </div>
-  );
-}
-```
-
-**Regras:**
-- Sempre renderizar o Skeleton com as dimensões reais do componente que vai substituir
-- Nunca usar spinner centralizado no lugar de skeleton de página
-- `isLoading` inicial → Skeleton; `isFetching` (refetch com dados) → manter dados visíveis + indicador sutil no Topbar
+| Rota | Toolbar na topbar |
+|------|------------------|
+| `/dashboard` | `.segment` período + select location + btn Sincronizar |
+| `/combustivel` | `.segment` período + select location + btn Sincronizar |
+| `/arla` | `.segment` período + select location |
+| `/lubrificantes` | `.segment` período + select location |
+| `/conveniencia` | `.segment` período + select location |
+| `/dre` | `.dre-toolbar` (← mês select ano →) + select location |
+| `/sync` | — (sem período) |
+| `/settings` | — (sem período) |
 
 ---
 
-## 8. Padrão de drill-down com Drawer
+## Divergências entre HTML de referência e código implementado
 
-Usado quando o usuário clica em uma linha de tabela para ver detalhes.
+1. **Sidebar HTML vs React:** O HTML tem 4 itens de análise (Visão Geral, Combustível, Conveniência, DRE) e 2 de operação (Sync, Config). O React tem 5 itens de análise (adicionando Arla 32 e Lubrificantes) e separa DRE em seção "Financeiro". Esta é a estrutura **correta** por decisão de produto.
 
-```tsx
-function TabelaProdutos({ produtos }) {
-  const [selected, setSelected] = useState(null);
+2. **Conveniência HTML vs React:** O HTML chama a página de "Conveniência & Serviços" e tem toggle Todos/Conveniência/Serviços/Lubrificantes. O React implementa apenas loja, sem lubrificantes.
 
-  return (
-    <>
-      <DataTable
-        rows={produtos}
-        onRowClick={(produto) => setSelected(produto)}
-      />
-
-      <Drawer
-        open={!!selected}
-        onClose={() => setSelected(null)}
-        title={selected?.nome}
-        icon={<Package size={16} />}
-      >
-        {selected && <ProdutoDetalhe produto={selected} />}
-      </Drawer>
-    </>
-  );
-}
-```
-
-**Regras:**
-- Drawer sempre fechado por padrão — `useState(null)`
-- Overlay fecha o Drawer ao clicar
-- ESC também fecha — implementar `useEffect` com `keydown`
-- Nunca abrir um modal dentro de um Drawer
-- Nunca usar Drawer para formulários de edição — usar página própria ou Dialog
-
----
-
-## 9. Padrão de filtros e estado reativo
-
-Filtros de página (período + location) vivem em estado local do componente de página e disparam re-fetch via TanStack Query.
-
-```tsx
-function VendasPage() {
-  const [period, setPeriod] = useState<Period>('mes');
-  const [locationId, setLocationId] = useState<string>('all');
-
-  const { data, isLoading } = useQuery({
-    queryKey: ['vendas', period, locationId],
-    queryFn: () => fetchVendas({ period, locationId }),
-  });
-
-  return (
-    <>
-      <PageHeader title="Visão Geral de Vendas">
-        <PeriodSelector value={period} onChange={setPeriod} />
-        <LocationSelect value={locationId} onChange={setLocationId} />
-      </PageHeader>
-
-      {isLoading ? <Skeleton /> : <VendasContent data={data} />}
-    </>
-  );
-}
-```
-
-**Regras:**
-- `queryKey` sempre inclui todos os filtros — garante re-fetch automático
-- Estado de filtros nunca sobe para context global — fica local na página
-- Filtros que afetam múltiplas páginas (ex: tenant) ficam em context global de sessão
-- Debounce de 300ms apenas em inputs de texto — selects e segmented controls disparam imediato
-
----
-
-## 10. Regras de responsividade
-
-O PostoInsight é projetado primariamente para desktop (1280px+). Mobile é suportado mas não é foco do MVP.
-
-| Breakpoint | Comportamento |
-|-----------|--------------|
-| `xl` (1280px+) | Layout completo — todas as colunas lado a lado |
-| `lg` (1024px) | Grid de KPIs colapsa — 3 colunas máximo |
-| `sm` (640px) | Sidebar recolhe em hamburguer, colunas laterais colapsam |
-| Mobile (<640px) | Sidebar como drawer, tudo em coluna única |
-
-**Regras:**
-- Nunca usar valores absolutos de largura no conteúdo — apenas `w-full`, `max-w-`, grid
-- Sidebar em mobile: `Sheet` do Shadcn (drawer lateral) com toggle no Topbar
-- Tabelas em mobile: scroll horizontal (`overflow-x-auto`) — nunca ocultar colunas silenciosamente
-- Gráficos: `ResponsiveContainer` do Recharts com `width="100%"` — nunca tamanho fixo
-
----
-
-*Padrão não coberto aqui? Documentar antes de implementar.*  
-*A consistência entre páginas depende de todos seguirem os mesmos padrões.*
+3. **Arla 32 e Lubrificantes:** Não existem no HTML de referência — são páginas próprias adicionadas por decisão de produto após o HTML ser criado.
