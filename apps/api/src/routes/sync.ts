@@ -1,8 +1,11 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { and, eq, isNull, desc } from 'drizzle-orm'
 import { db } from '../db.js'
-import { locations, syncJobs, syncState } from '@postoinsight/db'
+import { locations, syncJobs, syncState, connectors } from '@postoinsight/db'
 import { requireTenantSession } from '../lib/auth.js'
+import { activeConnections } from './agent.js'
+import type { AgentCommand } from '@postoinsight/shared'
+import { randomUUID } from 'crypto'
 
 /**
  * Formata duração entre dois timestamps no padrão "Xm Ys".
@@ -156,6 +159,75 @@ export const syncRoutes: FastifyPluginAsync = async (app) => {
       ultima_sync_global: ultimaSyncGlobal?.toISOString() ?? null,
       locations: locationsResult,
       historico,
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // POST /api/v1/sync/trigger
+  // Dispara sync manual para todas as locations conectadas do tenant.
+  // Envia comando `sync` via WebSocket para cada agente ativo.
+  // ---------------------------------------------------------------------------
+  app.post('/trigger', async (req, reply) => {
+    const tenantId = req.tenantId!
+
+    // Busca todos os connectors ativos do tenant com suas locations
+    const tenantConnectors = await db
+      .select({
+        id:          connectors.id,
+        locationId:  connectors.locationId,
+        agentToken:  connectors.agentToken,
+        active:      connectors.active,
+      })
+      .from(connectors)
+      .where(and(
+        eq(connectors.tenantId, tenantId),
+        eq(connectors.active, true),
+      ))
+
+    const triggered: { location_id: string; job_id: string; status: string }[] = []
+    const skipped:   { location_id: string; reason: string }[] = []
+
+    for (const connector of tenantConnectors) {
+      const socket = activeConnections.get(connector.agentToken)
+
+      if (!socket || socket.socket.readyState !== 1 /* WebSocket.OPEN */) {
+        skipped.push({ location_id: connector.locationId, reason: 'agent_offline' })
+        continue
+      }
+
+      // Busca watermark atual para passar ao agente
+      const [state] = await db
+        .select({ lastSyncedAt: syncState.lastSyncedAt })
+        .from(syncState)
+        .where(and(
+          eq(syncState.tenantId, tenantId),
+          eq(syncState.locationId, connector.locationId),
+          eq(syncState.entity, 'fato_venda'),
+        ))
+        .limit(1)
+
+      const jobId = randomUUID()
+      const watermark = state?.lastSyncedAt?.toISOString() ?? new Date('2000-01-01').toISOString()
+
+      const command: AgentCommand = {
+        command: 'sync',
+        job_id: jobId,
+        entity: 'fato_venda',
+        watermark,
+      }
+
+      socket.socket.send(JSON.stringify(command))
+      triggered.push({ location_id: connector.locationId, job_id: jobId, status: 'triggered' })
+    }
+
+    const httpStatus = triggered.length > 0 ? 202 : 503
+
+    return reply.status(httpStatus).send({
+      triggered,
+      skipped,
+      message: triggered.length > 0
+        ? `Sync iniciado para ${triggered.length} location(s).`
+        : 'Nenhum agente conectado. Verifique se os agentes estão online.',
     })
   })
 }

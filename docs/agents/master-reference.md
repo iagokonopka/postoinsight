@@ -195,41 +195,50 @@ Receita Bruta
 
 ## 10. Estado Atual da Implementação
 
-### ✅ Em produção
-- `packages/db` — Drizzle schema (app/raw/canonical/analytics), migrations aplicadas até `0003_little_zaladane`, seed (Rede JAM)
+> Última atualização: 2026-05-17
+
+### ✅ Em produção (Railway)
+- `packages/db` — Drizzle schema completo, migrations aplicadas até `0005_sync_state_unique_erp`, seed (Rede JAM)
 - `packages/shared` — tipos, `deriveSegmento()`
-- `apps/api` — Fastify + WebSocket, pipeline pg-boss, todos os endpoints de dashboard
+- `apps/api` — Fastify + WebSocket, pipeline pg-boss, endpoints completos:
   - `/api/v1/vendas`, `/api/v1/combustivel`, `/api/v1/conveniencia`, `/api/v1/dre`
+  - `/api/v1/arla`, `/api/v1/lubrificantes`, `/api/v1/locations`, `/api/v1/sync/status`
+  - `POST /api/v1/sync/trigger` — disparo manual de sync via WebSocket
   - `lib/auth.ts` — middleware `requireTenantSession` (JWE decode, impersonation)
-- `apps/agent` — extração SQL Server → WebSocket → pipeline
-- `analytics.*` — 4 MVs (mv_vendas_diario, mv_combustivel_diario, mv_conveniencia_diario, mv_dre_mensal)
+- `apps/agent` — extração SQL Server → WebSocket → pipeline, bundlado como `.exe`
+- `analytics.*` — 4 MVs refreshadas com dados reais (Rede JAM)
 - Railway — API + worker + PostgreSQL
-- Rede JAM — 4 locations conectadas, pipeline end-to-end validado
+- Rede JAM — 4 locations conectadas, dados reais de 2026-01 a 2026-05
 
-### ✅ Implementado (aguardando migration)
-- `apps/api/src/routes/auth.ts` — `POST /auth/login`, `GET /auth/me`, `POST /auth/logout`, `POST /auth/change-password`
-  - ⚠️ Migration pendente para `password_changed_at` e `next_run_at`
-- `packages/db/src/schema/app.ts` — corrigido para Drizzle v0.30, campo `password_changed_at` adicionado
+### ✅ Correções de backend aplicadas (2026-05-17)
+Auditoria completa contra `docs/design/FRONTEND_SPEC.md`. Todos os gaps corrigidos:
+- `vendas/evolucao` → `margem_pct` adicionado à série
+- `vendas/top-produtos` → `qtd` corrigido (era null)
+- `combustivel/evolucao` → `?por_produto=true` para gráfico multi-série
+- `combustivel/subgrupos` → `preco_medio_litro` e `custo_medio_litro` adicionados
+- `conveniencia/resumo` → `ticket_medio` e `nf_count` adicionados
+- `conveniencia/top-grupos` → `categorias[]` aninhadas por grupo (para Accordion)
+- `conveniencia/categorias` → `segmento` opcional (default `conveniencia`)
+- `POST /sync/trigger` → novo endpoint implementado
 
-### ✅ Implementado — `apps/web` (telas prontas, sem dados reais)
-- Scaffold Vite 5 + React 18 + TypeScript + React Router v6 + TanStack Query v5 + ECharts (2026-05-03)
-- Autenticação: `AuthContext` + `GET /auth/me` no boot + cookie HttpOnly (ADR-012)
-- Tema claro/escuro com `data-theme` + `localStorage`
-- Período e location filter em `searchParams` da URL
-- 7 páginas implementadas (visual fiel ao design): Login, Dashboard, Combustível, Conveniência, DRE, Sync, Settings
-- **Estado: telas renderizando — sem dados** (aguarda endpoints + backfill)
+### ❌ `apps/web` — REMOVIDO, aguardando reimplementação
+O frontend anterior foi apagado em 2026-05-17. Refatoração completa baseada em:
+- **Spec:** `docs/design/FRONTEND_SPEC.md` — fonte de verdade de UI/UX
+- **Tokens:** `docs/design/design-tokens.md` — cores, tipografia, espaçamentos
+- **Design:** `design_example/postoinsight/` — referência visual aprovada
 
-### ❌ Pendente
-- `GET /api/v1/locations` — endpoint para seletor de unidades na Topbar
-- `GET /api/v1/sync/status` — endpoint para página `/sync`
-- Backfill completo das 4 locations
-- Migration para schema atualizado (`password_changed_at`, `next_run_at`)
-- Deploy `apps/web` no Railway (static build)
+**Scaffold do novo `apps/web` é o próximo passo.**
+
+### ❌ Demais pendências
+- Backfill das 3 locations restantes (Torres, Imbé, Tramandaí — apenas JAM Rota 1 concluída)
+- Deploy `apps/web` no Railway (build estático `dist/`)
 - `docs/ops/onboarding.md` — runbook para novos clientes
 
 ### Design de referência
-**`design_example/postoinsight/`** — fonte de verdade visual. Todo agente Frontend lê antes de implementar.
-ADRs relevantes: ADR-010 (Vite SPA), ADR-011 (ECharts), ADR-012 (auth cookie HttpOnly)
+- `docs/design/FRONTEND_SPEC.md` — **fonte de verdade de UI** (layouts, telas, componentes, comportamentos)
+- `docs/design/design-tokens.md` — **fonte de verdade visual** (cores, tipografia, espaçamentos, tema ECharts)
+- `design_example/postoinsight/` — referência visual aprovada final
+- ADRs: ADR-010 (Vite SPA), ADR-011 (ECharts via echarts-for-react), ADR-012 (auth cookie HttpOnly), ADR-013 (Tailwind v4 + Shadcn/ui)
 
 ---
 

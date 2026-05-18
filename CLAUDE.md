@@ -407,24 +407,8 @@ Depois: instalar o agente `.exe` no RDP com o arquivo `.env` configurado.
 - 4 MVs de analytics refreshadas com dados reais
 
 ### ✅ Implementado — `apps/web` (frontend com dados reais)
-- Scaffold completo Vite 5 + React 18 + TypeScript
-- Autenticação: `AuthContext` + `GET /auth/me` no boot + cookie HttpOnly (ADR-012)
-- Design tokens em `src/styles/tokens.css`, tema claro/escuro
-- Período ativo e location filter sincronizados com `searchParams` da URL
-- **Componentes UI:** `Topbar`, `Sidebar`, `AppLayout`, `KpiCard` (com sparkline + deltas), `SectionCard`, `StatusBadge`, `HorizBar`, `ChartLegend`, `DrillDownTable` (grupo→subgrupo→produto expansível), `ProductDetailPanel` (painel lateral de detalhe)
-- **Componentes de gráfico ECharts:** `Sparkline`, `DonutChart`, `DualAxisChart`, `HeatmapChart`, `ScatterChart`, `WaterfallChart`, `StackedAreaChart`, `LineAreaChart`, `BarChart`
-- **Páginas implementadas com dados reais:**
-  - `/login` — autenticação com cookie HttpOnly
-  - `/dashboard` — KPIs+sparklines, dual-axis, donut mix, top-10 produtos, heatmap placeholder
-  - `/combustivel` — KPIs+sparklines, toggle linha/stacked, tabela com sparkline+seta por produto
-  - `/conveniencia` — KPIs+sparklines, evolução, donut mix, top-10 grupos, breakdown drill-down, scatter
-  - `/dre` — KPIs, waterfall, evolução margem por segmento, comparativo mês-a-mês
-  - `/arla` — KPIs, evolução, tabela volumétrica, DrillDownTable (subgrupo/produto)
-  - `/lubrificantes` — KPIs, evolução, donut mix, DrillDownTable + ProductDetailPanel
-  - `/sync` — status por location, histórico de jobs
-  - `/settings` — perfil do usuário, info do tenant
-- Proxy Vite `/api` e `/auth` → `http://localhost:3000`
-- **Estado atual: frontend carregando dados reais da API** (backfill JAM Rota 1 concluído)
+- **❌ REMOVIDO em 2026-05-17** — frontend antigo apagado. Refatoração completa em andamento baseada em `docs/design/FRONTEND_SPEC.md` e `docs/design/design-tokens.md`.
+- A nova implementação ainda não foi iniciada. Scaffold pendente.
 
 ### ✅ Novos endpoints backend (2026-05-08 / 2026-05-14)
 - `GET /api/v1/conveniencia/top-grupos` — top N grupos da loja por receita, todos os segmentos
@@ -434,10 +418,22 @@ Depois: instalar o agente `.exe` no RDP com o arquivo `.env` configurado.
 - `GET /api/v1/vendas/drill/subgrupos` — drill-down grupo→subgrupo via fato_venda
 - `GET /api/v1/vendas/drill/produtos` — drill-down subgrupo→produto via fato_venda
 
+### ✅ Correções backend para conformidade com FRONTEND_SPEC (2026-05-17)
+Auditoria completa dos endpoints contra `docs/design/FRONTEND_SPEC.md`. Correções aplicadas:
+- `GET /api/v1/vendas/evolucao` — adicionado campo `margem_pct` na série (era só `margem_bruta` em R$)
+- `GET /api/v1/vendas/top-produtos` — corrigido `qtd` (era `null`, agora retorna `qtd_total` da MV)
+- `GET /api/v1/combustivel/evolucao` — adicionado `?por_produto=true` que retorna séries individuais por produto (Gasolinas, Dieseis, Arla) para o gráfico multi-série da tela `/combustivel`
+- `GET /api/v1/combustivel/subgrupos` — adicionados `preco_medio_litro` e `custo_medio_litro` por subgrupo
+- `GET /api/v1/conveniencia/resumo` — adicionados `nf_count` e `ticket_medio` (query em fato_venda)
+- `GET /api/v1/conveniencia/top-grupos` — response agora inclui `categorias[]` aninhadas por grupo (para Accordion da FRONTEND_SPEC §7.5)
+- `GET /api/v1/conveniencia/categorias` — `segmento` agora opcional (default `conveniencia`), funciona como scatter-data sem parâmetro obrigatório
+- `POST /api/v1/sync/trigger` — novo endpoint que envia comando `sync` via WebSocket para agentes conectados do tenant
+
 ### ⚠️ Parcialmente feito
 - Backfill das 4 locations — apenas JAM Rota 1 (001) concluído. Torres, Imbé, Tramandaí pendentes.
 
 ### ❌ Pendente
+- **`apps/web` — scaffold completo do novo frontend** (próximo passo principal)
 - Backfill completo das 3 locations restantes (002, 005, 006)
 - Deploy `apps/web` no Railway (build estático `dist/`)
 - `docs/ops/onboarding.md` — runbook para novos clientes
@@ -446,4 +442,4 @@ Depois: instalar o agente `.exe` no RDP com o arquivo `.env` configurado.
 
 ---
 
-*Última atualização: 2026-05-14 — documento vivo, atualizado conforme o projeto evolui.*
+*Última atualização: 2026-05-17 — documento vivo, atualizado conforme o projeto evolui.*

@@ -1,188 +1,232 @@
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/hooks/use-auth';
-import { usePeriodo, PERIODOS, type PeriodoId } from '@/hooks/use-periodo';
-import { useLocationFilter, type LocationFilter } from '@/hooks/use-location-filter';
-import { APP_NAME } from '@/lib/config';
+/**
+ * Topbar — barra superior (light)
+ * Referência visual: design_example/postoinsight/PostoInsight.html (.topbar)
+ * h-[54px], bg-card, border-b border-border
+ */
+import { useLocation, useNavigate } from 'react-router-dom';
+import { RefreshCw, Loader2, Settings, LogOut } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { useFilters, type PeriodKey } from '@/contexts/FilterContext';
+import { useTenant } from '@/contexts/TenantContext';
+import { useSyncStatus } from '@/hooks/useSyncStatus';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { SegmentedControl } from '@/components/ui/SegmentedControl';
+import { cn } from '@/lib/utils';
 
-// Shape mínimo de location para o seletor
-export interface TopbarLocation {
-  id: string;
-  nome: string;
+/* ─── Mapeamento pathname → label legível ─────────────────── */
+
+const PAGE_LABELS: Record<string, string> = {
+  '/dashboard':    'Dashboard',
+  '/combustivel':  'Combustível',
+  '/conveniencia': 'Conveniência & Serviços',
+  '/dre':          'DRE Mensal',
+  '/sync':         'Sincronização',
+  '/settings':     'Configurações',
+};
+
+function usePageLabel(pathname: string): string {
+  const entry = Object.entries(PAGE_LABELS).find(([prefix]) =>
+    pathname === prefix || pathname.startsWith(prefix + '/'),
+  );
+  return entry?.[1] ?? 'PostoInsight';
 }
 
-interface TopbarProps {
-  locations: TopbarLocation[];
-  sidebarCollapsed: boolean;
-  onToggleSidebar: () => void;
+/* ─── Label de período para o breadcrumb ─────────────────── */
+
+const PERIOD_CRUMB: Record<PeriodKey, string> = {
+  today:      'Hoje',
+  yesterday:  'Ontem',
+  '7d':       'Últimos 7 dias',
+  this_week:  'Esta semana',
+  this_month: 'Este mês',
+  last_month: 'Mês anterior',
+  custom:     'Período personalizado',
+};
+
+/* ─── Segmented period control ───────────────────────────── */
+
+const PERIOD_OPTIONS = [
+  { value: 'today',      label: 'Hoje'     },
+  { value: 'this_week',  label: 'Semana'   },
+  { value: 'this_month', label: 'Mês'      },
+  { value: 'last_month', label: 'Mês ant.' },
+] as const satisfies ReadonlyArray<{ value: PeriodKey; label: string }>;
+
+function PeriodSegment() {
+  const { period, setPeriod } = useFilters();
+
+  return (
+    <SegmentedControl<PeriodKey>
+      value={period}
+      options={PERIOD_OPTIONS}
+      onChange={(v) => setPeriod(v)}
+    />
+  );
 }
 
-export function Topbar({ locations, sidebarCollapsed, onToggleSidebar }: TopbarProps) {
+/* ─── Location select ────────────────────────────────────── */
+
+function LocationSelect() {
+  const { locationId, setLocationId } = useFilters();
+  const { locations } = useTenant();
+
+  return (
+    <Select value={locationId} onValueChange={setLocationId}>
+      <SelectTrigger className="h-[34px] w-44 text-[13px]">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="all">Todas as unidades</SelectItem>
+        {locations.map((loc) => (
+          <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+/* ─── Botão de sincronização ─────────────────────────────── */
+
+function SyncButton() {
+  const { status, trigger, triggering } = useSyncStatus();
+  const isSyncing = triggering || status === 'syncing';
+
+  return (
+    <button
+      type="button"
+      onClick={trigger}
+      disabled={isSyncing}
+      className={cn(
+        'inline-flex h-[34px] items-center gap-1.5 rounded-[6px] border border-border',
+        'bg-card px-3 text-[13px] font-medium text-foreground transition-colors',
+        'hover:bg-muted disabled:opacity-60',
+        status === 'critical' && 'border-red-400 text-red-600',
+      )}
+    >
+      {isSyncing ? (
+        <Loader2 size={13} className="animate-spin" />
+      ) : (
+        <RefreshCw size={13} />
+      )}
+      {isSyncing ? 'Sincronizando…' : 'Sincronizar'}
+    </button>
+  );
+}
+
+/* ─── Avatar com dropdown ────────────────────────────────── */
+
+function UserMenu() {
   const { user, logout } = useAuth();
-  const { periodoId, setPeriodo } = usePeriodo();
-  const { locationId, setLocationId } = useLocationFilter();
   const navigate = useNavigate();
+
+  const initials = user?.name
+    ? user.name.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase()
+    : (user?.email?.[0]?.toUpperCase() ?? 'U');
 
   async function handleLogout() {
     await logout();
-    navigate('/login');
+    navigate('/login', { replace: true });
   }
 
-  // Iniciais do usuário para o avatar
-  const initials = user?.name
-    ? user.name.split(' ').slice(0, 2).map((p) => p[0]).join('').toUpperCase()
-    : '?';
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger className="flex items-center gap-2 rounded-md px-1.5 py-1 text-sm hover:bg-muted focus:outline-none">
+        {/* Avatar com gradiente idêntico ao HTML de referência */}
+        <span
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white"
+          style={{ background: 'linear-gradient(135deg, #0073BB, #6B40C4)' }}
+        >
+          {initials}
+        </span>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-48">
+        {user?.name && (
+          <div className="px-2 py-1.5 text-sm font-medium text-foreground">{user.name}</div>
+        )}
+        {user?.email && (
+          <div className="px-2 pb-2 text-xs text-muted-foreground">{user.email}</div>
+        )}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => navigate('/settings')}>
+          <Settings size={13} className="mr-2" />
+          Configurações
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={handleLogout} className="text-red-600 focus:text-red-600">
+          <LogOut size={13} className="mr-2" />
+          Sair
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+/* ─── Breadcrumb ─────────────────────────────────────────── */
+
+function Breadcrumb() {
+  const location = useLocation();
+  const { period, locationId } = useFilters();
+  const { locations } = useTenant();
+
+  const pageLabel = usePageLabel(location.pathname);
+
+  const locationLabel =
+    locationId === 'all'
+      ? 'Todas as unidades'
+      : (locations.find((l) => l.id === locationId)?.name ?? 'Unidade');
+
+  const periodLabel = PERIOD_CRUMB[period] ?? 'Este mês';
+
+  // Não exibir contexto de filtro em páginas de operação
+  const isOperational = ['/settings', '/sync'].some((p) => location.pathname.startsWith(p));
 
   return (
-    <header
-      style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        zIndex: 30,
-        height: 'var(--topbar-height)',
-        background: 'var(--color-topbar)',
-        display: 'flex',
-        alignItems: 'center',
-        padding: '0 16px',
-        gap: 8,
-      }}
-    >
-      {/* Toggle sidebar */}
-      <button
-        onClick={onToggleSidebar}
-        title={sidebarCollapsed ? 'Expandir menu' : 'Recolher menu'}
-        style={{
-          background: 'transparent',
-          border: 'none',
-          cursor: 'pointer',
-          color: 'var(--color-topbar-muted)',
-          padding: '4px 6px',
-          borderRadius: 'var(--radius-sm)',
-          display: 'flex',
-          alignItems: 'center',
-          marginRight: 6,
-        }}
-      >
-        <svg width={16} height={16} fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-        </svg>
-      </button>
-
-      {/* Logo */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginRight: 20 }}>
-        <div style={{
-          width: 26, height: 26,
-          borderRadius: 'var(--radius-sm)',
-          background: 'var(--color-cta)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          flexShrink: 0,
-        }}>
-          <svg width={13} height={13} fill="none" stroke="white" strokeWidth={2.5} viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+    <div className="flex items-center gap-2 text-[13px] text-muted-foreground whitespace-nowrap shrink-0">
+      <b className="text-foreground font-semibold">{pageLabel}</b>
+      {!isOperational && (
+        <>
+          {/* Chevron separador */}
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-50">
+            <path d="m9 18 6-6-6-6" />
           </svg>
-        </div>
-        <span style={{ fontSize: 14, fontWeight: 600, color: '#fff', letterSpacing: '-0.01em' }}>
-          {APP_NAME}
-        </span>
-      </div>
+          <span id="crumb-context">{locationLabel} · {periodLabel}</span>
+        </>
+      )}
+    </div>
+  );
+}
 
-      {/* Seletor de período */}
-      <div style={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-        {PERIODOS.map((p) => {
-          const active = periodoId === p.id;
-          return (
-            <button
-              key={p.id}
-              onClick={() => setPeriodo(p.id as PeriodoId)}
-              style={{
-                padding: '4px 12px',
-                borderRadius: 'var(--radius-sm)',
-                border: active ? '1px solid rgba(255,255,255,.3)' : '1px solid transparent',
-                background: active ? 'rgba(255,255,255,.12)' : 'transparent',
-                color: active ? '#fff' : 'var(--color-topbar-muted)',
-                fontSize: 13,
-                fontWeight: active ? 500 : 400,
-                cursor: 'pointer',
-                fontFamily: 'inherit',
-                transition: 'all .1s',
-              }}
-            >
-              {p.label}
-            </button>
-          );
-        })}
-      </div>
+/* ─── Topbar ─────────────────────────────────────────────── */
 
-      <div style={{ flex: 1 }} />
+export function Topbar() {
+  const location = useLocation();
+  const { multiLocationEnabled } = useTenant();
 
-      {/* Seletor de location */}
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 6,
-        padding: '4px 10px',
-        border: '1px solid rgba(255,255,255,.15)',
-        borderRadius: 'var(--radius-sm)',
-        cursor: 'pointer',
-      }}>
-        <span style={{
-          width: 6, height: 6,
-          borderRadius: '50%',
-          background: 'var(--color-success)',
-          display: 'inline-block',
-          flexShrink: 0,
-        }} />
-        <select
-          value={locationId}
-          onChange={(e) => setLocationId(e.target.value as LocationFilter)}
-          style={{
-            background: 'transparent',
-            border: 'none',
-            color: '#fff',
-            fontFamily: 'inherit',
-            fontSize: 12,
-            cursor: 'pointer',
-            outline: 'none',
-            appearance: 'none',
-            paddingRight: 16,
-          }}
-        >
-          <option value="all" style={{ color: '#16191F', background: '#fff' }}>
-            Todas as unidades
-          </option>
-          {locations.map((l) => (
-            <option key={l.id} value={l.id} style={{ color: '#16191F', background: '#fff' }}>
-              {l.nome}
-            </option>
-          ))}
-        </select>
-        <svg
-          width={10} height={10}
-          viewBox="0 0 10 10"
-          fill="none"
-          stroke="rgba(255,255,255,.5)"
-          strokeWidth={1.8}
-          style={{ pointerEvents: 'none', marginLeft: -14, flexShrink: 0 }}
-        >
-          <path strokeLinecap="round" d="M2 4l3 3 3-3" />
-        </svg>
-      </div>
+  // DRE tem seletor de mês próprio — ocultar segmented control
+  const isDrePage = location.pathname.startsWith('/dre');
 
-      {/* Avatar com dropdown de logout */}
-      <div
-        onClick={handleLogout}
-        title="Sair"
-        style={{
-          width: 30, height: 30,
-          borderRadius: '50%',
-          background: 'var(--color-cta)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 11, fontWeight: 700, color: '#fff',
-          cursor: 'pointer',
-          marginLeft: 4,
-          userSelect: 'none',
-        }}
-      >
-        {initials}
+  return (
+    <header className="flex h-[54px] shrink-0 items-center gap-3 bg-card border-b border-border px-6">
+      <Breadcrumb />
+
+      <div className="ml-auto flex items-center gap-2">
+        {!isDrePage && <PeriodSegment />}
+        {multiLocationEnabled && <LocationSelect />}
+        <SyncButton />
+        <UserMenu />
       </div>
     </header>
   );

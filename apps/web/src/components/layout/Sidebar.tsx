@@ -1,205 +1,230 @@
-import { Link, useLocation } from 'react-router-dom';
-import { APP_NAME } from '@/lib/config';
+/**
+ * Sidebar — navegação principal
+ * Referência visual: design_example/postoinsight/PostoInsight.html (.sidebar)
+ * Largura: 240px, bg-sidebar (slate-800), fixa
+ */
+import { NavLink, useLocation } from 'react-router-dom';
+import {
+  LayoutDashboard,
+  Fuel,
+  ShoppingBag,
+  FileText,
+  RefreshCw,
+  Settings,
+} from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { useTenant } from '@/contexts/TenantContext';
+import { cn } from '@/lib/utils';
 
-// Definição da navegação — espelhada do layout.jsx do design
-const NAV = [
-  {
-    section: 'Análise',
-    items: [
-      {
-        to: '/dashboard',
-        label: 'Visão Geral',
-        icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6',
-      },
-      {
-        to: '/combustivel',
-        label: 'Combustível',
-        icon: 'M13 10V3L4 14h7v7l9-11h-7z',
-      },
-      {
-        to: '/arla',
-        label: 'Arla 32',
-        icon: 'M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z',
-      },
-      {
-        to: '/conveniencia',
-        label: 'Conveniência',
-        icon: 'M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z',
-      },
-      {
-        to: '/lubrificantes',
-        label: 'Lubrificantes',
-        icon: 'M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z',
-      },
-      {
-        to: '/dre',
-        label: 'DRE Mensal',
-        icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z',
-      },
-    ],
-  },
-  {
-    section: 'Operação',
-    items: [
-      {
-        to: '/sync',
-        label: 'Sincronização',
-        icon: 'M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15',
-      },
-    ],
-  },
-  {
-    section: null,
-    items: [
-      {
-        to: '/settings',
-        label: 'Configurações',
-        icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z',
-      },
-    ],
-  },
-];
+/* ─── Grupos de navegação ─────────────────────────────────── */
 
-interface SidebarProps {
-  tenantName?: string;
-  locationCount?: number;
-  hasSyncError?: boolean;
-  theme: 'light' | 'dark';
-  onThemeToggle: () => void;
+const NAV_ANALISE = [
+  { to: '/dashboard',    label: 'Dashboard',              icon: LayoutDashboard },
+  { to: '/combustivel',  label: 'Combustível',            icon: Fuel },
+  { to: '/conveniencia', label: 'Conveniência',           icon: ShoppingBag },
+  { to: '/dre',          label: 'DRE',                    icon: FileText },
+] as const;
+
+const NAV_OPERACAO = [
+  { to: '/sync',         label: 'Sincronização',          icon: RefreshCw },
+  { to: '/settings',     label: 'Configurações',          icon: Settings },
+] as const;
+
+/* ─── Logo SVG mark ──────────────────────────────────────── */
+
+function LogoMark() {
+  return (
+    <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+      <defs>
+        <linearGradient id="sb-logo-grad" x1="0" y1="0" x2="28" y2="28" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#0073BB" />
+          <stop offset="1" stopColor="#6B40C4" />
+        </linearGradient>
+      </defs>
+      <rect width="28" height="28" rx="7" fill="url(#sb-logo-grad)" />
+      {/* Ícone estilizado — torre com sinal */}
+      <path d="M14 7v14M10 11l4-4 4 4M8 18h12" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
 }
 
-export function Sidebar({
-  tenantName,
-  locationCount,
-  hasSyncError = false,
-  theme,
-  onThemeToggle,
-}: SidebarProps) {
-  const location = useLocation();
+/* ─── Item de navegação ──────────────────────────────────── */
 
-  // Verifica se a rota atual corresponde ao item de nav
-  function isActive(to: string) {
-    return location.pathname === to || location.pathname.startsWith(to + '/');
-  }
+interface NavItemProps {
+  to: string;
+  label: string;
+  icon: React.ElementType;
+  isActive: boolean;
+}
+
+function NavItem({ to, label, icon: Icon, isActive }: NavItemProps) {
+  return (
+    <NavLink
+      to={to}
+      className={cn(
+        'relative flex items-center gap-[10px] rounded-[6px] px-[10px] py-2',
+        'text-[13px] font-medium transition-colors duration-[120ms]',
+        isActive
+          ? 'bg-[hsl(var(--sidebar-active-bg))] text-[hsl(var(--sidebar-foreground))]'
+          : 'text-[hsl(var(--sidebar-foreground)/0.7)] hover:bg-[hsl(var(--sidebar-muted)/0.6)] hover:text-[hsl(var(--sidebar-foreground))]',
+      )}
+    >
+      {/* Barra lateral de item ativo */}
+      {isActive && (
+        <span
+          className="absolute left-0 rounded-r-[2px]"
+          style={{
+            top: 6,
+            bottom: 6,
+            width: '2.5px',
+            background: 'var(--sidebar-active)',
+          }}
+        />
+      )}
+      <Icon
+        size={14}
+        strokeWidth={1.6}
+        className={cn(
+          'shrink-0 opacity-85',
+          isActive && 'opacity-100',
+        )}
+        style={isActive ? { color: 'var(--sidebar-active)' } : undefined}
+      />
+      <span>{label}</span>
+    </NavLink>
+  );
+}
+
+/* ─── Section label ──────────────────────────────────────── */
+
+function SectionLabel({ children }: { children: string }) {
+  return (
+    <p
+      className="px-2 mb-1 text-[10px] font-semibold uppercase tracking-[1.4px]"
+      style={{ color: 'hsl(var(--sidebar-foreground) / 0.4)' }}
+    >
+      {children}
+    </p>
+  );
+}
+
+/* ─── Sidebar principal ──────────────────────────────────── */
+
+export function Sidebar() {
+  const location = useLocation();
+  const { user } = useAuth();
+  const { locations } = useTenant();
+
+  // Iniciais do tenant: 2 primeiras letras da primeira location, fallback "PI"
+  const tenantName = locations[0]?.name ?? 'PostoInsight';
+  const tenantInitials = tenantName
+    .split(' ')
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase() ?? '')
+    .join('');
+
+  // Label do role do usuário
+  const roleLabel =
+    user?.role === 'owner'   ? 'Proprietário' :
+    user?.role === 'manager' ? 'Gerente'       :
+    user?.role === 'viewer'  ? 'Visualizador'  :
+    'Administrador';
 
   return (
     <aside
+      className="flex h-full w-60 shrink-0 flex-col"
       style={{
-        width: 'var(--sidebar-width)',
-        minHeight: '100vh',
-        background: 'var(--color-bg)',
-        borderRight: '1px solid var(--color-border)',
-        display: 'flex',
-        flexDirection: 'column',
-        position: 'fixed',
-        top: 'var(--topbar-height)',
-        left: 0,
-        bottom: 0,
-        zIndex: 20,
-        overflowY: 'auto',
+        background: 'hsl(var(--sidebar))',
+        color: 'hsl(var(--sidebar-foreground))',
+        borderRight: '1px solid hsl(var(--sidebar-muted) / 0.5)',
       }}
     >
-      {/* Cabeçalho da sidebar com nome do tenant */}
-      <div style={{
-        padding: '16px var(--space-4) 12px',
-        borderBottom: '1px solid var(--color-border-subtle)',
-      }}>
-        <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-text)', letterSpacing: '-0.01em' }}>
-          {APP_NAME}
-        </div>
-        {tenantName && (
-          <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 2 }}>
-            {tenantName}{locationCount ? ` · ${locationCount} unidades` : ''}
-          </div>
-        )}
-      </div>
-
-      {/* Navegação */}
-      <nav style={{ flex: 1, padding: '8px 0' }}>
-        {NAV.map((group, gi) => (
-          <div key={gi} style={{ marginBottom: 2 }}>
-            {group.section && (
-              <div style={{
-                fontSize: 10,
-                fontWeight: 600,
-                color: 'var(--color-text-muted)',
-                textTransform: 'uppercase',
-                letterSpacing: '.08em',
-                padding: '10px 16px 4px',
-              }}>
-                {group.section}
-              </div>
-            )}
-            {group.items.map((item) => {
-              const active = isActive(item.to);
-              return (
-                <Link
-                  key={item.to}
-                  to={item.to}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 0,
-                    padding: '0 16px',
-                    height: 32,
-                    textDecoration: 'none',
-                    fontSize: 13,
-                    fontWeight: active ? 500 : 400,
-                    background: active ? 'var(--color-primary-subtle)' : 'transparent',
-                    color: active ? 'var(--color-primary)' : 'var(--color-text-muted)',
-                    borderLeft: `3px solid ${active ? 'var(--color-primary)' : 'transparent'}`,
-                    transition: 'all .1s',
-                  }}
-                >
-                  {item.label}
-                </Link>
-              );
-            })}
-          </div>
-        ))}
-      </nav>
-
-      {/* Rodapé: status de sync + toggle de tema */}
-      <div style={{
-        padding: '12px 16px',
-        borderTop: '1px solid var(--color-border-subtle)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{
-            width: 6, height: 6,
-            borderRadius: '50%',
-            background: hasSyncError ? 'var(--color-warning)' : 'var(--color-success)',
-            display: 'inline-block',
-          }} />
-          <span style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>
-            {hasSyncError ? '1 offline' : 'Sync OK'}
+      {/* ── Logo ─────────────────────────────────── */}
+      <div
+        className="flex items-center gap-[10px] px-5 py-[18px]"
+        style={{ borderBottom: '1px solid hsl(var(--sidebar-muted) / 0.6)' }}
+      >
+        <LogoMark />
+        <div>
+          <p className="text-[14px] font-semibold tracking-[-0.2px]" style={{ color: 'hsl(var(--sidebar-foreground))' }}>
+            PostoInsight
+          </p>
+          <span
+            className="block text-[10px] font-medium tracking-[0.4px] mt-[1px]"
+            style={{ color: 'hsl(var(--sidebar-foreground) / 0.5)' }}
+          >
+            BI · {tenantName.length > 16 ? tenantName.slice(0, 15) + '…' : tenantName}
           </span>
         </div>
-        <button
-          onClick={onThemeToggle}
-          title={theme === 'dark' ? 'Modo claro' : 'Modo escuro'}
-          style={{
-            background: 'transparent',
-            border: 'none',
-            color: 'var(--color-text-muted)',
-            padding: 4,
-            borderRadius: 'var(--radius-sm)',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-          }}
-        >
-          <svg width={14} height={14} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-            {theme === 'dark' ? (
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-            ) : (
-              <path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-            )}
-          </svg>
-        </button>
+      </div>
+
+      {/* ── Nav ──────────────────────────────────── */}
+      <nav className="flex flex-1 flex-col gap-5 overflow-y-auto px-3 py-4">
+        {/* Seção Análise */}
+        <div>
+          <SectionLabel>Análise</SectionLabel>
+          <div className="flex flex-col gap-0.5">
+            {NAV_ANALISE.map(({ to, label, icon }) => (
+              <NavItem
+                key={to}
+                to={to}
+                label={label}
+                icon={icon}
+                isActive={location.pathname.startsWith(to)}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Seção Operação */}
+        <div>
+          <SectionLabel>Operação</SectionLabel>
+          <div className="flex flex-col gap-0.5">
+            {NAV_OPERACAO.map(({ to, label, icon }) => (
+              <NavItem
+                key={to}
+                to={to}
+                label={label}
+                icon={icon}
+                isActive={location.pathname.startsWith(to)}
+              />
+            ))}
+          </div>
+        </div>
+      </nav>
+
+      {/* ── Footer — tenant ──────────────────────── */}
+      <div
+        className="p-3"
+        style={{ borderTop: '1px solid hsl(var(--sidebar-muted) / 0.6)' }}
+      >
+        <div className="flex items-center gap-[10px] rounded-[6px] px-2 py-[6px]">
+          {/* Ícone do tenant */}
+          <div
+            className="flex h-7 w-7 shrink-0 items-center justify-content rounded-[6px] text-[11px] font-bold text-white"
+            style={{
+              background: 'linear-gradient(135deg, #0073BB, #6B40C4)',
+              justifyContent: 'center',
+            }}
+          >
+            {tenantInitials || 'PI'}
+          </div>
+          {/* Nome + role */}
+          <div className="min-w-0">
+            <p
+              className="truncate text-[12px] font-medium"
+              style={{ color: 'hsl(var(--sidebar-foreground))' }}
+            >
+              {user?.name ?? user?.email ?? 'Usuário'}
+            </p>
+            <p
+              className="text-[10px]"
+              style={{ color: 'hsl(var(--sidebar-foreground) / 0.5)' }}
+            >
+              {roleLabel}
+            </p>
+          </div>
+        </div>
       </div>
     </aside>
   );

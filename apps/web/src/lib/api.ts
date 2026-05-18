@@ -1,6 +1,10 @@
-import { API_URL } from './config';
+/**
+ * Fetch helper — PostoInsight
+ * - Envia cookies automaticamente (credentials: 'include')
+ * - Redireciona para /login em 401
+ * - Lança ApiError em respostas de erro
+ */
 
-// Erros da API com status HTTP
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -11,43 +15,73 @@ export class ApiError extends Error {
   }
 }
 
-// Fetch wrapper: sempre usa credentials: 'include' para o cookie HttpOnly ser
-// enviado automaticamente. Nunca manipula o token diretamente (ADR-012).
-export async function apiFetch<T>(
-  path: string,
-  options: RequestInit = {},
-): Promise<T> {
-  const url = `${API_URL}${path}`;
+interface RequestOptions extends RequestInit {
+  /** Se true, não redireciona para /login em 401 — apenas lança ApiError */
+  skipAuthRedirect?: boolean;
+}
 
-  const res = await fetch(url, {
-    ...options,
+async function request<T>(path: string, init?: RequestOptions): Promise<T> {
+  const { skipAuthRedirect, ...fetchInit } = init ?? {};
+
+  const res = await fetch(path, {
+    ...fetchInit,
     credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
-      ...options.headers,
+      ...fetchInit?.headers,
     },
   });
 
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({ error: res.statusText }));
-    throw new ApiError(res.status, body.error ?? res.statusText);
+  if (res.status === 401) {
+    if (!skipAuthRedirect) {
+      window.location.href = '/login?reason=session_expired';
+    }
+    throw new ApiError(401, 'Sessão expirada');
   }
 
-  // 204 No Content — sem body
+  if (!res.ok) {
+    let message = `Erro ${res.status}`;
+    try {
+      const body = await res.json();
+      message = body?.message ?? body?.error ?? message;
+    } catch {
+      // mantém mensagem padrão
+    }
+    throw new ApiError(res.status, message);
+  }
+
+  // 204 No Content
   if (res.status === 204) return undefined as T;
 
   return res.json() as Promise<T>;
 }
 
-// Atalhos para os métodos HTTP mais usados
 export const api = {
-  get: <T>(path: string) => apiFetch<T>(path),
+  get: <T>(path: string, opts?: RequestOptions) => request<T>(path, opts),
 
-  post: <T>(path: string, body: unknown) =>
-    apiFetch<T>(path, { method: 'POST', body: JSON.stringify(body) }),
+  post: <T>(path: string, body?: unknown) =>
+    request<T>(path, {
+      method: 'POST',
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    }),
 
-  put: <T>(path: string, body: unknown) =>
-    apiFetch<T>(path, { method: 'PUT', body: JSON.stringify(body) }),
+  put: <T>(path: string, body?: unknown) =>
+    request<T>(path, {
+      method: 'PUT',
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    }),
 
-  delete: <T>(path: string) => apiFetch<T>(path, { method: 'DELETE' }),
+  delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
 };
+
+/** Monta query string a partir de um objeto, omitindo valores undefined/null */
+export function buildQuery(params: Record<string, string | number | boolean | null | undefined>): string {
+  const q = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null) {
+      q.set(key, String(value));
+    }
+  }
+  const str = q.toString();
+  return str ? `?${str}` : '';
+}

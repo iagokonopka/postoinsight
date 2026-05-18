@@ -1,55 +1,58 @@
-// Mini gráfico de linha inline — usado em KpiCard e tabelas de combustível
-import '@/lib/echarts';
-import ReactECharts from 'echarts-for-react';
+/**
+ * Sparkline — mini gráfico de linha/área
+ *
+ * Dois modos de uso:
+ * 1. Fundo absoluto (KpiCard): sem height/width → ocupa 100% do container pai
+ * 2. Inline fixo (legado): height={32} width={80}
+ */
+import { useMemo } from 'react';
+import { EChart } from './EChart';
+import { cn } from '@/lib/utils';
 
 interface SparklineProps {
   data: number[];
   color?: string;
-  width?: number;
+  /** Altura em px. Omitir para usar 100% do container (modo fundo absoluto). */
   height?: number;
+  /** Largura em px. Omitir para usar 100% do container. */
+  width?: number;
+  className?: string;
 }
 
-export function Sparkline({ data, color = '#0073BB', width = 80, height = 24 }: SparklineProps) {
-  if (!data || data.length === 0) return null;
-
-  const option = {
-    animation: false,
-    grid: { top: 2, right: 2, bottom: 2, left: 2 },
-    xAxis: { type: 'category', show: false },
-    yAxis: { type: 'value', show: false },
-    tooltip: { show: false },
+export function Sparkline({ data, color = '#0073BB', height, width, className }: SparklineProps) {
+  const option = useMemo(() => ({
+    grid:   { top: 0, bottom: 0, left: 0, right: 0 },
+    xAxis:  { type: 'category' as const, show: false, data: data.map((_, i) => i), boundaryGap: false },
+    yAxis:  { type: 'value'   as const, show: false, scale: false },
     series: [{
-      type: 'line',
+      type:      'line' as const,
       data,
-      smooth: true,
-      symbol: 'none',
+      symbol:    'none',
       lineStyle: { color, width: 1.5 },
-      areaStyle: {
-        color: {
-          type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
-          colorStops: [
-            { offset: 0, color: hexToRgba(color, 0.25) },
-            { offset: 1, color: hexToRgba(color, 0) },
-          ],
-        },
-      },
+      areaStyle: { color, opacity: 0.18 },
+      smooth:    0.4,
     }],
-  };
+    animation: false,
+  }), [data, color]);
 
+  // Modo fundo absoluto — sem dimensões fixas, expande 100% do container pai
+  if (height === undefined && width === undefined) {
+    return (
+      <EChart
+        option={option}
+        height="100%"
+        className={cn('w-full h-full', className)}
+      />
+    );
+  }
+
+  // Modo inline — container div com dimensões explícitas
   return (
-    <ReactECharts
-      option={option}
-      style={{ height, width }}
-      notMerge
-    />
+    <div
+      className={cn('shrink-0', className)}
+      style={{ width: width ?? 80, height: height ?? 32 }}
+    >
+      <EChart option={option} height="100%" className="w-full h-full" />
+    </div>
   );
-}
-
-// Converte hex para rgba
-function hexToRgba(color: string, opacity: number): string {
-  if (!color.startsWith('#')) return `rgba(0,115,187,${opacity})`;
-  const r = parseInt(color.slice(1, 3), 16);
-  const g = parseInt(color.slice(3, 5), 16);
-  const b = parseInt(color.slice(5, 7), 16);
-  return `rgba(${r},${g},${b},${opacity})`;
 }

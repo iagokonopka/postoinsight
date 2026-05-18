@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { and, eq, gte, lte, inArray, sql, sum, desc } from 'drizzle-orm'
 import { db } from '../db.js'
-import { mvConvenienciaDiario as mv } from '@postoinsight/db'
+import { mvConvenienciaDiario as mv, fatoVenda } from '@postoinsight/db'
 import { requireTenantSession } from '../lib/auth.js'
 import {
   BadQueryError, parseDateRange, parseUuidArray, parseEnum, n, pct, round2,
@@ -60,6 +60,20 @@ export const convenienciaRoutes: FastifyPluginAsync = async (app) => {
     const margem_bruta    = n(r?.margem_bruta)
     const qtd_itens       = n(r?.qtd_itens)
 
+    // Ticket médio: conta NFs distintas em fato_venda para o segmento conveniencia
+    const nfRows = await db
+      .select({ nf_count: sql<number>`COUNT(DISTINCT ${fatoVenda.nrNota})`.mapWith(Number) })
+      .from(fatoVenda)
+      .where(and(
+        eq(fatoVenda.tenantId, tenantId),
+        eq(fatoVenda.segmento, 'conveniencia'),
+        gte(fatoVenda.dataVenda, dataInicio),
+        lte(fatoVenda.dataVenda, dataFim),
+        locationIds ? inArray(fatoVenda.locationId, locationIds) : undefined,
+      ))
+    const nf_count    = n(nfRows[0]?.nf_count)
+    const ticket_medio = nf_count > 0 ? round2(receita_bruta / nf_count) : null
+
     return reply.send({
       periodo: { inicio: dataInicio, fim: dataFim },
       locations: locationIds ?? 'all',
@@ -71,6 +85,8 @@ export const convenienciaRoutes: FastifyPluginAsync = async (app) => {
         margem_bruta:    round2(margem_bruta),
         margem_pct:      pct(margem_bruta, receita_liquida),
         qtd_itens,
+        nf_count,
+        ticket_medio,
       },
     })
   })
@@ -139,10 +155,8 @@ export const convenienciaRoutes: FastifyPluginAsync = async (app) => {
     try {
       ({ dataInicio, dataFim } = parseDateRange(req.query as Record<string, unknown>))
       locationIds = parseUuidArray((req.query as any).location_id, 'location_id')
-      segmento    = parseEnum((req.query as any).segmento, SEGMENTOS_LOJA, 'segmento')
-      if (!segmento) {
-        return reply.status(400).send({ error: 'Parâmetro "segmento" é obrigatório' })
-      }
+      // segmento é opcional — default 'conveniencia'. Permite uso como scatter-data sem filtro obrigatório.
+      segmento = parseEnum((req.query as any).segmento, SEGMENTOS_LOJA, 'segmento') ?? 'conveniencia'
     } catch (err) {
       if (err instanceof BadQueryError) return reply.status(400).send({ error: err.message })
       throw err
@@ -156,6 +170,7 @@ export const convenienciaRoutes: FastifyPluginAsync = async (app) => {
         receita_liquida:     sum(mv.receitaLiquida).mapWith(Number),
         cmv:                 sum(mv.cmv).mapWith(Number),
         margem_bruta:        sum(mv.margemBruta).mapWith(Number),
+        qtd_total:           sql<number>`COALESCE(SUM(${mv.qtdItens}), 0)`.mapWith(Number),
       })
       .from(mv)
       .where(and(
@@ -183,6 +198,7 @@ export const convenienciaRoutes: FastifyPluginAsync = async (app) => {
           margem_bruta:        round2(margem_bruta),
           margem_pct:          pct(margem_bruta, receita_liquida),
           participacao_pct:    pct(receita_bruta, total),
+          qtd_total:           n(r.qtd_total),
         }
       })
       .sort((a, b) => b.receita_bruta - a.receita_bruta)
@@ -293,6 +309,52 @@ export const convenienciaRoutes: FastifyPluginAsync = async (app) => {
       .limit(limit)
 
     const total = rows.reduce((acc, r) => acc + n(r.receita_bruta), 0)
+    const grupoIds = rows.map(r => r.grupo_id).filter((id): id is number => id !== null)
+
+    // Busca categorias de cada grupo para o Accordion aninhado
+    const catRows = grupoIds.length > 0
+      ? await db
+          .select({
+            grupo_id:            mv.grupoId,
+            categoria_codigo:    mv.categoriaCodigo,
+            categoria_descricao: sql<string | null>`MAX(${mv.categoriaDescricao})`,
+            receita_bruta:       sum(mv.receitaBruta).mapWith(Number),
+            receita_liquida:     sum(mv.receitaLiquida).mapWith(Number),
+            cmv:                 sum(mv.cmv).mapWith(Number),
+            margem_bruta:        sum(mv.margemBruta).mapWith(Number),
+            qtd_itens:           sql<number>`COALESCE(SUM(${mv.qtdItens}), 0)`.mapWith(Number),
+          })
+          .from(mv)
+          .where(and(
+            eq(mv.tenantId, tenantId),
+            eq(mv.segmento, 'conveniencia'),
+            inArray(mv.grupoId, grupoIds),
+            gte(mv.dataVenda, dataInicio),
+            lte(mv.dataVenda, dataFim),
+            locationIds ? inArray(mv.locationId, locationIds) : undefined,
+          ))
+          .groupBy(mv.grupoId, mv.categoriaCodigo)
+          .orderBy(mv.grupoId, desc(sum(mv.receitaBruta)))
+      : []
+
+    // Indexa categorias por grupo_id
+    const catByGrupo = new Map<number, object[]>()
+    for (const c of catRows) {
+      if (c.grupo_id === null) continue
+      if (!catByGrupo.has(c.grupo_id)) catByGrupo.set(c.grupo_id, [])
+      const rec = n(c.receita_bruta)
+      const liq = n(c.receita_liquida)
+      const mb  = n(c.margem_bruta)
+      catByGrupo.get(c.grupo_id)!.push({
+        categoria_codigo:    c.categoria_codigo,
+        categoria_descricao: c.categoria_descricao,
+        receita_bruta:       round2(rec),
+        cmv:                 round2(n(c.cmv)),
+        margem_bruta:        round2(mb),
+        margem_pct:          pct(mb, liq),
+        qtd_itens:           n(c.qtd_itens),
+      })
+    }
 
     return reply.send({
       grupos: rows.map((r, i) => {
@@ -310,6 +372,7 @@ export const convenienciaRoutes: FastifyPluginAsync = async (app) => {
           margem_pct:       pct(margem_bruta, receita_liquida),
           qtd_itens:        n(r.qtd_itens),
           participacao_pct: pct(receita_bruta, total),
+          categorias:       catByGrupo.get(r.grupo_id ?? -1) ?? [],
         }
       }),
     })

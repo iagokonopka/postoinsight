@@ -1,0 +1,1205 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PostoInsight — BI para redes de postos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+:root {
+  /* Shadcn semantic tokens — light */
+  --background:          210 40% 98%;
+  --foreground:          222 47% 11%;
+  --card:                0 0% 100%;
+  --card-foreground:     222 47% 11%;
+  --popover:             0 0% 100%;
+  --popover-foreground:  222 47% 11%;
+  --sidebar:             217 33% 17%;
+  --sidebar-foreground:  210 40% 96%;
+  --sidebar-muted:       215 25% 27%;
+  --sidebar-active:      204 100% 47%;
+  --sidebar-active-bg:   229 60% 8%;
+  --primary:             204 100% 37%;
+  --primary-foreground:  0 0% 100%;
+  --primary-subtle:      204 100% 95%;
+  --secondary:           210 40% 96%;
+  --secondary-foreground:215 25% 27%;
+  --muted:               210 40% 96%;
+  --muted-foreground:    215 16% 47%;
+  --accent:              210 40% 96%;
+  --accent-foreground:   222 47% 11%;
+  --border:              214 32% 91%;
+  --input:               214 32% 91%;
+  --ring:                204 100% 37%;
+  --success:             142 71% 45%;
+  --warning:             38 92% 50%;
+  --danger:              0 84% 60%;
+  --success-subtle:      138 76% 97%;
+  --warning-subtle:      48 100% 96%;
+  --danger-subtle:       0 86% 97%;
+  --radius:              0.5rem;
+  --radius-sm:           0.3rem;
+  --shadow-sm:  0 1px 2px 0 hsl(222 47% 11% / 0.05);
+  --shadow:     0 1px 3px 0 hsl(222 47% 11% / 0.08), 0 1px 2px -1px hsl(222 47% 11% / 0.08);
+  --shadow-md:  0 4px 6px -1px hsl(222 47% 11% / 0.08), 0 2px 4px -2px hsl(222 47% 11% / 0.08);
+
+  /* Density scale */
+  --pad-card: 20px;
+  --pad-card-y: 18px;
+  --gap-grid: 16px;
+  --gap-row:  20px;
+  --kpi-pad: 18px;
+  --kpi-val-size: 24px;
+  --row-pad-y: 11px;
+}
+
+html.dark {
+  --background:          222 47% 5%;
+  --foreground:          210 40% 98%;
+  --card:                222 40% 8%;
+  --card-foreground:     210 40% 98%;
+  --popover:             222 40% 8%;
+  --popover-foreground:  210 40% 98%;
+  --sidebar:             222 50% 4%;
+  --sidebar-foreground:  210 40% 96%;
+  --sidebar-muted:       217 33% 15%;
+  --sidebar-active:      243 75% 65%;
+  --sidebar-active-bg:   222 50% 9%;
+  --primary:             243 75% 65%;
+  --primary-foreground:  0 0% 100%;
+  --primary-subtle:      243 50% 18%;
+  --secondary:           215 25% 18%;
+  --secondary-foreground:210 40% 96%;
+  --muted:               215 25% 14%;
+  --muted-foreground:    215 16% 60%;
+  --accent:              215 25% 18%;
+  --accent-foreground:   210 40% 98%;
+  --border:              215 25% 16%;
+  --input:               215 25% 16%;
+  --ring:                243 75% 65%;
+  --success-subtle:      142 30% 14%;
+  --warning-subtle:      38 60% 14%;
+  --danger-subtle:       0 50% 16%;
+}
+
+html.compact {
+  --pad-card: 14px;
+  --pad-card-y: 12px;
+  --gap-grid: 12px;
+  --gap-row:  14px;
+  --kpi-pad: 12px;
+  --kpi-val-size: 20px;
+  --row-pad-y: 8px;
+}
+
+* , *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  font-family: 'Geist', system-ui, -apple-system, sans-serif;
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-size: 14px;
+  line-height: 1.5;
+  display: flex;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: 'cv11', 'ss01';
+}
+.mono { font-family: 'Geist Mono', 'JetBrains Mono', monospace; font-feature-settings: 'tnum' 1; }
+.tnum { font-variant-numeric: tabular-nums; }
+
+/* ─── Sidebar ──────────────────────────────────────────────── */
+.sidebar {
+  width: 240px; flex-shrink: 0;
+  background: hsl(var(--sidebar));
+  color: hsl(var(--sidebar-foreground));
+  display: flex; flex-direction: column;
+  border-right: 1px solid hsl(var(--sidebar-muted) / 0.5);
+}
+.sb-logo {
+  display: flex; align-items: center; gap: 10px;
+  padding: 18px 20px;
+  border-bottom: 1px solid hsl(var(--sidebar-muted) / 0.6);
+}
+.sb-logo-name {
+  font-size: 14px; font-weight: 600; letter-spacing: -0.2px;
+  color: hsl(var(--sidebar-foreground));
+}
+.sb-logo-tag {
+  display: block; font-size: 10px; font-weight: 500;
+  color: hsl(var(--sidebar-foreground) / 0.5);
+  letter-spacing: 0.4px; margin-top: 1px;
+}
+.sb-nav { padding: 16px 12px; display: flex; flex-direction: column; gap: 20px; flex: 1; overflow-y: auto; }
+.sb-section-label {
+  font-size: 10px; font-weight: 600; letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: hsl(var(--sidebar-foreground) / 0.4);
+  padding: 0 8px; margin-bottom: 4px;
+}
+.sb-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 13px; font-weight: 500;
+  color: hsl(var(--sidebar-foreground) / 0.7);
+  cursor: pointer; background: transparent; border: none;
+  width: 100%; text-align: left;
+  transition: background 0.12s, color 0.12s;
+  position: relative;
+}
+.sb-item:hover { background: hsl(var(--sidebar-muted) / 0.6); color: hsl(var(--sidebar-foreground)); }
+.sb-item.active {
+  background: hsl(var(--sidebar-active-bg));
+  color: hsl(var(--sidebar-foreground));
+}
+.sb-item.active::before {
+  content: '';
+  position: absolute; left: 0; top: 6px; bottom: 6px; width: 2.5px;
+  background: hsl(var(--sidebar-active));
+  border-radius: 2px;
+}
+.sb-item svg { width: 14px; height: 14px; stroke-width: 1.6; opacity: 0.85; }
+.sb-item.active svg { color: hsl(var(--sidebar-active)); opacity: 1; }
+.sb-badge {
+  margin-left: auto;
+  font-size: 9px; font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: hsl(var(--sidebar-foreground) / 0.1);
+  color: hsl(var(--sidebar-foreground) / 0.8);
+  letter-spacing: 0.4px;
+}
+.sb-footer {
+  padding: 12px;
+  border-top: 1px solid hsl(var(--sidebar-muted) / 0.6);
+}
+.sb-tenant {
+  display: flex; align-items: center; gap: 10px;
+  padding: 6px 8px;
+  border-radius: 6px;
+}
+.sb-tenant-icon {
+  width: 28px; height: 28px; border-radius: 6px;
+  background: linear-gradient(135deg, #0073BB, #6B40C4);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; color: white;
+}
+.sb-tenant-name { font-size: 12px; font-weight: 500; color: hsl(var(--sidebar-foreground)); }
+.sb-tenant-role { font-size: 10px; color: hsl(var(--sidebar-foreground) / 0.5); }
+
+/* ─── Main / topbar ───────────────────────────────────────── */
+.main { flex: 1; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
+.topbar {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 24px;
+  background: hsl(var(--card));
+  border-bottom: 1px solid hsl(var(--border));
+  flex-shrink: 0;
+}
+.crumb {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px;
+  color: hsl(var(--muted-foreground));
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+@media (max-width: 1100px) { .crumb svg, #crumb-context { display: none; } }
+@media (max-width: 980px) { .crumb { display: none; } }
+.crumb b { color: hsl(var(--foreground)); font-weight: 600; }
+.crumb svg { width: 12px; height: 12px; opacity: 0.5; }
+.topbar-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+
+/* ─── Buttons & inputs (shadcn-style) ─────────────────────── */
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 34px; padding: 0 12px;
+  border-radius: 6px;
+  font-family: inherit; font-size: 13px; font-weight: 500;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background 0.12s, border-color 0.12s, opacity 0.12s;
+  white-space: nowrap;
+}
+.btn svg { width: 14px; height: 14px; stroke-width: 1.8; }
+.btn-outline { background: hsl(var(--card)); color: hsl(var(--foreground)); border-color: hsl(var(--border)); }
+.btn-outline:hover { background: hsl(var(--muted)); }
+.btn-primary { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
+.btn-primary:hover { opacity: 0.92; }
+.btn-ghost { background: transparent; color: hsl(var(--muted-foreground)); }
+.btn-ghost:hover { background: hsl(var(--muted)); color: hsl(var(--foreground)); }
+.btn-icon { width: 34px; padding: 0; justify-content: center; }
+.btn-sm { height: 28px; padding: 0 10px; font-size: 12px; }
+.btn-sm svg { width: 12px; height: 12px; }
+
+select.input, .input {
+  height: 34px;
+  padding: 0 28px 0 12px;
+  border-radius: 6px;
+  border: 1px solid hsl(var(--input));
+  background: hsl(var(--card)); color: hsl(var(--foreground));
+  font: inherit; font-size: 13px;
+  cursor: pointer;
+  outline: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 10px center;
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+.input:focus, select.input:focus { border-color: hsl(var(--ring)); box-shadow: 0 0 0 3px hsl(var(--ring) / 0.15); }
+
+/* Segmented control (period tabs) */
+.segment {
+  display: inline-flex;
+  padding: 3px;
+  background: hsl(var(--muted));
+  border-radius: 7px;
+  gap: 2px;
+}
+.segment button {
+  height: 28px; padding: 0 12px;
+  border: none; background: transparent;
+  font: inherit; font-size: 12px; font-weight: 500;
+  color: hsl(var(--muted-foreground));
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+.segment button:hover { color: hsl(var(--foreground)); }
+.segment button.active { background: hsl(var(--card)); color: hsl(var(--foreground)); box-shadow: var(--shadow-sm); }
+
+/* Avatar */
+.avatar {
+  width: 32px; height: 32px; border-radius: 999px;
+  background: linear-gradient(135deg, #0073BB, #6B40C4);
+  color: white;
+  font-size: 11px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* ─── Content & pages ─────────────────────────────────────── */
+.content {
+  flex: 1; overflow-y: auto;
+  padding: 24px;
+}
+.page { display: none; flex-direction: column; gap: var(--gap-row); }
+.page.active { display: flex; }
+.page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.page-title { font-size: 22px; font-weight: 600; letter-spacing: -0.3px; color: hsl(var(--foreground)); line-height: 1.2; }
+.page-sub { font-size: 13px; color: hsl(var(--muted-foreground)); margin-top: 4px; }
+.page-actions { display: flex; align-items: center; gap: 8px; }
+
+/* ─── Card (shadcn) ──────────────────────────────────────── */
+.card {
+  background: hsl(var(--card));
+  color: hsl(var(--card-foreground));
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+}
+.card-h { padding: var(--pad-card-y) var(--pad-card) 8px; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.card-b { padding: 0 var(--pad-card) var(--pad-card-y); }
+.card-title { font-size: 13px; font-weight: 600; color: hsl(var(--foreground)); letter-spacing: -0.1px; }
+.card-desc  { font-size: 12px; color: hsl(var(--muted-foreground)); margin-top: 3px; }
+
+/* ─── KPI Card with embedded sparkline ────────────────────── */
+.kpi-grid { display: grid; gap: var(--gap-grid); }
+.kpi-5 { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+.kpi-4 { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+.kpi-3 { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+@media (min-width: 1280px) { .kpi-5 { grid-template-columns: repeat(5, minmax(0,1fr)); } }
+@media (min-width: 1100px) { .kpi-4 { grid-template-columns: repeat(4, minmax(0,1fr)); } }
+
+.kpi {
+  position: relative;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  padding: var(--kpi-pad);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  display: flex; flex-direction: column;
+  min-height: 116px;
+}
+.kpi-label {
+  font-size: 11px; font-weight: 500;
+  color: hsl(var(--muted-foreground));
+  display: flex; align-items: center; gap: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  position: relative; z-index: 1;
+}
+.kpi-label svg { width: 12px; height: 12px; opacity: 0.7; }
+.kpi-value { font-size: var(--kpi-val-size); font-weight: 600; letter-spacing: -0.6px; color: hsl(var(--foreground)); margin: 6px 0 8px; line-height: 1.1; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; position: relative; z-index: 1; }
+.kpi-deltas { display: flex; flex-direction: column; gap: 2px; font-size: 11px; color: hsl(var(--muted-foreground)); margin-top: auto; position: relative; z-index: 1; }
+.kpi-delta-row { display: flex; align-items: center; gap: 6px; }
+.kpi-delta-label { font-size: 11px; color: hsl(var(--muted-foreground)); white-space: nowrap; text-transform: lowercase; letter-spacing: 0; }
+.kpi-spark {
+  position: absolute; left: -2px; right: -2px; top: 0; bottom: -1px;
+  height: auto;
+  opacity: 0.28;
+  pointer-events: none;
+  z-index: 0;
+}
+html.dark .kpi-spark { opacity: 0.38; }
+html.no-spark .kpi-spark { display: none !important; }
+html.no-spark .kpi { min-height: auto; }
+.delta-pos { color: hsl(var(--success)); }
+.delta-neg { color: hsl(var(--danger)); }
+.delta-neu { color: hsl(var(--muted-foreground)); }
+
+/* ─── Filters bar (under page head) ─────────────────────── */
+.filters {
+  display: flex; align-items: center; gap: 10px;
+  flex-wrap: wrap;
+}
+.filters-spacer { flex: 1; }
+.filter-label { font-size: 11px; font-weight: 500; color: hsl(var(--muted-foreground)); }
+
+/* ─── Charts row layouts ────────────────────────────────── */
+.row { display: grid; gap: var(--gap-grid); }
+.row-2-1 { grid-template-columns: 2fr 1fr; }
+.row-1-1 { grid-template-columns: 1fr 1fr; }
+.row-3-2 { grid-template-columns: 3fr 2fr; }
+@media (max-width: 1180px) {
+  .row-2-1, .row-1-1, .row-3-2 { grid-template-columns: 1fr; }
+}
+
+.chart-box { position: relative; height: 280px; }
+.chart-box.tall { height: 320px; }
+.chart-box.short { height: 200px; }
+
+/* ─── Donut ─────────────────────────────────────────────── */
+.donut-wrap { position: relative; width: 180px; height: 180px; margin: 8px auto; }
+.donut-center {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  pointer-events: none;
+}
+.donut-center-l { font-size: 10px; font-weight: 600; letter-spacing: 0.8px; color: hsl(var(--muted-foreground)); text-transform: uppercase; }
+.donut-center-v { font-size: 14px; font-weight: 600; color: hsl(var(--foreground)); margin-top: 2px; font-variant-numeric: tabular-nums; }
+.donut-legend { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; margin-top: 16px; }
+.dl-row { display: flex; align-items: center; gap: 8px; }
+.dl-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+.dl-name { flex: 1; font-size: 12px; color: hsl(var(--muted-foreground)); }
+.dl-pct { font-size: 12px; font-weight: 600; color: hsl(var(--foreground)); font-variant-numeric: tabular-nums; }
+
+/* ─── Tables ───────────────────────────────────────────── */
+.tbl-wrap { overflow-x: auto; }
+table.tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+.tbl thead tr { border-bottom: 1px solid hsl(var(--border)); }
+.tbl th {
+  padding: 10px 14px; text-align: left;
+  font-size: 11px; font-weight: 500;
+  color: hsl(var(--muted-foreground));
+  white-space: nowrap;
+  letter-spacing: 0.1px;
+}
+.tbl th:first-child, .tbl td:first-child { padding-left: 20px; }
+.tbl th:last-child, .tbl td:last-child { padding-right: 20px; }
+.tbl th.r, .tbl td.r { text-align: right; font-variant-numeric: tabular-nums; }
+.tbl th.sortable { cursor: pointer; user-select: none; }
+.tbl th.sortable:hover { color: hsl(var(--foreground)); }
+.tbl td { padding: var(--row-pad-y) 14px; color: hsl(var(--foreground)); border-bottom: 1px solid hsl(var(--border)); vertical-align: middle; }
+.tbl tbody tr:last-child td { border-bottom: 0; }
+.tbl tbody tr.clickable { cursor: pointer; }
+.tbl tbody tr.clickable:hover td { background: hsl(var(--muted) / 0.6); }
+.tbl tfoot td { border-top: 1px solid hsl(var(--border)); border-bottom: 0; font-weight: 600; color: hsl(var(--foreground)); padding: 12px 14px; background: hsl(var(--muted) / 0.4); }
+
+.row-rank { font-size: 12px; font-weight: 500; color: hsl(var(--muted-foreground)); font-variant-numeric: tabular-nums; }
+.seg-cell { display: flex; align-items: center; gap: 10px; }
+.seg-dot { width: 9px; height: 9px; border-radius: 2px; flex-shrink: 0; }
+.bar-cell { display: flex; align-items: center; gap: 8px; min-width: 120px; }
+.bar-track { flex: 1; height: 5px; background: hsl(var(--muted)); border-radius: 999px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 999px; background: hsl(var(--primary)); }
+.bar-num { font-size: 11px; color: hsl(var(--muted-foreground)); font-variant-numeric: tabular-nums; min-width: 38px; text-align: right; }
+
+.spark-cell { display: flex; align-items: center; gap: 8px; min-width: 110px; }
+.spark-cell canvas { width: 72px !important; height: 22px !important; flex-shrink: 0; }
+.trend-up   { color: hsl(var(--success)); font-size: 11px; font-weight: 600; }
+.trend-down { color: hsl(var(--danger));  font-size: 11px; font-weight: 600; }
+.trend-flat { color: hsl(var(--muted-foreground)); font-size: 11px; }
+
+/* Badge */
+.badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px; border-radius: 999px;
+  font-size: 11px; font-weight: 500;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--muted));
+  color: hsl(var(--foreground));
+  white-space: nowrap;
+}
+.badge-success { background: hsl(var(--success-subtle)); color: hsl(var(--success)); border-color: hsl(var(--success) / 0.3); }
+.badge-warning { background: hsl(var(--warning-subtle)); color: hsl(var(--warning)); border-color: hsl(var(--warning) / 0.3); }
+.badge-danger  { background: hsl(var(--danger-subtle));  color: hsl(var(--danger));  border-color: hsl(var(--danger) / 0.3); }
+.badge-primary { background: hsl(var(--primary-subtle)); color: hsl(var(--primary)); border-color: hsl(var(--primary) / 0.3); }
+.badge-soft { background: hsl(var(--muted)); color: hsl(var(--muted-foreground)); border: none; }
+
+/* Heatmap */
+.heat-wrap { display: flex; gap: 8px; }
+.heat-days { display: flex; flex-direction: column; gap: 5px; padding-top: 22px; }
+.heat-day { height: 36px; font-size: 11px; color: hsl(var(--muted-foreground)); display: flex; align-items: center; }
+.heat-grid { flex: 1; display: flex; flex-direction: column; gap: 5px; }
+.heat-row { display: flex; gap: 5px; }
+.heat-head { display: flex; gap: 5px; margin-bottom: 4px; }
+.heat-wk { flex: 1; text-align: center; font-size: 10px; font-weight: 500; color: hsl(var(--muted-foreground)); letter-spacing: 0.5px; text-transform: uppercase; }
+.heat-cell {
+  flex: 1; height: 36px; border-radius: 5px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 500;
+  color: hsl(var(--foreground));
+  font-variant-numeric: tabular-nums;
+  transition: transform 0.1s;
+}
+.heat-cell:hover { transform: scale(1.05); }
+.heat-legend { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; font-size: 10px; color: hsl(var(--muted-foreground)); font-variant-numeric: tabular-nums; }
+.legend-bar { flex: 1; height: 6px; margin: 0 10px; border-radius: 999px; background: linear-gradient(to right, hsl(var(--primary) / 0.1), hsl(var(--primary))); }
+
+/* DRE waterfall row */
+.dre-toolbar { display: flex; align-items: center; gap: 12px; }
+.dre-month-btn {
+  width: 34px; height: 34px;
+  border: 1px solid hsl(var(--border)); border-radius: 6px;
+  background: hsl(var(--card)); color: hsl(var(--muted-foreground));
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.dre-month-btn:hover { color: hsl(var(--foreground)); border-color: hsl(var(--ring) / 0.5); background: hsl(var(--muted)); }
+.dre-month-btn svg { width: 14px; height: 14px; }
+.dre-month-label { font-size: 16px; font-weight: 600; min-width: 110px; text-align: center; }
+
+.dre-row td { padding: 12px 14px; }
+.dre-row-total td { border-top: 2px solid hsl(var(--border)); font-weight: 600; background: hsl(var(--muted) / 0.4); }
+.dre-row-result td {
+  border-top: 2px solid hsl(var(--success) / 0.3);
+  background: hsl(var(--success-subtle));
+  font-weight: 700;
+  color: hsl(var(--success));
+}
+html.dark .dre-row-result td { color: hsl(140 70% 60%); }
+
+/* Drill-down side panel */
+.drawer-overlay {
+  position: fixed; inset: 0;
+  background: hsl(222 47% 11% / 0.4);
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.18s;
+  z-index: 40;
+}
+.drawer-overlay.open { opacity: 1; pointer-events: auto; }
+.drawer {
+  position: fixed; right: 0; top: 0; bottom: 0;
+  width: 420px; max-width: 92vw;
+  background: hsl(var(--card));
+  border-left: 1px solid hsl(var(--border));
+  box-shadow: var(--shadow-md);
+  transform: translateX(100%);
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 41;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.drawer.open { transform: translateX(0); }
+.drawer-head { padding: 18px 20px; border-bottom: 1px solid hsl(var(--border)); display: flex; align-items: center; gap: 10px; }
+.drawer-title { font-size: 15px; font-weight: 600; color: hsl(var(--foreground)); flex: 1; display: flex; align-items: center; gap: 10px; }
+.drawer-body { flex: 1; overflow-y: auto; padding: 20px; }
+.drawer-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid hsl(var(--border)); font-size: 13px; }
+.drawer-row:last-child { border-bottom: 0; }
+.drawer-row-l { color: hsl(var(--muted-foreground)); }
+.drawer-row-v { font-weight: 600; color: hsl(var(--foreground)); font-variant-numeric: tabular-nums; }
+
+/* Sync page */
+.sync-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap-grid); }
+.sync-card { padding: var(--pad-card); }
+.sync-status-row { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+.sync-dot { width: 10px; height: 10px; border-radius: 999px; flex-shrink: 0; position: relative; }
+.sync-dot.ok { background: hsl(var(--success)); }
+.sync-dot.ok::after { content: ''; position: absolute; inset: -3px; border-radius: 999px; border: 2px solid hsl(var(--success) / 0.3); animation: pulse 2s infinite; }
+.sync-dot.warn { background: hsl(var(--warning)); }
+.sync-dot.err { background: hsl(var(--danger)); }
+@keyframes pulse { 0% { transform: scale(1); opacity: 1; } 100% { transform: scale(1.8); opacity: 0; } }
+.sync-stat { font-size: 11px; color: hsl(var(--muted-foreground)); margin-top: 2px; }
+.sync-stat b { color: hsl(var(--foreground)); font-weight: 600; }
+.sync-list { display: flex; flex-direction: column; }
+.sync-row { display: flex; align-items: center; gap: 14px; padding: 12px 20px; border-bottom: 1px solid hsl(var(--border)); font-size: 12px; }
+.sync-row:last-child { border-bottom: 0; }
+.sync-time { color: hsl(var(--muted-foreground)); font-family: 'Geist Mono', monospace; font-size: 11px; min-width: 130px; }
+.sync-loc { font-weight: 500; min-width: 130px; }
+.sync-recs { margin-left: auto; color: hsl(var(--muted-foreground)); font-variant-numeric: tabular-nums; }
+
+/* Config page */
+.cfg-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap-grid); }
+.cfg-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid hsl(var(--border)); }
+.cfg-row:last-child { border-bottom: 0; }
+.cfg-label { font-size: 12px; color: hsl(var(--muted-foreground)); }
+.cfg-value { font-size: 13px; font-weight: 500; color: hsl(var(--foreground)); display: flex; align-items: center; gap: 8px; }
+.cfg-loc-list { display: flex; flex-direction: column; }
+.cfg-loc-row { display: flex; align-items: center; gap: 12px; padding: 12px 20px; border-bottom: 1px solid hsl(var(--border)); }
+.cfg-loc-row:last-child { border-bottom: 0; }
+.cfg-loc-avatar { width: 32px; height: 32px; border-radius: 6px; background: hsl(var(--primary-subtle)); color: hsl(var(--primary)); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; flex-shrink: 0; }
+.cfg-loc-name { font-size: 13px; font-weight: 500; color: hsl(var(--foreground)); }
+.cfg-loc-meta { font-size: 11px; color: hsl(var(--muted-foreground)); margin-top: 2px; }
+
+/* Scatter quadrant placeholder for fuel bicos */
+.empty-state {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center;
+  padding: 40px 24px;
+  color: hsl(var(--muted-foreground));
+  border: 1.5px dashed hsl(var(--border));
+  border-radius: var(--radius);
+  background: hsl(var(--muted) / 0.3);
+}
+.empty-icon {
+  width: 40px; height: 40px;
+  border-radius: 999px;
+  background: hsl(var(--muted));
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 12px;
+}
+.empty-title { font-size: 14px; font-weight: 600; color: hsl(var(--foreground)); margin-bottom: 4px; }
+.empty-desc { font-size: 12px; max-width: 320px; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground) / 0.5); }
+
+/* Toast */
+.toast {
+  position: fixed; right: 24px; bottom: 24px;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+  padding: 12px 16px;
+  display: flex; align-items: center; gap: 10px;
+  font-size: 13px;
+  color: hsl(var(--foreground));
+  z-index: 50;
+  transform: translateY(20px); opacity: 0;
+  transition: transform 0.2s, opacity 0.2s;
+}
+.toast.show { transform: translateY(0); opacity: 1; }
+.toast-icon { width: 18px; height: 18px; }
+.toast.success .toast-icon { color: hsl(var(--success)); }
+.toast.info .toast-icon { color: hsl(var(--primary)); }
+
+/* Spinner */
+.spinner {
+  width: 14px; height: 14px;
+  border: 2px solid hsl(var(--muted));
+  border-top-color: hsl(var(--primary));
+  border-radius: 999px;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner-lg { width: 32px; height: 32px; border-width: 3px; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════ SIDEBAR ═══════════════════════════ -->
+<aside class="sidebar">
+  <div class="sb-logo">
+    <!-- Custom SVG mark: abstract "P" formed by a fuel-drop -->
+    <svg width="30" height="30" viewBox="0 0 32 32" fill="none">
+      <rect width="32" height="32" rx="8" fill="url(#g1)"/>
+      <path d="M11 8 V24 M11 8 H17 a4 4 0 0 1 0 8 H11" stroke="white" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      <circle cx="22" cy="22" r="2.2" fill="white"/>
+      <defs>
+        <linearGradient id="g1" x1="0" y1="0" x2="32" y2="32">
+          <stop offset="0" stop-color="#0073BB"/>
+          <stop offset="1" stop-color="#005f99"/>
+        </linearGradient>
+      </defs>
+    </svg>
+    <div>
+      <div class="sb-logo-name">PostoInsight</div>
+      <div class="sb-logo-tag">BI · Rede JAM</div>
+    </div>
+  </div>
+  <nav class="sb-nav">
+    <div>
+      <div class="sb-section-label">Análise</div>
+      <button class="sb-item active" data-page="visao-geral">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
+        Visão Geral
+      </button>
+      <button class="sb-item" data-page="combustivel">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 22V4a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v18"/><path d="M3 22h11"/><path d="M14 12h2a2 2 0 0 1 2 2v3a2 2 0 0 0 2 2v0a2 2 0 0 0 2-2V9.5L18 6"/><path d="M7 7h3"/></svg>
+        Combustível
+      </button>
+      <button class="sb-item" data-page="conveniencia">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 9h18l-2 11H5L3 9Z"/><path d="M8 9V6a4 4 0 0 1 8 0v3"/></svg>
+        Conveniência
+      </button>
+      <button class="sb-item" data-page="dre">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>
+        DRE Mensal
+      </button>
+    </div>
+    <div style="margin-top: auto;">
+      <div class="sb-section-label">Operação</div>
+      <button class="sb-item" data-page="sincronizacao">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 12a9 9 0 0 1-9 9 9 9 0 0 1-6.7-3"/><path d="M3 12a9 9 0 0 1 9-9 9 9 0 0 1 6.7 3"/><path d="m21 3-3 3h-3"/><path d="m3 21 3-3h3"/></svg>
+        Sincronização
+        <span class="sb-badge">OK</span>
+      </button>
+      <button class="sb-item" data-page="configuracoes">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Configurações
+      </button>
+    </div>
+  </nav>
+  <div class="sb-footer">
+    <div class="sb-tenant">
+      <div class="sb-tenant-icon">JM</div>
+      <div>
+        <div class="sb-tenant-name">Rede JAM</div>
+        <div class="sb-tenant-role">owner · isabela.k</div>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<!-- ═══════════════════════════ MAIN ═══════════════════════════ -->
+<div class="main">
+
+  <header class="topbar">
+    <div class="crumb">
+      <b id="crumb-page">Visão Geral</b>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m9 18 6-6-6-6"/></svg>
+      <span id="crumb-context">Todas as unidades · Este mês</span>
+    </div>
+    <div class="topbar-right">
+      <div class="segment" id="period-tabs">
+        <button data-period="hoje">Hoje</button>
+        <button data-period="semana">Semana</button>
+        <button data-period="mes" class="active">Mês</button>
+        <button data-period="mes-ant">Mês ant.</button>
+      </div>
+      <div class="dre-toolbar" id="dre-date-toolbar" style="display: none;">
+        <button class="dre-month-btn" id="dre-prev" aria-label="Mês anterior">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+        </button>
+        <select class="input" id="dre-month" style="min-width: 130px;">
+          <option value="0">Janeiro</option>
+          <option value="1">Fevereiro</option>
+          <option value="2">Março</option>
+          <option value="3">Abril</option>
+          <option value="4" selected>Maio</option>
+          <option value="5">Junho</option>
+          <option value="6">Julho</option>
+          <option value="7">Agosto</option>
+          <option value="8">Setembro</option>
+          <option value="9">Outubro</option>
+          <option value="10">Novembro</option>
+          <option value="11">Dezembro</option>
+        </select>
+        <select class="input" id="dre-year" style="min-width: 90px;">
+          <option value="2024">2024</option>
+          <option value="2025">2025</option>
+          <option value="2026" selected>2026</option>
+        </select>
+        <button class="dre-month-btn" id="dre-next" aria-label="Próximo mês">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+        </button>
+      </div>
+      <select class="input" id="location-select" style="min-width: 170px;">
+        <option value="all">Todas as unidades</option>
+        <option value="centro">JAM Centro</option>
+        <option value="rodovia">JAM Rodovia</option>
+        <option value="norte">JAM Norte</option>
+        <option value="sul">JAM Sul</option>
+      </select>
+      <button class="btn btn-outline" id="btn-sync">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 1-9 9 9 9 0 0 1-6.7-3"/><path d="M3 12a9 9 0 0 1 9-9 9 9 0 0 1 6.7 3"/><path d="m21 3-3 3h-3"/></svg>
+        Sincronizar
+      </button>
+      <div class="avatar">IK</div>
+    </div>
+  </header>
+
+  <div class="content">
+
+    <!-- ═══════════════════════════ VISÃO GERAL ═══════════════════════════ -->
+    <section class="page active" id="page-visao-geral" data-screen-label="01 Visão Geral">
+      <div class="page-head">
+        <div>
+          <h1 class="page-title">Visão Geral</h1>
+          <div class="page-sub">Consolidado da rede — vendas, margens e padrão de demanda.</div>
+        </div>
+        <div class="page-actions">
+          <button class="btn btn-outline btn-sm">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Exportar
+          </button>
+        </div>
+      </div>
+
+      <div class="kpi-grid kpi-5" id="kpi-row-vg"></div>
+
+      <div class="row row-3-2">
+        <div class="card">
+          <div class="card-h">
+            <div>
+              <div class="card-title">Evolução de Receita & Margem</div>
+              <div class="card-desc">Curvas empilhadas com gradient · Margem % tracejada no eixo direito (desativada por padrão)</div>
+            </div>
+          </div>
+          <div class="card-b">
+            <div class="chart-box"><canvas id="chart-revenue"></canvas></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-h">
+            <div>
+              <div class="card-title">Mix por Segmento</div>
+              <div class="card-desc">% da receita bruta</div>
+            </div>
+          </div>
+          <div class="card-b">
+            <div class="donut-wrap">
+              <canvas id="chart-donut"></canvas>
+              <div class="donut-center">
+                <span class="donut-center-l">Total</span>
+                <span class="donut-center-v" id="donut-total">—</span>
+              </div>
+            </div>
+            <div class="donut-legend" id="donut-legend"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-h">
+          <div>
+            <div class="card-title">Breakdown por Segmento</div>
+            <div class="card-desc">Clique numa linha para abrir o detalhamento.</div>
+          </div>
+        </div>
+        <div class="tbl-wrap">
+          <table class="tbl">
+            <thead><tr>
+              <th>Segmento</th>
+              <th style="width: 200px;">Peso na receita</th>
+              <th class="r">Receita</th>
+              <th class="r">CMV</th>
+              <th class="r">Margem</th>
+              <th class="r">Margem %</th>
+            </tr></thead>
+            <tbody id="segment-tbody"></tbody>
+            <tfoot><tr>
+              <td>TOTAL</td>
+              <td></td>
+              <td class="r" id="segment-total-rec">—</td>
+              <td class="r" id="segment-total-cmv">—</td>
+              <td class="r" id="segment-total-mg">—</td>
+              <td class="r" id="segment-total-mgpct">—</td>
+            </tr></tfoot>
+          </table>
+        </div>
+      </div>
+
+      <div class="row row-2-1">
+        <div class="card">
+          <div class="card-h">
+            <div>
+              <div class="card-title">Top 10 Produtos por Receita</div>
+              <div class="card-desc">Rede inteira · período selecionado</div>
+            </div>
+            <div class="segment" id="top-sort">
+              <button data-sort="receita" class="active">Receita</button>
+              <button data-sort="margem">Margem %</button>
+            </div>
+          </div>
+          <div class="tbl-wrap">
+            <table class="tbl">
+              <thead><tr>
+                <th style="width: 28px;">#</th>
+                <th>Produto</th>
+                <th>Categoria</th>
+                <th style="width: 130px;">Peso</th>
+                <th class="r">Receita</th>
+                <th class="r">Margem %</th>
+                <th class="r">Qtd</th>
+              </tr></thead>
+              <tbody id="top-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-h">
+            <div>
+              <div class="card-title">Padrão Semanal</div>
+              <div class="card-desc">Receita por dia × semana</div>
+            </div>
+          </div>
+          <div class="card-b">
+            <div class="heat-head" style="padding-left: 42px;">
+              <div class="heat-wk">S1</div><div class="heat-wk">S2</div><div class="heat-wk">S3</div><div class="heat-wk">S4</div>
+            </div>
+            <div class="heat-wrap">
+              <div class="heat-days" id="heat-days" style="padding-top: 0;"></div>
+              <div class="heat-grid" id="heat-grid"></div>
+            </div>
+            <div class="heat-legend">
+              <span id="heat-min">—</span>
+              <div class="legend-bar"></div>
+              <span id="heat-max">—</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════ COMBUSTÍVEL ═══════════════════════════ -->
+    <section class="page" id="page-combustivel" data-screen-label="02 Combustível">
+      <div class="page-head">
+        <div>
+          <h1 class="page-title">Combustível</h1>
+          <div class="page-sub">Volumes, receitas e margens por produto.</div>
+        </div>
+        <div class="page-actions">
+          <div class="segment" id="comb-mode">
+            <button data-mode="volume" class="active">Volume</button>
+            <button data-mode="receita">Receita</button>
+          </div>
+          <div class="segment" id="comb-arla">
+            <button data-arla="off" class="active">Sem Arla 32</button>
+            <button data-arla="on">Com Arla 32</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="kpi-grid kpi-5" id="kpi-row-comb"></div>
+
+      <div class="row row-3-2">
+        <div class="card">
+          <div class="card-h">
+            <div>
+              <div class="card-title">Evolução por produto</div>
+              <div class="card-desc" id="comb-evo-desc">Volume diário (L) · mês atual</div>
+            </div>
+          </div>
+          <div class="card-b">
+            <div class="chart-box tall"><canvas id="chart-comb"></canvas></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-h"><div><div class="card-title">Mix de Combustível</div><div class="card-desc">% por produto</div></div></div>
+          <div class="card-b">
+            <div class="donut-wrap">
+              <canvas id="chart-comb-donut"></canvas>
+              <div class="donut-center">
+                <span class="donut-center-l">Total</span>
+                <span class="donut-center-v" id="comb-donut-total">—</span>
+              </div>
+            </div>
+            <div class="donut-legend" id="comb-donut-legend"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row row-2-1">
+        <div class="card">
+          <div class="card-h"><div><div class="card-title">Breakdown por produto</div><div class="card-desc">Volume, margem e tendência 14d</div></div></div>
+          <div class="tbl-wrap">
+            <table class="tbl">
+              <thead><tr>
+                <th>Produto</th>
+                <th class="r">Volume</th>
+                <th class="r">Part. %</th>
+                <th class="r">Receita</th>
+                <th class="r">Margem %</th>
+                <th class="r">Preço/L</th>
+                <th class="r">Custo/L</th>
+                <th>Tendência 14d</th>
+              </tr></thead>
+              <tbody id="comb-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-h"><div><div class="card-title">Ranking de Bicos</div><div class="card-desc">Volume por bombista / período</div></div></div>
+          <div class="card-b">
+            <div class="empty-state">
+              <div class="empty-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+              </div>
+              <div class="empty-title">Disponível em breve</div>
+              <div class="empty-desc">Vai destacar bombistas com performance acima e abaixo da média da rede.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════ CONVENIÊNCIA ═══════════════════════════ -->
+    <section class="page" id="page-conveniencia" data-screen-label="03 Conveniência">
+      <div class="page-head">
+        <div>
+          <h1 class="page-title">Conveniência & Serviços</h1>
+          <div class="page-sub">Loja, lubrificantes e serviços — período selecionado.</div>
+        </div>
+        <div class="page-actions">
+          <div class="segment" id="conv-view">
+            <button data-view="todos" class="active">Todos</button>
+            <button data-view="loja">Conveniência</button>
+            <button data-view="servicos">Serviços</button>
+            <button data-view="lub">Lubrificantes</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="kpi-grid kpi-4" id="kpi-row-conv"></div>
+
+      <div class="row row-3-2">
+        <div class="card">
+          <div class="card-h"><div><div class="card-title">Receita × Margem Bruta</div><div class="card-desc">Curvas empilhadas · período atual</div></div></div>
+          <div class="card-b"><div class="chart-box"><canvas id="chart-conv"></canvas></div></div>
+        </div>
+        <div class="card">
+          <div class="card-h"><div><div class="card-title">Mix da Loja</div><div class="card-desc">% da receita não-combustível</div></div></div>
+          <div class="card-b">
+            <div class="donut-wrap">
+              <canvas id="chart-conv-donut"></canvas>
+              <div class="donut-center">
+                <span class="donut-center-l">Total</span>
+                <span class="donut-center-v" id="conv-donut-total">—</span>
+              </div>
+            </div>
+            <div class="donut-legend" id="conv-donut-legend"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-h">
+          <div>
+            <div class="card-title">Matriz de Categorias</div>
+            <div class="card-desc">Quantidade vendida × margem % · tamanho da bolha = receita · linhas medianas formam 4 quadrantes</div>
+          </div>
+        </div>
+        <div class="card-b"><div class="chart-box tall"><canvas id="chart-scatter"></canvas></div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-h">
+          <div>
+            <div class="card-title">Breakdown por categoria</div>
+            <div class="card-desc">Clique numa linha para ver os produtos da categoria.</div>
+          </div>
+        </div>
+        <div class="tbl-wrap">
+          <table class="tbl">
+            <thead><tr>
+              <th>Categoria</th>
+              <th style="width: 200px;">Peso na receita</th>
+              <th class="r">Qtd</th>
+              <th class="r">Receita</th>
+              <th class="r">CMV</th>
+              <th class="r">Margem</th>
+              <th class="r">Margem %</th>
+            </tr></thead>
+            <tbody id="conv-cat-tbody"></tbody>
+            <tfoot><tr>
+              <td>TOTAL</td>
+              <td></td>
+              <td class="r" id="conv-cat-tot-qtd">—</td>
+              <td class="r" id="conv-cat-tot-rec">—</td>
+              <td class="r" id="conv-cat-tot-cmv">—</td>
+              <td class="r" id="conv-cat-tot-mg">—</td>
+              <td class="r" id="conv-cat-tot-mgpct">—</td>
+            </tr></tfoot>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════ DRE ═══════════════════════════ -->
+    <section class="page" id="page-dre" data-screen-label="04 DRE">
+      <div class="page-head">
+        <div>
+          <h1 class="page-title">DRE Mensal</h1>
+          <div class="page-sub">Demonstrativo de resultado por mês — receita, deduções, CMV e margem bruta.</div>
+        </div>
+      </div>
+
+      <div class="kpi-grid kpi-4" id="kpi-row-dre"></div>
+
+      <div class="row row-1-1">
+        <div class="card">
+          <div class="card-h"><div><div class="card-title">Waterfall do mês</div><div class="card-desc">Da receita bruta à margem bruta</div></div></div>
+          <div class="card-b"><div class="chart-box tall"><canvas id="chart-waterfall"></canvas></div></div>
+        </div>
+        <div class="card">
+          <div class="card-h"><div><div class="card-title" id="dre-evo-title">Margem % — últimos 6 meses</div><div class="card-desc">Evolução por segmento</div></div></div>
+          <div class="card-b"><div class="chart-box tall"><canvas id="chart-margin-evo"></canvas></div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-h"><div><div class="card-title" id="dre-detail-title">Detalhamento mês a mês</div><div class="card-desc">Variação em relação ao período anterior · YTD acumulado</div></div></div>
+        <div class="tbl-wrap">
+          <table class="tbl" id="dre-table">
+            <thead><tr>
+              <th>Linha</th>
+              <th class="r" id="dre-th-m6">M-5</th>
+              <th class="r" id="dre-th-m5">M-4</th>
+              <th class="r" id="dre-th-m4">M-3</th>
+              <th class="r" id="dre-th-m3">M-2</th>
+              <th class="r" id="dre-th-m2">M-1</th>
+              <th class="r" id="dre-th-m1">Atual</th>
+              <th class="r">δ</th>
+              <th class="r">YTD</th>
+            </tr></thead>
+            <tbody id="dre-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════ SINCRONIZAÇÃO ═══════════════════════════ -->
+    <section class="page" id="page-sincronizacao" data-screen-label="05 Sincronização">
+      <div class="page-head">
+        <div>
+          <h1 class="page-title">Sincronização</h1>
+          <div class="page-sub">Status dos ERPs conectados e histórico das últimas execuções.</div>
+        </div>
+        <div class="page-actions">
+          <button class="btn btn-primary" id="btn-sync-2">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 1-9 9 9 9 0 0 1-6.7-3"/><path d="M3 12a9 9 0 0 1 9-9 9 9 0 0 1 6.7 3"/><path d="m21 3-3 3h-3"/></svg>
+            Sincronizar agora
+          </button>
+        </div>
+      </div>
+
+      <div class="sync-grid">
+        <div class="card sync-card">
+          <div class="card-title">Status · Status ERP</div>
+          <div class="sync-stat" style="margin-top: 4px;">Agente RDP — Windows Server · v2.4.1</div>
+          <div class="sync-status-row"><div class="sync-dot ok"></div><span style="font-size: 13px; font-weight: 500;">Conectado</span><span class="badge badge-success">Última sync OK</span></div>
+          <div class="sync-stat" style="margin-top: 10px;">Próxima sync agendada: <b>03:00 BRT</b> · <b>4 locations</b> · watermark: <b>16/05 22:48</b></div>
+        </div>
+        <div class="card sync-card">
+          <div class="card-title">Status · WebPosto ERP</div>
+          <div class="sync-stat" style="margin-top: 4px;">API REST (Quality Automação)</div>
+          <div class="sync-status-row"><div class="sync-dot warn"></div><span style="font-size: 13px; font-weight: 500;">Sem locations</span><span class="badge badge-warning">Aguardando contrato</span></div>
+          <div class="sync-stat" style="margin-top: 10px;">Conector implantado · nenhuma rede com WebPosto ainda.</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-h"><div><div class="card-title">Histórico de execuções</div><div class="card-desc">Últimas 8 syncs · clique para ver detalhes</div></div></div>
+        <div class="sync-list" id="sync-list"></div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════ CONFIGURAÇÕES ═══════════════════════════ -->
+    <section class="page" id="page-configuracoes" data-screen-label="06 Configurações">
+      <div class="page-head">
+        <div>
+          <h1 class="page-title">Configurações</h1>
+          <div class="page-sub">Tenant, locations, usuários e integrações.</div>
+        </div>
+      </div>
+
+      <div class="cfg-grid">
+        <div class="card" style="padding: var(--pad-card);">
+          <div class="card-title" style="margin-bottom: 8px;">Tenant</div>
+          <div class="cfg-row"><span class="cfg-label">Nome da rede</span><span class="cfg-value">Rede JAM</span></div>
+          <div class="cfg-row"><span class="cfg-label">Plano</span><span class="cfg-value"><span class="badge badge-primary">Pro</span> · até 8 locations</span></div>
+          <div class="cfg-row"><span class="cfg-label">Fuso horário</span><span class="cfg-value mono">America/Sao_Paulo</span></div>
+          <div class="cfg-row"><span class="cfg-label">Idioma</span><span class="cfg-value">Português (Brasil)</span></div>
+          <div class="cfg-row"><span class="cfg-label">Tenant ID</span><span class="cfg-value mono">tnt_2J9X4mWqK7</span></div>
+        </div>
+        <div class="card" style="padding: var(--pad-card);">
+          <div class="card-title" style="margin-bottom: 8px;">Integração — Status ERP</div>
+          <div class="cfg-row"><span class="cfg-label">Host</span><span class="cfg-value mono">10.0.42.18:1433</span></div>
+          <div class="cfg-row"><span class="cfg-label">Database</span><span class="cfg-value mono">JAM_PROD</span></div>
+          <div class="cfg-row"><span class="cfg-label">Usuário</span><span class="cfg-value mono">postoinsight_ro</span></div>
+          <div class="cfg-row"><span class="cfg-label">Watermark</span><span class="cfg-value mono">16/05 22:48</span></div>
+          <div class="cfg-row"><span class="cfg-label">Agente</span><span class="cfg-value"><span class="badge badge-success">v2.4.1</span></span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-h" style="border-bottom: 1px solid hsl(var(--border));"><div><div class="card-title">Locations</div><div class="card-desc">4 unidades configuradas</div></div></div>
+        <div class="cfg-loc-list" id="cfg-loc-list"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-h" style="border-bottom: 1px solid hsl(var(--border));"><div><div class="card-title">Usuários</div><div class="card-desc">3 usuários ativos</div></div></div>
+        <div class="cfg-loc-list">
+          <div class="cfg-loc-row">
+            <div class="cfg-loc-avatar" style="background:linear-gradient(135deg,#0073BB,#6B40C4);color:white;">IK</div>
+            <div style="flex:1;"><div class="cfg-loc-name">Isabela Kraus</div><div class="cfg-loc-meta">isabela@redejam.com.br · acesso a todas as locations</div></div>
+            <span class="badge badge-primary">owner</span>
+          </div>
+          <div class="cfg-loc-row">
+            <div class="cfg-loc-avatar">MR</div>
+            <div style="flex:1;"><div class="cfg-loc-name">Marcelo Ribeiro</div><div class="cfg-loc-meta">marcelo@redejam.com.br · JAM Rodovia</div></div>
+            <span class="badge">manager</span>
+          </div>
+          <div class="cfg-loc-row">
+            <div class="cfg-loc-avatar">WM</div>
+            <div style="flex:1;"><div class="cfg-loc-name">Walter Moraes (consultor)</div><div class="cfg-loc-meta">walter@wmconsultoria.com.br · read-only</div></div>
+            <span class="badge">viewer</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<!-- Drill-down drawer -->
+<div class="drawer-overlay" id="drawer-overlay"></div>
+<div class="drawer" id="drawer">
+  <div class="drawer-head">
+    <div class="drawer-title" id="drawer-title">—</div>
+    <button class="btn btn-ghost btn-icon btn-sm" id="drawer-close">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <div class="drawer-body" id="drawer-body"></div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast">
+  <svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+  <span id="toast-text">Sincronização concluída</span>
+</div>
+
+<!-- Tweaks defaults — direct-edit anchor -->
+<script>
+window.TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "theme": "light",
+  "density": "compact",
+  "sparklines": false,
+  "chartStyle": "dashed",
+  "accent": "blue"
+}/*EDITMODE-END*/;
+</script>
+
+<script src="data.js"></script>
+<script src="charts.js"></script>
+<script src="app.js"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="tweaks-app.jsx"></script>
+</body>
+</html>

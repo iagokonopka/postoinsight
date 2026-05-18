@@ -194,12 +194,13 @@ Usadas **exclusivamente em charts e badges de segmento**. Nunca em UI.
 
 ## 6. Tipografia
 
-**Fonte:** [Geist Sans](https://vercel.com/font) — sem serifa, moderna, alta legibilidade em dashboards.
+**Fonte:** [DM Sans](https://fonts.google.com/specimen/DM+Sans) — sem serifa, moderna, alta legibilidade em dashboards.
 **Fallback:** `system-ui, -apple-system, sans-serif`
+**Carregamento:** Google Fonts via `index.html` (já configurado no scaffold).
 
 ```css
---font-sans: 'Geist Sans', system-ui, -apple-system, sans-serif;
---font-mono: 'Geist Mono', 'Fira Code', monospace;
+--font-sans: 'DM Sans', system-ui, -apple-system, sans-serif;
+--font-mono: 'Source Sans 3', 'Fira Code', monospace;
 ```
 
 ### Escala de tamanho
@@ -305,7 +306,7 @@ Configuração JSON derivada dos tokens acima. Aplicar via `echarts.registerThem
   ],
   "backgroundColor": "transparent",
   "textStyle": {
-    "fontFamily": "Geist Sans, system-ui, sans-serif",
+    "fontFamily": "DM Sans, system-ui, sans-serif",
     "fontSize": 12,
     "color": "#64748b"
   },

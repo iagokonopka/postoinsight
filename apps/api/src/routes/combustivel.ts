@@ -43,7 +43,6 @@ export const combustivelRoutes: FastifyPluginAsync = async (app) => {
       .from(mv)
       .where(and(
         eq(mv.tenantId, tenantId),
-        eq(mv.categoriaCodigo, 'CB'),   // apenas combustíveis — exclui Arla (ARL)
         gte(mv.dataVenda, dataInicio),
         lte(mv.dataVenda, dataFim),
         locationIds ? inArray(mv.locationId, locationIds) : undefined,
@@ -107,6 +106,7 @@ export const combustivelRoutes: FastifyPluginAsync = async (app) => {
     let locationIds: string[] | undefined
     let grupoIds: number[] | undefined
     let granularidade: typeof GRANULARIDADES[number]
+    const porProduto = (req.query as any).por_produto === 'true'
     try {
       ({ dataInicio, dataFim } = parseDateRange(req.query as Record<string, unknown>))
       locationIds = parseUuidArray((req.query as any).location_id, 'location_id')
@@ -124,17 +124,65 @@ export const combustivelRoutes: FastifyPluginAsync = async (app) => {
           ? sql<string>`${mv.anoMes}`
           : sql<string>`${mv.anoMes} || '-W' || lpad(${mv.semanaAno}::text, 2, '0')`
 
+    if (porProduto) {
+      // Retorna uma série por grupo (produto combustível) — usado pelo gráfico multi-série da tela /combustivel
+      const rows = await db
+        .select({
+          periodo:         periodoExpr.as('periodo'),
+          grupo_id:        mv.grupoId,
+          grupo_descricao: sql<string | null>`MAX(${mv.grupoDescricao})`,
+          volume_litros:   sum(mv.volumeLitros).mapWith(Number),
+          receita_bruta:   sum(mv.receitaBruta).mapWith(Number),
+          margem_bruta:    sum(mv.margemBruta).mapWith(Number),
+        })
+        .from(mv)
+        .where(and(
+          eq(mv.tenantId, tenantId),
+          gte(mv.dataVenda, dataInicio),
+          lte(mv.dataVenda, dataFim),
+          locationIds ? inArray(mv.locationId, locationIds) : undefined,
+          grupoIds ? inArray(mv.grupoId, grupoIds) : undefined,
+        ))
+        .groupBy(periodoExpr, mv.grupoId)
+        .orderBy(periodoExpr, mv.grupoId)
+
+      // Agrupar em { produto_id → { descricao, pontos[] } }
+      const produtosMap = new Map<number, { grupo_id: number; grupo_descricao: string; serie: object[] }>()
+      for (const r of rows) {
+        if (!produtosMap.has(r.grupo_id)) {
+          produtosMap.set(r.grupo_id, {
+            grupo_id: r.grupo_id,
+            grupo_descricao: r.grupo_descricao ?? String(r.grupo_id),
+            serie: [],
+          })
+        }
+        produtosMap.get(r.grupo_id)!.serie.push({
+          periodo:       r.periodo,
+          volume_litros: round2(n(r.volume_litros)),
+          receita_bruta: round2(n(r.receita_bruta)),
+          margem_bruta:  round2(n(r.margem_bruta)),
+        })
+      }
+
+      return reply.send({
+        granularidade,
+        por_produto: true,
+        produtos: Array.from(produtosMap.values()),
+      })
+    }
+
+    // Série consolidada (comportamento original)
     const rows = await db
       .select({
-        periodo:       periodoExpr.as('periodo'),
-        volume_litros: sum(mv.volumeLitros).mapWith(Number),
-        receita_bruta: sum(mv.receitaBruta).mapWith(Number),
-        margem_bruta:  sum(mv.margemBruta).mapWith(Number),
+        periodo:         periodoExpr.as('periodo'),
+        volume_litros:   sum(mv.volumeLitros).mapWith(Number),
+        receita_bruta:   sum(mv.receitaBruta).mapWith(Number),
+        receita_liquida: sum(mv.receitaLiquida).mapWith(Number),
+        margem_bruta:    sum(mv.margemBruta).mapWith(Number),
       })
       .from(mv)
       .where(and(
         eq(mv.tenantId, tenantId),
-        eq(mv.categoriaCodigo, 'CB'),   // apenas combustíveis — exclui Arla (ARL)
         gte(mv.dataVenda, dataInicio),
         lte(mv.dataVenda, dataFim),
         locationIds ? inArray(mv.locationId, locationIds) : undefined,
@@ -145,12 +193,18 @@ export const combustivelRoutes: FastifyPluginAsync = async (app) => {
 
     return reply.send({
       granularidade,
-      serie: rows.map(r => ({
-        periodo:       r.periodo,
-        volume_litros: round2(n(r.volume_litros)),
-        receita_bruta: round2(n(r.receita_bruta)),
-        margem_bruta:  round2(n(r.margem_bruta)),
-      })),
+      por_produto: false,
+      serie: rows.map(r => {
+        const margem_bruta    = n(r.margem_bruta)
+        const receita_liquida = n(r.receita_liquida)
+        return {
+          periodo:       r.periodo,
+          volume_litros: round2(n(r.volume_litros)),
+          receita_bruta: round2(n(r.receita_bruta)),
+          margem_bruta:  round2(margem_bruta),
+          margem_pct:    pct(margem_bruta, receita_liquida),
+        }
+      }),
     })
   })
 
@@ -182,7 +236,6 @@ export const combustivelRoutes: FastifyPluginAsync = async (app) => {
       .from(mv)
       .where(and(
         eq(mv.tenantId, tenantId),
-        eq(mv.categoriaCodigo, 'CB'),   // apenas combustíveis — exclui Arla (ARL)
         gte(mv.dataVenda, dataInicio),
         lte(mv.dataVenda, dataFim),
         locationIds ? inArray(mv.locationId, locationIds) : undefined,
@@ -248,7 +301,7 @@ export const combustivelRoutes: FastifyPluginAsync = async (app) => {
       .from(fatoVenda)
       .where(and(
         eq(fatoVenda.tenantId, tenantId),
-        eq(fatoVenda.categoriaCodigo, 'CB'),
+        inArray(fatoVenda.categoriaCodigo, ['CB', 'ARL']),
         gte(fatoVenda.dataVenda, dataInicio),
         lte(fatoVenda.dataVenda, dataFim),
         locationIds ? inArray(fatoVenda.locationId, locationIds) : undefined,
@@ -276,6 +329,8 @@ export const combustivelRoutes: FastifyPluginAsync = async (app) => {
           margem_bruta:       round2(margem_bruta),
           margem_pct:         pct(margem_bruta, receita_liq),
           volume_litros:      round2(qtd_venda),
+          preco_medio_litro:  qtd_venda > 0 ? round2(receita_bruta / qtd_venda) : null,
+          custo_medio_litro:  qtd_venda > 0 && cmv > 0 ? round2(cmv / qtd_venda) : null,
           participacao_receita_pct: pct(receita_bruta, totalReceita),
           participacao_volume_pct:  pct(qtd_venda, totalVolume),
         }

@@ -134,9 +134,10 @@ export const vendasRoutes: FastifyPluginAsync = async (app) => {
 
     const rows = await db
       .select({
-        periodo:       periodoExpr.as('periodo'),
-        receita_bruta: sum(mv.receitaBruta).mapWith(Number),
-        margem_bruta:  sum(mv.margemBruta).mapWith(Number),
+        periodo:         periodoExpr.as('periodo'),
+        receita_bruta:   sum(mv.receitaBruta).mapWith(Number),
+        receita_liquida: sum(mv.receitaLiquida).mapWith(Number),
+        margem_bruta:    sum(mv.margemBruta).mapWith(Number),
       })
       .from(mv)
       .where(and(
@@ -151,11 +152,16 @@ export const vendasRoutes: FastifyPluginAsync = async (app) => {
 
     return reply.send({
       granularidade,
-      serie: rows.map(r => ({
-        periodo:       r.periodo,
-        receita_bruta: round2(n(r.receita_bruta)),
-        margem_bruta:  round2(n(r.margem_bruta)),
-      })),
+      serie: rows.map(r => {
+        const margem_bruta    = n(r.margem_bruta)
+        const receita_liquida = n(r.receita_liquida)
+        return {
+          periodo:       r.periodo,
+          receita_bruta: round2(n(r.receita_bruta)),
+          margem_bruta:  round2(margem_bruta),
+          margem_pct:    pct(margem_bruta, receita_liquida),
+        }
+      }),
     })
   })
 
@@ -289,9 +295,11 @@ export const vendasRoutes: FastifyPluginAsync = async (app) => {
     const tenantId = req.tenantId!
     let dataInicio: string, dataFim: string, locationIds: string[] | undefined
     let limit = 10
+    let segmento: typeof SEGMENTOS[number] | undefined
     try {
       ({ dataInicio, dataFim } = parseDateRange(req.query as Record<string, unknown>))
       locationIds = parseUuidArray((req.query as any).location_id, 'location_id')
+      segmento = parseEnum((req.query as any).segmento, SEGMENTOS, 'segmento')
       const lim = parseInt((req.query as any).limit)
       if (!isNaN(lim) && lim > 0 && lim <= 50) limit = lim
     } catch (err) {
@@ -308,6 +316,7 @@ export const vendasRoutes: FastifyPluginAsync = async (app) => {
         receita_liquida: sum(mv.receitaLiquida).mapWith(Number),
         cmv:             sum(mv.cmv).mapWith(Number),
         margem_bruta:    sum(mv.margemBruta).mapWith(Number),
+        qtd_total:       sum(mv.qtdTotal).mapWith(Number),
       })
       .from(mv)
       .where(and(
@@ -315,6 +324,7 @@ export const vendasRoutes: FastifyPluginAsync = async (app) => {
         gte(mv.dataVenda, dataInicio),
         lte(mv.dataVenda, dataFim),
         locationIds ? inArray(mv.locationId, locationIds) : undefined,
+        segmento ? eq(mv.segmento, segmento) : undefined,
       ))
       .groupBy(mv.segmento, mv.grupoId)
       .orderBy(desc(sum(mv.receitaBruta)))
@@ -339,7 +349,7 @@ export const vendasRoutes: FastifyPluginAsync = async (app) => {
           margem_bruta:     round2(margem_bruta),
           margem_pct:       pct(margem_bruta, receita_liquida),
           participacao_pct: pct(receita_bruta, total),
-          qtd:              null, // mv_vendas_diario não tem qtd por grupo — placeholder
+          qtd:              round2(n(r.qtd_total)),
         }
       }),
     })
