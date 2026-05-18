@@ -36,7 +36,7 @@
 | Camada | Tecnologia | Observações |
 |--------|-----------|-------------|
 | Frontend | **Vite + React SPA** + TypeScript | ADR-010 — Next.js removido. Scaffold pendente. |
-| Charts | **ECharts** via echarts-for-react | ADR-011 — não usar Recharts/Tremor |
+| Charts | **Recharts** + SVG inline (sparklines) | ADR-011 rev. 2026-05-18 — não usar ECharts/Tremor |
 | Backend | Fastify 4+ TypeScript | Em produção no Railway |
 | ORM | Drizzle ORM | Nunca Prisma. Migrations obrigatórias para todo DDL |
 | Jobs | pg-boss | Jobs persistidos no PostgreSQL — sem Redis |
@@ -221,13 +221,10 @@ Auditoria completa contra `docs/design/FRONTEND_SPEC.md`. Todos os gaps corrigid
 - `conveniencia/categorias` → `segmento` opcional (default `conveniencia`)
 - `POST /sync/trigger` → novo endpoint implementado
 
-### ❌ `apps/web` — REMOVIDO, aguardando reimplementação
-O frontend anterior foi apagado em 2026-05-17. Refatoração completa baseada em:
-- **Spec:** `docs/design/FRONTEND_SPEC.md` — fonte de verdade de UI/UX
-- **Tokens:** `docs/design/design-tokens.md` — cores, tipografia, espaçamentos
-- **Design:** `design_example/postoinsight/` — referência visual aprovada
-
-**Scaffold do novo `apps/web` é o próximo passo.**
+### ❌ `apps/web` — apagado, reimplementação do zero
+- `apps/web/src/` removido completamente em 2026-05-18.
+- Nova implementação baseada em `docs/design/` (tokens, components, patterns, ADR-014, ADR-015) e `design_example/postoinsight/`.
+- **Scaffold pendente — próximo passo principal.**
 
 ### ❌ Demais pendências
 - Backfill das 3 locations restantes (Torres, Imbé, Tramandaí — apenas JAM Rota 1 concluída)
@@ -238,7 +235,7 @@ O frontend anterior foi apagado em 2026-05-17. Refatoração completa baseada em
 - `docs/design/FRONTEND_SPEC.md` — **fonte de verdade de UI** (layouts, telas, componentes, comportamentos)
 - `docs/design/design-tokens.md` — **fonte de verdade visual** (cores, tipografia, espaçamentos, tema ECharts)
 - `design_example/postoinsight/` — referência visual aprovada final
-- ADRs: ADR-010 (Vite SPA), ADR-011 (ECharts via echarts-for-react), ADR-012 (auth cookie HttpOnly), ADR-013 (Tailwind v4 + Shadcn/ui)
+- ADRs: ADR-010 (Vite SPA), ADR-011 (Recharts — rev. 2026-05-18), ADR-012 (auth cookie HttpOnly), ADR-013 (Tailwind v4 + Shadcn/ui)
 
 ---
 

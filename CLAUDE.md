@@ -71,7 +71,7 @@ O founder opera solo. Para economizar tokens e contexto:
 | ORM / Queries | Drizzle ORM | latest |
 | Jobs / Pipeline | pg-boss | latest |
 | Autenticação | **Cookie HttpOnly JWE — emitido pelo Fastify** | — |
-| Charts | **ECharts via echarts-for-react** | ECharts 5 |
+| Charts | **Recharts** + SVG inline (sparklines) | recharts latest |
 | Banco de dados | PostgreSQL | 16+ |
 | Agente (Status) | Node.js + TypeScript → `.exe` via `@yao-pkg/pkg` | Node 20 |
 | Ambiente local | WSL Ubuntu + Docker Compose | — |
@@ -79,7 +79,7 @@ O founder opera solo. Para economizar tokens e contexto:
 
 **Nunca substitua uma tecnologia da stack sem um ADR aprovado em `docs/architecture/decisions/`.**
 
-> ADRs relevantes: ADR-010 (Vite vs Next.js), ADR-011 (ECharts), ADR-012 (autenticação SPA), ADR-013 (Tailwind + Shadcn)
+> ADRs relevantes: ADR-010 (Vite vs Next.js), ADR-011 (Recharts — rev. 2026-05-18), ADR-012 (autenticação SPA), ADR-013 (Tailwind + Shadcn), ADR-014 (identidade visual), ADR-015 (design system)
 
 ---
 
@@ -286,27 +286,34 @@ Receita Bruta
 
 ## 12. Design de Referência — Frontend
 
-**A fonte de verdade visual é `design_example/postoinsight/`.**
+**Fonte de verdade do design system: `docs/design/`**
 
-- `PostoInsight.html` — tokens CSS completos (cores, espaçamentos, tipografia)
-- `PostoInsight Standalone.html` — build standalone gerado pelo Claude Design (2026-05-08), referência visual final com todos os upgrades
-- `layout.jsx` — Topbar, Sidebar, KpiCard (com sparkline), SectionCard, StatusBadge, ChartLegend
-- `page-vendas.jsx`, `page-combustivel.jsx`, `page-conveniencia.jsx`, `page-dre.jsx`
+Antes de implementar qualquer componente ou página, leia obrigatoriamente:
+- `docs/design/ADR-014-identidade-visual.md` — tipografia, paleta, densidade, modo escuro
+- `docs/design/ADR-015-design-system.md` — governança e regras do design system
+- `docs/design/tokens.md` — todos os tokens de cor, espaçamento e tipografia
+- `docs/design/components.md` — catálogo de componentes com anatomia e regras
+- `docs/design/patterns.md` — padrões de composição de páginas
 
-O design define a **identidade visual** (cores, tipografia, espaçamentos) — tokens migrados para `tailwind.config.ts` (ADR-013).
-Os charts são implementados com **ECharts** via `echarts-for-react` (ADR-011).
-Componentes de UI usam **Shadcn/ui** (em `src/components/ui/`) sobre Tailwind CSS v4.
+**Referência visual interativa: `design_example/postoinsight/`**
 
-**Componentes de gráfico disponíveis em `apps/web/src/components/charts/`:**
-- `Sparkline` — mini linha com área, inline em KpiCards e tabelas
-- `DonutChart` — rosca com centro customizável
-- `DualAxisChart` — barras + linha em eixo Y duplo
-- `HeatmapChart` — mapa de calor semana × dia
-- `ScatterChart` — dispersão com quadrantes e bolhas
-- `WaterfallChart` — cascata positivo/negativo
-- `StackedAreaChart` — área empilhada multi-série
-- `LineAreaChart` — linha com área, múltiplas séries
-- `BarChart` — barras horizontais
+- `PostoInsight.html` + `app.js` + `charts.js` + `data.js` — protótipo navegável completo, fonte de verdade visual. Nunca deletar.
+
+**Stack de design:**
+- Estilização: **Tailwind CSS v4 + Shadcn/ui** (ADR-013)
+- Gráficos: **Recharts** para todos os charts; **SVG inline** para sparklines; **CSS Grid** para heatmap (ADR-011 rev.)
+- Tipografia: **Geist** sans + **Geist Mono** (ADR-014)
+- Ícones: **Lucide React** (ADR-014)
+- Tema: dark sidebar + light content, densidade compacta, primária `#0073BB` (ADR-014)
+
+**Componentes de gráfico em `apps/web/src/components/charts/`:**
+- `LineAreaChart.tsx` — linha com área e gradiente (Recharts AreaChart)
+- `MultiLineChart.tsx` — múltiplas séries (Recharts LineChart)
+- `ComposedChart.tsx` — linha + barra combinados (Recharts ComposedChart)
+- `DonutChart.tsx` — rosca com centro customizável (Recharts PieChart)
+- `BarChart.tsx` — barras simples e agrupadas (Recharts BarChart)
+- `Sparkline.tsx` — SVG inline, sem dependência de biblioteca
+- `Heatmap.tsx` — CSS Grid + lógica de cor em JS puro
 
 ---
 
@@ -325,7 +332,9 @@ Antes de implementar qualquer camada, leia a documentação oficial corresponden
 - Vite: https://vitejs.dev/guide/
 - React Router v6: https://reactrouter.com/en/main
 - TanStack Query v5: https://tanstack.com/query/latest
-- ECharts for React: https://github.com/hustcc/echarts-for-react
+- Recharts: https://recharts.org/en-US/api
+- Shadcn/ui: https://ui.shadcn.com/docs/components
+- Lucide React: https://lucide.dev/icons/
 
 ### Infra
 - Railway deploy: https://docs.railway.app/getting-started
@@ -348,7 +357,7 @@ Decisões já tomadas que devem ser respeitadas:
 | ADR-008 | Nomenclatura | Domain-neutral (locations, tenants) |
 | ADR-009 | Schema | Auditoria e BI no schema `app` |
 | ADR-010 | Frontend | **Vite + React SPA** (não Next.js) |
-| ADR-011 | Charts | **ECharts** (não Recharts/Tremor) |
+| ADR-011 | Charts | **Recharts** (não ECharts/Tremor) — revisado 2026-05-18 |
 | ADR-012 | Auth SPA | **Cookie HttpOnly** emitido pelo Fastify |
 | ADR-013 | Estilização | **Tailwind CSS v4 + Shadcn/ui** (não CSS manual) |
 
@@ -406,9 +415,10 @@ Depois: instalar o agente `.exe` no RDP com o arquivo `.env` configurado.
 - `canonical.dim_tempo` — populado de 2025-01-01 a 2027-12-31
 - 4 MVs de analytics refreshadas com dados reais
 
-### ✅ Implementado — `apps/web` (frontend com dados reais)
-- **❌ REMOVIDO em 2026-05-17** — frontend antigo apagado. Refatoração completa em andamento baseada em `docs/design/FRONTEND_SPEC.md` e `docs/design/design-tokens.md`.
-- A nova implementação ainda não foi iniciada. Scaffold pendente.
+### ❌ `apps/web` — apagado, reimplementação do zero
+- `apps/web/src/` removido completamente em 2026-05-18.
+- Nova implementação baseada em `docs/design/` (tokens, components, patterns, ADR-014, ADR-015) e `design_example/postoinsight/`.
+- **Scaffold pendente — próximo passo principal.**
 
 ### ✅ Novos endpoints backend (2026-05-08 / 2026-05-14)
 - `GET /api/v1/conveniencia/top-grupos` — top N grupos da loja por receita, todos os segmentos

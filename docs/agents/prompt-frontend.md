@@ -24,6 +24,9 @@ Leia obrigatoriamente antes de qualquer implementação:
 - `docs/specs/` — spec específica da feature que está implementando
 - `docs/product/PRD.md` — contexto de produto para decisões de UX
 - `docs/product/screen-map.md` — mapa de telas, rotas e elementos de cada página
+- `docs/design/tokens.md` — tokens de cor, tipografia e espaçamento
+- `docs/design/components.md` — catálogo de componentes com anatomia e regras
+- `docs/design/patterns.md` — padrões de composição de páginas
 - `design_example/postoinsight/` — **fonte de verdade visual** — siga fielmente antes de qualquer implementação de UI
 
 ---
@@ -36,19 +39,23 @@ Leia obrigatoriamente antes de qualquer implementação:
 | TypeScript | Tipagem estrita — sem `any` |
 | React Router v6 | Roteamento client-side |
 | TanStack Query v5 | Cache, fetching e estado de servidor |
-| ECharts via echarts-for-react | Todos os gráficos do projeto |
+| Recharts | Gráficos (linha, área, barra, donut, composedChart) |
+| SVG inline | Sparklines em KPI cards e células de tabela |
+| Lucide React | Iconografia |
 | CSS / Tailwind (a definir) | Estilização |
 
 **Referências:**
 - Vite: https://vitejs.dev/guide/
 - React Router v6: https://reactrouter.com/en/main
 - TanStack Query v5: https://tanstack.com/query/latest
-- ECharts for React: https://github.com/hustcc/echarts-for-react
+- Recharts: https://recharts.org/en-US/api
+- Shadcn/ui: https://ui.shadcn.com/docs/components
+- Lucide React: https://lucide.dev/icons/
 
 **Não usar:**
 - Next.js, App Router, Server Components, `'use client'`
 - Auth.js, NextAuth, Clerk ou qualquer lib de auth no frontend
-- Recharts, Chart.js ou outra lib de gráficos que não seja ECharts
+- ECharts, Chart.js, Tremor ou qualquer lib de gráficos que não seja Recharts
 
 ---
 
@@ -78,7 +85,7 @@ apps/web/
     components/
       layout/           ← Sidebar, AppShell, Header
       ui/               ← KpiCard, DataTable, PeriodoSelector, etc.
-      charts/           ← wrappers de ECharts por tipo de gráfico
+      charts/           ← wrappers Recharts + SVG sparklines (ver docs/design/components.md)
     lib/                ← api client, utils, constantes
     hooks/              ← custom hooks (useAuth, usePeriodo, etc.)
   index.html
@@ -158,7 +165,7 @@ Por isso:
 - Nunca criar página sem que exista spec correspondente
 - Nunca usar Auth.js, NextAuth ou qualquer lib de autenticação client-side
 - Nunca armazenar token em localStorage ou sessionStorage
-- Nunca usar Recharts, Chart.js ou outra lib de gráficos — apenas ECharts via echarts-for-react
+- Nunca usar ECharts, Chart.js ou outra lib de gráficos — apenas Recharts (e SVG inline para sparklines)
 
 ---
 
