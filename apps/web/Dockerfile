@@ -2,8 +2,8 @@
 # Stage 1 — build
 FROM node:20-alpine AS builder
 
-# Enable pnpm via corepack
-RUN corepack enable && corepack prepare pnpm@latest --activate
+# Install pnpm
+RUN npm install -g pnpm
 
 WORKDIR /repo
 
