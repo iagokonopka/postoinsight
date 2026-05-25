@@ -2,9 +2,10 @@
 import { useQuery } from '@tanstack/react-query'
 import { useApp } from '@/context/AppContext'
 import { periodToRange, buildQS } from '@/lib/periods'
+import { apiUrl } from '@/lib/api'
 
 async function get<T>(url: string): Promise<T> {
-  const res = await fetch(url, { credentials: 'include' })
+  const res = await fetch(apiUrl(url), { credentials: 'include' })
   if (!res.ok) throw new Error(`API error ${res.status}: ${url}`)
   return res.json()
 }
