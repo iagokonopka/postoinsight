@@ -1,38 +1,30 @@
-export type Theme = 'light' | 'dark' | 'system';
+// Theme and density persistence via localStorage
+export type Theme = 'light' | 'dark'
+export type Density = 'comfortable' | 'compact'
 
-const STORAGE_KEY = 'postoinsight-theme';
-
-function getSystemTheme(): 'light' | 'dark' {
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-}
-
-function applyTheme(theme: Theme): void {
-  const resolved = theme === 'system' ? getSystemTheme() : theme;
-  const html = document.documentElement;
-
-  if (resolved === 'dark') {
-    html.classList.add('dark');
-  } else {
-    html.classList.remove('dark');
-  }
-}
-
-export function setTheme(theme: Theme): void {
-  localStorage.setItem(STORAGE_KEY, theme);
-  applyTheme(theme);
-}
+const THEME_KEY   = 'pi-theme'
+const DENSITY_KEY = 'pi-density'
 
 export function getStoredTheme(): Theme {
-  return (localStorage.getItem(STORAGE_KEY) as Theme) ?? 'system';
+  return (localStorage.getItem(THEME_KEY) as Theme) ?? 'light'
 }
 
-/** Call once on boot — before React mounts — to avoid flash */
-export function initTheme(): void {
-  const theme = getStoredTheme();
-  applyTheme(theme);
+export function getStoredDensity(): Density {
+  return (localStorage.getItem(DENSITY_KEY) as Density) ?? 'comfortable'
+}
 
-  // Track system preference changes when theme is 'system'
-  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-    if (getStoredTheme() === 'system') applyTheme('system');
-  });
+export function applyTheme(theme: Theme) {
+  document.documentElement.classList.toggle('dark', theme === 'dark')
+  localStorage.setItem(THEME_KEY, theme)
+}
+
+export function applyDensity(density: Density) {
+  document.documentElement.classList.toggle('compact', density === 'compact')
+  localStorage.setItem(DENSITY_KEY, density)
+}
+
+// Called once on app boot
+export function initTheme() {
+  applyTheme(getStoredTheme())
+  applyDensity(getStoredDensity())
 }

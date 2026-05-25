@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { and, eq, gte, lte, inArray, sql, sum, desc } from 'drizzle-orm'
 import { db } from '../db.js'
-import { mvVendasDiario as mv, fatoVenda, dimProduto } from '@postoinsight/db'
+import { mvVendasDiario as mv, fatoVenda, dimProduto, locations } from '@postoinsight/db'
 import { requireTenantSession } from '../lib/auth.js'
 import {
   BadQueryError, parseDateRange, parseUuidArray, parseEnum, n, pct, round2,
@@ -503,6 +503,216 @@ export const vendasRoutes: FastifyPluginAsync = async (app) => {
           qtd_venda:          round2(n(r.qtd_venda)),
           qtd_itens:          n(r.qtd_itens),
           participacao_pct:   pct(receita_bruta, totalReceita),
+        }
+      }),
+    })
+  })
+
+  // ---------------------------------------------------------------------
+  // GET /api/v1/vendas/padrao-semanal
+  // Heatmap 7 dias × 4 semanas — receita bruta agregada por dia-da-semana
+  // e semana do período. Usa mv_vendas_diario (campo dia_semana já existe).
+  // Query params: data_inicio, data_fim, location_id?
+  // Resposta: { semanas: string[], data: number[][] }
+  //   data[dayIndex][weekIndex]  dayIndex 0=Dom..6=Sáb
+  // ---------------------------------------------------------------------
+  app.get('/padrao-semanal', async (req, reply) => {
+    const tenantId = req.tenantId!
+    let dataInicio: string, dataFim: string, locationIds: string[] | undefined
+    try {
+      ({ dataInicio, dataFim } = parseDateRange(req.query as Record<string, unknown>))
+      locationIds = parseUuidArray((req.query as any).location_id, 'location_id')
+    } catch (err) {
+      if (err instanceof BadQueryError) return reply.status(400).send({ error: err.message })
+      throw err
+    }
+
+    const rows = await db
+      .select({
+        dia_semana:   mv.diaSemana,
+        semana_ano:   mv.semanaAno,
+        receita_bruta: sum(mv.receitaBruta).mapWith(Number),
+      })
+      .from(mv)
+      .where(and(
+        eq(mv.tenantId, tenantId),
+        gte(mv.dataVenda, dataInicio),
+        lte(mv.dataVenda, dataFim),
+        locationIds ? inArray(mv.locationId, locationIds) : undefined,
+      ))
+      .groupBy(mv.diaSemana, mv.semanaAno)
+      .orderBy(mv.semanaAno, mv.diaSemana)
+
+    // Ordenar as semanas distintas presentes no período (máx 4)
+    const semanasSet = [...new Set(rows.map(r => r.semana_ano))].sort((a, b) => a - b)
+    const semanas = semanasSet.slice(0, 4)
+    const semanaIndex = new Map(semanas.map((s, i) => [s, i]))
+
+    // Montar matrix 7 × 4 (zeros)
+    const matrix: number[][] = Array.from({ length: 7 }, () => Array(4).fill(0))
+    for (const r of rows) {
+      const wIdx = semanaIndex.get(r.semana_ano)
+      if (wIdx === undefined) continue
+      const dIdx = r.dia_semana   // 0=Dom..6=Sáb (conforme canonical model)
+      if (dIdx < 0 || dIdx > 6) continue
+      matrix[dIdx]![wIdx] = round2(n(r.receita_bruta))
+    }
+
+    return reply.send({
+      semanas: semanas.map(s => `S${semanas.indexOf(s) + 1}`),
+      data: matrix,
+    })
+  })
+
+  // ---------------------------------------------------------------------
+  // GET /api/v1/vendas/produto/:source_produto_id/evolucao
+  // Série temporal de um produto individual.
+  // Query params: data_inicio, data_fim, granularidade (dia|semana|mes), location_id?
+  // Retorno: { produto: { source_produto_id, descricao, subgrupo, grupo }, serie: [...] }
+  // ---------------------------------------------------------------------
+  app.get('/produto/:source_produto_id/evolucao', async (req, reply) => {
+    const tenantId = req.tenantId!
+    const sourceProdutoId = (req.params as any).source_produto_id as string
+    let dataInicio: string, dataFim: string, locationIds: string[] | undefined
+    let granularidade: 'dia' | 'semana' | 'mes' = 'dia'
+    try {
+      ({ dataInicio, dataFim } = parseDateRange(req.query as Record<string, unknown>))
+      locationIds = parseUuidArray((req.query as any).location_id, 'location_id')
+      const gran = (req.query as any).granularidade
+      if (gran === 'semana' || gran === 'mes') granularidade = gran
+    } catch (err) {
+      if (err instanceof BadQueryError) return reply.status(400).send({ error: err.message })
+      throw err
+    }
+
+    // Agrupa por período conforme granularidade
+    const periodoExpr = granularidade === 'dia'
+      ? sql<string>`TO_CHAR(${fatoVenda.dataVenda}, 'YYYY-MM-DD')`
+      : granularidade === 'semana'
+        ? sql<string>`TO_CHAR(DATE_TRUNC('week', ${fatoVenda.dataVenda}), 'YYYY-MM-DD')`
+        : sql<string>`TO_CHAR(DATE_TRUNC('month', ${fatoVenda.dataVenda}), 'YYYY-MM')`
+
+    const rows = await db
+      .select({
+        periodo:       periodoExpr,
+        descricao:     sql<string>`MAX(${fatoVenda.descricaoProduto})`,
+        subgrupo:      sql<string | null>`MAX(${fatoVenda.subgrupoDescricao})`,
+        grupo:         sql<string | null>`MAX(${fatoVenda.grupoDescricao})`,
+        receita_bruta: sum(fatoVenda.vlrTotal).mapWith(Number),
+        cmv:           sql<number>`COALESCE(SUM(${fatoVenda.custoUnitario} * ${fatoVenda.qtdVenda}), 0)`.mapWith(Number),
+        desconto:      sum(fatoVenda.descontoTotal).mapWith(Number),
+        qtd_venda:     sum(fatoVenda.qtdVenda).mapWith(Number),
+      })
+      .from(fatoVenda)
+      .where(and(
+        eq(fatoVenda.tenantId, tenantId),
+        eq(fatoVenda.sourceProdutoId, sourceProdutoId),
+        gte(fatoVenda.dataVenda, dataInicio),
+        lte(fatoVenda.dataVenda, dataFim),
+        locationIds ? inArray(fatoVenda.locationId, locationIds) : undefined,
+      ))
+      .groupBy(periodoExpr)
+      .orderBy(periodoExpr)
+
+    if (rows.length === 0) {
+      return reply.send({
+        produto: { source_produto_id: sourceProdutoId, descricao: null, subgrupo: null, grupo: null },
+        granularidade,
+        serie: [],
+      })
+    }
+
+    const first = rows[0]!
+    const produto = {
+      source_produto_id: sourceProdutoId,
+      descricao: first.descricao,
+      subgrupo:  first.subgrupo ?? null,
+      grupo:     first.grupo    ?? null,
+    }
+
+    const serie = rows.map(r => {
+      const receita_bruta = n(r.receita_bruta)
+      const cmv           = n(r.cmv)
+      const desconto      = n(r.desconto)
+      const receita_liq   = receita_bruta - desconto
+      const margem_bruta  = receita_liq - cmv
+      const qtd_venda     = n(r.qtd_venda)
+      return {
+        periodo:       r.periodo,
+        receita_bruta: round2(receita_bruta),
+        margem_bruta:  round2(margem_bruta),
+        margem_pct:    pct(margem_bruta, receita_liq),
+        qtd_venda:     round2(qtd_venda),
+        ticket_medio:  qtd_venda > 0 ? round2(receita_bruta / qtd_venda) : 0,
+      }
+    })
+
+    return reply.send({ produto, granularidade, serie })
+  })
+
+  // ---------------------------------------------------------------------
+  // GET /api/v1/vendas/produto/:source_produto_id/por-location
+  // Top locations onde o produto mais vende no período.
+  // Query params: data_inicio, data_fim, location_id?
+  // Retorno: { produto: { source_produto_id, descricao }, locations: [...] }
+  // ---------------------------------------------------------------------
+  app.get('/produto/:source_produto_id/por-location', async (req, reply) => {
+    const tenantId = req.tenantId!
+    const sourceProdutoId = (req.params as any).source_produto_id as string
+    let dataInicio: string, dataFim: string, locationIds: string[] | undefined
+    try {
+      ({ dataInicio, dataFim } = parseDateRange(req.query as Record<string, unknown>))
+      locationIds = parseUuidArray((req.query as any).location_id, 'location_id')
+    } catch (err) {
+      if (err instanceof BadQueryError) return reply.status(400).send({ error: err.message })
+      throw err
+    }
+
+    const rows = await db
+      .select({
+        location_id:   fatoVenda.locationId,
+        location_nome: locations.nome,
+        descricao:     sql<string>`MAX(${fatoVenda.descricaoProduto})`,
+        receita_bruta: sum(fatoVenda.vlrTotal).mapWith(Number),
+        cmv:           sql<number>`COALESCE(SUM(${fatoVenda.custoUnitario} * ${fatoVenda.qtdVenda}), 0)`.mapWith(Number),
+        desconto:      sum(fatoVenda.descontoTotal).mapWith(Number),
+        qtd_venda:     sum(fatoVenda.qtdVenda).mapWith(Number),
+      })
+      .from(fatoVenda)
+      .innerJoin(locations, and(
+        eq(locations.id, fatoVenda.locationId),
+        eq(locations.tenantId, tenantId),
+      ))
+      .where(and(
+        eq(fatoVenda.tenantId, tenantId),
+        eq(fatoVenda.sourceProdutoId, sourceProdutoId),
+        gte(fatoVenda.dataVenda, dataInicio),
+        lte(fatoVenda.dataVenda, dataFim),
+        locationIds ? inArray(fatoVenda.locationId, locationIds) : undefined,
+      ))
+      .groupBy(fatoVenda.locationId, locations.nome)
+      .orderBy(desc(sum(fatoVenda.vlrTotal)))
+
+    const totalReceita = rows.reduce((acc, r) => acc + n(r.receita_bruta), 0)
+    const descricao = rows[0]?.descricao ?? null
+
+    return reply.send({
+      produto: { source_produto_id: sourceProdutoId, descricao },
+      locations: rows.map(r => {
+        const receita_bruta = n(r.receita_bruta)
+        const cmv           = n(r.cmv)
+        const desconto      = n(r.desconto)
+        const receita_liq   = receita_bruta - desconto
+        const margem_bruta  = receita_liq - cmv
+        const qtd_venda     = n(r.qtd_venda)
+        return {
+          location_id:      r.location_id,
+          location_nome:    r.location_nome,
+          receita_bruta:    round2(receita_bruta),
+          margem_bruta:     round2(margem_bruta),
+          margem_pct:       pct(margem_bruta, receita_liq),
+          qtd_venda:        round2(qtd_venda),
+          participacao_pct: pct(receita_bruta, totalReceita),
         }
       }),
     })

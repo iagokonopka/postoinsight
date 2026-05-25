@@ -1,193 +1,219 @@
-import type { ElementType } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard,
   Fuel,
-  Droplets,
-  Wrench,
   ShoppingBag,
-  FileText,
+  FileBarChart2,
   RefreshCw,
   Settings,
-} from 'lucide-react';
-import { cn } from '@/lib/cn';
+  Droplets,
+  Wrench,
+  type LucideIcon,
+} from 'lucide-react'
+import { useAuth } from '@/context/AuthContext'
+import { getTenantInitials, getRoleLabel } from '@/lib/auth'
 
-// ── Logo mark ─────────────────────────────────────────────────────────────────
-function LogoMark() {
-  return (
-    <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
-      <defs>
-        <linearGradient id="logo-grad" x1="0" y1="0" x2="28" y2="28" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#0073BB" />
-          <stop offset="100%" stopColor="#6B40C4" />
-        </linearGradient>
-      </defs>
-      <rect width="28" height="28" rx="7" fill="url(#logo-grad)" />
-      <path
-        d="M8 20V10a2 2 0 0 1 2-2h3a3 3 0 0 1 0 6H8m5-6v6"
-        stroke="#fff"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <circle cx="19" cy="18" r="2.5" stroke="#fff" strokeWidth="1.6" />
-    </svg>
-  );
-}
+const NAV_ANALYSIS = [
+  { to: '/',              label: 'Visão Geral',  Icon: LayoutDashboard, sub: false },
+  { to: '/combustivel',   label: 'Combustível',  Icon: Fuel,            sub: false },
+  { to: '/arla',          label: 'Arla 32',      Icon: Droplets,        sub: true  },
+  { to: '/conveniencia',  label: 'Conveniência', Icon: ShoppingBag,     sub: false },
+  { to: '/lubrificantes', label: 'Lubrificantes',Icon: Wrench,          sub: true  },
+  { to: '/dre',           label: 'DRE Mensal',   Icon: FileBarChart2,   sub: false },
+]
 
-// ── Navigation config ──────────────────────────────────────────────────────────
-const NAV_SECTIONS = [
-  {
-    label: 'Análise',
-    items: [
-      { label: 'Visão Geral',   href: '/dashboard',    icon: LayoutDashboard },
-      { label: 'Combustível',   href: '/combustivel',  icon: Fuel },
-      { label: 'Arla 32',       href: '/arla',         icon: Droplets },
-      { label: 'Lubrificantes', href: '/lubrificantes',icon: Wrench },
-      { label: 'Conveniência',  href: '/conveniencia', icon: ShoppingBag },
-    ],
-  },
-  {
-    label: 'Financeiro',
-    items: [
-      { label: 'DRE Mensal', href: '/dre', icon: FileText },
-    ],
-  },
-  {
-    label: 'Sistema',
-    items: [
-      { label: 'Sincronização', href: '/sync',     icon: RefreshCw },
-      { label: 'Configurações', href: '/settings', icon: Settings },
-    ],
-  },
-];
+const NAV_OPS = [
+  { to: '/sincronizacao', label: 'Sincronização', Icon: RefreshCw, badge: 'OK' },
+  { to: '/configuracoes', label: 'Configurações',  Icon: Settings },
+]
 
-// ── SidebarItem ────────────────────────────────────────────────────────────────
-interface SidebarItemProps {
-  label: string;
-  href: string;
-  icon: ElementType;
-  isActive: boolean;
-}
-
-function SidebarItem({ label, href, icon: Icon, isActive }: SidebarItemProps) {
-  return (
-    <NavLink
-      to={href}
-      className={cn(
-        'relative flex items-center gap-2.5 px-3 py-[7px] rounded-[7px] text-[13px] font-medium transition-colors duration-120 select-none',
-        isActive
-          ? 'bg-sidebar-active-bg text-sidebar-foreground'
-          : 'text-sidebar-foreground/70 hover:bg-sidebar-muted/60 hover:text-sidebar-foreground',
-      )}
-    >
-      {/* Active indicator bar */}
-      {isActive && (
-        <span
-          className="absolute left-0 top-[6px] bottom-[6px] w-[2.5px] bg-sidebar-active rounded-full"
-          aria-hidden="true"
-        />
-      )}
-      <Icon
-        size={14}
-        strokeWidth={1.6}
-        className={cn(isActive ? 'text-sidebar-active' : 'text-current')}
-      />
-      <span className="truncate">{label}</span>
-    </NavLink>
-  );
-}
-
-// ── SidebarSection ─────────────────────────────────────────────────────────────
-interface SidebarSectionProps {
-  label: string;
-  items: typeof NAV_SECTIONS[0]['items'];
-  currentPath: string;
-}
-
-function SidebarSection({ label, items, currentPath }: SidebarSectionProps) {
-  return (
-    <div className="flex flex-col gap-0.5">
-      <span className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-[1.4px] text-sidebar-foreground/40">
-        {label}
-      </span>
-      {items.map((item) => (
-        <SidebarItem
-          key={item.href}
-          label={item.label}
-          href={item.href}
-          icon={item.icon}
-          isActive={
-            item.href === '/settings'
-              ? currentPath.startsWith('/settings')
-              : currentPath === item.href
-          }
-        />
-      ))}
-    </div>
-  );
-}
-
-// ── TenantBadge ────────────────────────────────────────────────────────────────
-function TenantBadge() {
-  // Will be wired to AuthContext in Phase 7
-  return (
-    <div className="flex items-center gap-2.5 px-2 py-2 rounded-[8px] hover:bg-sidebar-muted/60 cursor-pointer transition-colors">
-      {/* Avatar with gradient */}
-      <div
-        className="w-7 h-7 rounded-[7px] flex-shrink-0 flex items-center justify-center text-white text-[11px] font-bold"
-        style={{ background: 'linear-gradient(135deg, #0073BB, #6B40C4)' }}
-        aria-hidden="true"
-      >
-        R
-      </div>
-      <div className="min-w-0">
-        <div className="text-[12px] font-semibold text-sidebar-foreground truncate">
-          Rede JAM
-        </div>
-        <div className="text-[10px] text-sidebar-foreground/50 truncate">
-          Owner
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Sidebar ────────────────────────────────────────────────────────────────────
 export function Sidebar() {
-  const location = useLocation();
+  const { user } = useAuth()
+  const location = useLocation()
+
+  const tenantName = user?.tenantName ?? ''
+  const tenantInitials = tenantName ? getTenantInitials(tenantName) : 'PI'
+  const roleLabel = user ? getRoleLabel(user.role ?? user.platformRole) : ''
+  const displayName = user?.name ?? user?.email ?? ''
 
   return (
-    <aside className="w-60 flex flex-col flex-shrink-0 bg-sidebar border-r border-sidebar-muted/50">
-      {/* Brand */}
-      <div className="flex items-center gap-2.5 px-5 py-[18px] border-b border-sidebar-muted/60">
-        <LogoMark />
+    <aside style={{
+      width: '240px',
+      flexShrink: 0,
+      background: 'hsl(var(--sidebar))',
+      color: 'hsl(var(--sidebar-foreground))',
+      display: 'flex',
+      flexDirection: 'column',
+      borderRight: '1px solid hsl(var(--sidebar-muted) / 0.5)',
+    }}>
+      {/* Logo */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '10px',
+        padding: '18px 20px',
+        borderBottom: '1px solid hsl(var(--sidebar-muted) / 0.6)',
+      }}>
+        <LogoSvg />
         <div>
-          <span className="block text-sm font-semibold text-sidebar-foreground">
+          <div style={{ fontSize: '14px', fontWeight: 600, letterSpacing: '-0.2px', color: 'hsl(var(--sidebar-foreground))' }}>
             PostoInsight
-          </span>
-          <span className="block text-[10px] text-sidebar-foreground/50 tracking-wide">
-            BI para redes
+          </div>
+          <span style={{ display: 'block', fontSize: '10px', fontWeight: 500, color: 'hsl(var(--sidebar-foreground) / 0.5)', letterSpacing: '0.4px', marginTop: '1px' }}>
+            {tenantName ? `BI · ${tenantName}` : 'BI'}
           </span>
         </div>
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto px-3 py-4 flex flex-col gap-5">
-        {NAV_SECTIONS.map((section) => (
-          <SidebarSection
-            key={section.label}
-            label={section.label}
-            items={section.items}
-            currentPath={location.pathname}
-          />
-        ))}
+      {/* Nav */}
+      <nav style={{ padding: '16px 12px', display: 'flex', flexDirection: 'column', gap: '20px', flex: 1, overflowY: 'auto' }}>
+        {/* Análise */}
+        <div>
+          <div style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '1.4px', textTransform: 'uppercase', color: 'hsl(var(--sidebar-foreground) / 0.4)', padding: '0 8px', marginBottom: '4px' }}>
+            Análise
+          </div>
+          {NAV_ANALYSIS.map(({ to, label, Icon, sub }) => (
+            <SidebarItem key={to} to={to} label={label} Icon={Icon} exact={to === '/'} currentPath={location.pathname} sub={sub} />
+          ))}
+        </div>
+
+        {/* Operação — empurrado para o fundo */}
+        <div style={{ marginTop: 'auto' }}>
+          <div style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '1.4px', textTransform: 'uppercase', color: 'hsl(var(--sidebar-foreground) / 0.4)', padding: '0 8px', marginBottom: '4px' }}>
+            Operação
+          </div>
+          {NAV_OPS.map(({ to, label, Icon, badge }) => (
+            <SidebarItem key={to} to={to} label={label} Icon={Icon} badge={badge} currentPath={location.pathname} />
+          ))}
+        </div>
       </nav>
 
-      {/* Footer */}
-      <div className="p-3 border-t border-sidebar-muted/60">
-        <TenantBadge />
+      {/* Footer — tenant info */}
+      <div style={{ padding: '12px', borderTop: '1px solid hsl(var(--sidebar-muted) / 0.6)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '6px 8px', borderRadius: '6px' }}>
+          <div style={{
+            width: '28px', height: '28px', borderRadius: '6px',
+            background: 'linear-gradient(135deg, #0073BB, #6B40C4)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: '11px', fontWeight: 700, color: 'white',
+            flexShrink: 0,
+          }}>
+            {tenantInitials}
+          </div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: '12px', fontWeight: 500, color: 'hsl(var(--sidebar-foreground))', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {tenantName || 'PostoInsight'}
+            </div>
+            <div style={{ fontSize: '10px', color: 'hsl(var(--sidebar-foreground) / 0.5)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {roleLabel && displayName ? `${roleLabel} · ${displayName}` : displayName}
+            </div>
+          </div>
+        </div>
       </div>
     </aside>
-  );
+  )
+}
+
+// ─── SidebarItem ────────────────────────────────────────────────────────────
+
+interface SidebarItemProps {
+  to: string
+  label: string
+  Icon: LucideIcon
+  badge?: string
+  exact?: boolean
+  sub?: boolean   // indented sub-item
+  currentPath: string
+}
+
+function SidebarItem({ to, label, Icon, badge, exact, sub, currentPath: _currentPath }: SidebarItemProps) {
+  return (
+    <NavLink
+      to={to}
+      end={exact}
+      style={({ isActive: navActive }) => ({
+        display: 'flex',
+        alignItems: 'center',
+        gap: '10px',
+        padding: '8px 10px',
+        paddingLeft: sub ? '28px' : '10px',
+        borderRadius: '6px',
+        fontSize: sub ? '12px' : '13px',
+        fontWeight: 500,
+        color: navActive ? 'hsl(var(--sidebar-foreground))' : 'hsl(var(--sidebar-foreground) / 0.7)',
+        background: navActive ? 'hsl(var(--sidebar-active-bg))' : 'transparent',
+        border: 'none',
+        width: '100%',
+        textDecoration: 'none',
+        transition: 'background 0.12s, color 0.12s',
+        position: 'relative',
+      })}
+    >
+      {({ isActive: navActive }) => (
+        <>
+          {/* Active indicator bar */}
+          {navActive && (
+            <span style={{
+              position: 'absolute',
+              left: 0,
+              top: '6px',
+              bottom: '6px',
+              width: '2.5px',
+              background: 'hsl(var(--sidebar-active))',
+              borderRadius: '2px',
+            }} />
+          )}
+          <Icon
+            size={14}
+            strokeWidth={1.6}
+            style={{
+              opacity: navActive ? 1 : 0.85,
+              color: navActive ? 'hsl(var(--sidebar-active))' : undefined,
+              flexShrink: 0,
+            }}
+          />
+          <span style={{ flex: 1 }}>{label}</span>
+          {badge && (
+            <span style={{
+              marginLeft: 'auto',
+              fontSize: '9px',
+              fontWeight: 600,
+              padding: '2px 6px',
+              borderRadius: '999px',
+              background: 'hsl(var(--sidebar-foreground) / 0.1)',
+              color: 'hsl(var(--sidebar-foreground) / 0.8)',
+              letterSpacing: '0.4px',
+            }}>
+              {badge}
+            </span>
+          )}
+        </>
+      )}
+    </NavLink>
+  )
+}
+
+// ─── Logo SVG ────────────────────────────────────────────────────────────────
+
+function LogoSvg() {
+  return (
+    <svg width="30" height="30" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
+      <defs>
+        <linearGradient id="g1" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#0073BB" />
+          <stop offset="100%" stopColor="#005f99" />
+        </linearGradient>
+      </defs>
+      <rect width="32" height="32" rx="8" fill="url(#g1)" />
+      <path
+        d="M11 8 V24 M11 8 H17 a4 4 0 0 1 0 8 H11"
+        stroke="white"
+        strokeWidth="2.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+      <circle cx="22" cy="22" r="2.2" fill="white" />
+    </svg>
+  )
 }

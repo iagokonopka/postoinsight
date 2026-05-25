@@ -1,105 +1,97 @@
-/**
- * Heatmap — CSS Grid + lógica de cor em JS puro. Sem Recharts.
- * Uso: padrões de venda por hora do dia × dia da semana (7 × 24).
- */
-import { cn } from '@/lib/cn'
+// Heatmap — Padrão Semanal (7 dias × 4 semanas)
+// Spec: FRONTEND_TODO Bloco 10 — CSS Grid, cor via hsl alpha
+import { fCurrency } from '@/lib/format'
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
+// data[dayIndex][weekIndex] = value  (dayIndex 0=Dom..6=Sáb, weekIndex 0=S1..3=S4)
 interface HeatmapProps {
-  /** data[rowIndex][colIndex] = value */
   data: number[][]
-  rowLabels: string[]
-  colLabels: string[]
-  /** Formatter for cell value display (default: compact number) */
-  valueFormatter?: (v: number) => string
-  className?: string
+  formatter?: (v: number) => string
 }
 
-// ─── Color helpers ────────────────────────────────────────────────────────────
+const DAYS  = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
+const WEEKS = ['S1', 'S2', 'S3', 'S4']
 
-function cellBg(intensity: number): string {
-  // intensity 0 = lightest (#EBF8FF approx hsl(204 100% 97%))
-  // intensity 1 = darkest  (hsl(204 100% 37%))
-  const lightness = 97 - intensity * 60
-  return `hsl(204 100% ${lightness.toFixed(1)}%)`
+function cellColor(value: number, min: number, max: number): { bg: string; text: string } {
+  const t = max > min ? (value - min) / (max - min) : 0
+  const alpha = 0.08 + t * 0.92
+  return {
+    bg: `hsl(204 100% 37% / ${alpha.toFixed(3)})`,
+    text: t > 0.55 ? '#fff' : 'hsl(var(--foreground))',
+  }
 }
 
-function cellTextColor(intensity: number): string {
-  return intensity > 0.5 ? 'white' : 'hsl(var(--foreground))'
-}
-
-function defaultFmt(v: number): string {
-  if (v === 0) return ''
-  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`
-  if (v >= 1_000) return `${Math.round(v / 1_000)}k`
-  return String(v)
-}
-
-// ─── Component ────────────────────────────────────────────────────────────────
-
-export function Heatmap({
-  data,
-  rowLabels,
-  colLabels,
-  valueFormatter = defaultFmt,
-  className,
-}: HeatmapProps) {
-  const allValues = data.flat()
-  const max = Math.max(...allValues) || 1
+export function Heatmap({ data, formatter = fCurrency }: HeatmapProps) {
+  const allValues = data.flat().filter(v => v > 0)
+  const min = allValues.length ? Math.min(...allValues) : 0
+  const max = allValues.length ? Math.max(...allValues) : 1
 
   return (
-    <div className={cn('flex gap-2 overflow-x-auto', className)}>
-      {/* Row labels */}
-      <div className="flex flex-col gap-[5px] pt-[22px] flex-shrink-0">
-        {rowLabels.map((label) => (
-          <div
-            key={label}
-            className="h-9 flex items-center text-[11px] text-muted-foreground whitespace-nowrap pr-1"
-          >
-            {label}
-          </div>
-        ))}
-      </div>
-
-      {/* Grid area */}
-      <div className="flex-1 flex flex-col gap-[5px] min-w-0">
-        {/* Col labels */}
-        <div className="flex gap-[5px] mb-1">
-          {colLabels.map((col) => (
-            <div
-              key={col}
-              className="flex-1 text-center text-[10px] font-medium text-muted-foreground uppercase tracking-wide truncate"
-            >
-              {col}
+    <div>
+      <div style={{ display: 'flex', gap: '8px' }}>
+        {/* Day labels */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', paddingTop: '22px' }}>
+          {DAYS.map(d => (
+            <div key={d} style={{ height: '36px', fontSize: '11px', color: 'hsl(var(--muted-foreground))', display: 'flex', alignItems: 'center', paddingRight: '4px' }}>
+              {d}
             </div>
           ))}
         </div>
 
-        {/* Rows */}
-        {rowLabels.map((_, rowIdx) => (
-          <div key={rowIdx} className="flex gap-[5px]">
-            {colLabels.map((_, colIdx) => {
-              const value = data[rowIdx]?.[colIdx] ?? 0
-              const intensity = value / max
-              return (
-                <div
-                  key={colIdx}
-                  title={`${rowLabels[rowIdx]} · ${colLabels[colIdx]}: ${value.toLocaleString('pt-BR')}`}
-                  className="flex-1 h-9 rounded-[5px] flex items-center justify-center
-                             text-[10px] font-medium tabular-nums
-                             transition-transform duration-100 hover:scale-105 cursor-default"
-                  style={{
-                    background: value > 0 ? cellBg(intensity) : 'hsl(var(--muted))',
-                    color: value > 0 ? cellTextColor(intensity) : 'hsl(var(--muted-foreground))',
-                  }}
-                >
-                  {valueFormatter(value)}
-                </div>
-              )
-            })}
+        {/* Grid */}
+        <div style={{ flex: 1 }}>
+          {/* Week headers */}
+          <div style={{ display: 'flex', gap: '5px', marginBottom: '4px' }}>
+            {WEEKS.map(w => (
+              <div key={w} style={{ flex: 1, textAlign: 'center', fontSize: '10px', fontWeight: 500, color: 'hsl(var(--muted-foreground))', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
+                {w}
+              </div>
+            ))}
           </div>
-        ))}
+
+          {/* Cells: row = day, col = week */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+            {DAYS.map((_, dayIdx) => (
+              <div key={dayIdx} style={{ display: 'flex', gap: '5px' }}>
+                {WEEKS.map((_, wkIdx) => {
+                  const val = data[dayIdx]?.[wkIdx] ?? 0
+                  const { bg, text } = cellColor(val, min, max)
+                  return (
+                    <div
+                      key={wkIdx}
+                      title={formatter(val)}
+                      style={{
+                        flex: 1,
+                        height: '36px',
+                        borderRadius: '5px',
+                        background: val > 0 ? bg : 'hsl(var(--muted) / 0.4)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '10px',
+                        fontWeight: 500,
+                        fontVariantNumeric: 'tabular-nums',
+                        color: val > 0 ? text : 'hsl(var(--muted-foreground))',
+                        transition: 'transform 0.1s',
+                        cursor: 'default',
+                      }}
+                      onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.05)')}
+                      onMouseLeave={e => (e.currentTarget.style.transform = '')}
+                    >
+                      {val > 0 ? formatter(val) : '—'}
+                    </div>
+                  )
+                })}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Legend */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '12px', fontSize: '10px', color: 'hsl(var(--muted-foreground))' }}>
+        <span>{formatter(min)}</span>
+        <div style={{ flex: 1, height: '6px', margin: '0 10px', borderRadius: '999px', background: 'linear-gradient(to right, hsl(204 100% 37% / 0.1), hsl(204 100% 37%))' }} />
+        <span>{formatter(max)}</span>
       </div>
     </div>
   )

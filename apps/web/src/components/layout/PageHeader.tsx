@@ -1,27 +1,31 @@
-import { type ReactNode } from 'react';
+// PageHeader — h1 + subtítulo + actions slot
+// Reutilizado em todas as páginas
+import type { ReactNode } from 'react'
 
 interface PageHeaderProps {
-  title: string;
-  subtitle?: string;
-  children?: ReactNode; // actions / filters
+  title: string
+  subtitle?: string
+  actions?: ReactNode
 }
 
-export function PageHeader({ title, subtitle, children }: PageHeaderProps) {
+export function PageHeader({ title, subtitle, actions }: PageHeaderProps) {
   return (
-    <div className="px-5 pt-5 pb-4 flex items-end justify-between gap-4 flex-wrap">
+    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px' }}>
       <div>
-        <h1 className="text-xl font-semibold text-foreground tracking-tight">
+        <h1 style={{ fontSize: '18px', fontWeight: 700, letterSpacing: '-0.3px', color: 'hsl(var(--foreground))', lineHeight: 1.2 }}>
           {title}
         </h1>
         {subtitle && (
-          <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>
+          <p style={{ fontSize: '13px', color: 'hsl(var(--muted-foreground))', marginTop: '3px' }}>
+            {subtitle}
+          </p>
         )}
       </div>
-      {children && (
-        <div className="flex items-center gap-2 flex-wrap">
-          {children}
+      {actions && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0, paddingTop: '2px' }}>
+          {actions}
         </div>
       )}
     </div>
-  );
+  )
 }

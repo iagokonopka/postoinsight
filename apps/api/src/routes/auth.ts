@@ -4,7 +4,7 @@ import { eq, and, isNull } from 'drizzle-orm'
 import { encode } from '@auth/core/jwt'
 import bcrypt from 'bcryptjs'
 import { db } from '../db.js'
-import { users, tenantUsers, platformUsers, loginHistory, auditLog } from '@postoinsight/db'
+import { users, tenants, tenantUsers, platformUsers, loginHistory, auditLog } from '@postoinsight/db'
 import { requireTenantSession } from '../lib/auth.js'
 import { env } from '../env.js'
 
@@ -248,6 +248,17 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
       return reply.status(401).send({ error: 'Usuário não encontrado' })
     }
 
+    // Busca nome do tenant quando há sessão de tenant
+    let tenantName: string | null = null
+    if (req.tenantId) {
+      const [tenant] = await db
+        .select({ name: tenants.name })
+        .from(tenants)
+        .where(eq(tenants.id, req.tenantId))
+        .limit(1)
+      tenantName = tenant?.name ?? null
+    }
+
     return reply.send({
       user: {
         id:           user.id,
@@ -257,6 +268,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
         platformRole: req.platformRole ?? null,
         tenantId:     req.tenantId     ?? null,
         locationId:   req.locationId   ?? null,
+        tenantName,
       },
     })
   })

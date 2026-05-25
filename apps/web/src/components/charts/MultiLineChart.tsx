@@ -1,9 +1,7 @@
-/**
- * MultiLineChart — Recharts LineChart com múltiplas séries.
- * Uso: comparação de séries (produtos, categorias) sem área preenchida.
- * Suporta strokeDasharray por série (ex: linha tracejada para margem %).
- */
+// MultiLineChart — multi-série (Combustível evolução, DRE margem%)
+// Spec: FRONTEND_TODO Bloco 14 — combLines + marginEvolution
 import {
+  ResponsiveContainer,
   LineChart,
   Line,
   XAxis,
@@ -11,125 +9,78 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
-  ResponsiveContainer,
-  type TooltipProps,
 } from 'recharts'
-import { CHART_GRID, CHART_TICK, CHART_TOOLTIP_STYLE } from '@/lib/chart-theme'
-import { cn } from '@/lib/cn'
+import { ChartTooltip } from './ChartTooltip'
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-export interface LineSerie {
+export interface MultiLineSeries {
   key: string
+  label: string
   color: string
-  name: string
-  /** e.g. "6 4" for dashed */
-  strokeDasharray?: string
-  strokeWidth?: number
+  hide?: boolean
 }
 
 interface MultiLineChartProps {
   data: Record<string, unknown>[]
-  series: LineSerie[]
-  xKey?: string
+  xKey: string
+  series: MultiLineSeries[]
   yFormatter?: (v: number) => string
   tooltipFormatter?: (v: number, name: string) => string
-  height?: number
-  showLegend?: boolean
-  className?: string
+  pointRadius?: number
 }
-
-// ─── Custom Tooltip ───────────────────────────────────────────────────────────
-
-function CustomTooltip({
-  active,
-  payload,
-  label,
-  formatter,
-}: TooltipProps<number, string> & { formatter?: (v: number, name: string) => string }) {
-  if (!active || !payload?.length) return null
-  return (
-    <div style={CHART_TOOLTIP_STYLE.contentStyle}>
-      <p style={{ ...CHART_TOOLTIP_STYLE.labelStyle, marginBottom: 6 }}>{label}</p>
-      {payload.map((entry) => (
-        <div key={entry.dataKey as string} className="flex items-center gap-2 text-[12px]">
-          <span
-            className="inline-block w-2 h-2 rounded-full flex-shrink-0"
-            style={{ background: entry.color }}
-          />
-          <span style={{ color: 'hsl(var(--muted-foreground))' }}>{entry.name}:</span>
-          <span className="font-semibold tabular-nums" style={{ color: 'hsl(var(--foreground))' }}>
-            {formatter
-              ? formatter(entry.value as number, entry.name as string)
-              : (entry.value as number)?.toLocaleString('pt-BR')}
-          </span>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-// ─── Component ────────────────────────────────────────────────────────────────
 
 export function MultiLineChart({
   data,
+  xKey,
   series,
-  xKey = 'label',
-  yFormatter,
+  yFormatter = v => v.toFixed(1) + '%',
   tooltipFormatter,
-  height = 260,
-  showLegend = true,
-  className,
+  pointRadius = 0,
 }: MultiLineChartProps) {
   return (
-    <div className={cn('w-full', className)} style={{ height }}>
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
-          <CartesianGrid vertical={false} stroke={CHART_GRID.stroke} />
+    <ResponsiveContainer width="100%" height="100%">
+      <LineChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
+        <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="0" vertical={false} />
 
-          <XAxis
-            dataKey={xKey}
-            tick={CHART_TICK}
-            tickLine={false}
-            axisLine={false}
-            interval="preserveStartEnd"
+        <XAxis
+          dataKey={xKey}
+          tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
+          axisLine={false}
+          tickLine={false}
+          dy={8}
+        />
+
+        <YAxis
+          tickFormatter={yFormatter}
+          tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
+          axisLine={false}
+          tickLine={false}
+          width={52}
+        />
+
+        <Tooltip
+          content={<ChartTooltip formatter={tooltipFormatter ?? ((v) => yFormatter(v))} />}
+        />
+
+        <Legend
+          wrapperStyle={{ paddingTop: '12px', fontSize: '12px' }}
+          iconType="circle"
+          iconSize={8}
+        />
+
+        {series.map(s => (
+          <Line
+            key={s.key}
+            type="monotone"
+            dataKey={s.key}
+            name={s.label}
+            stroke={s.color}
+            strokeWidth={2}
+            dot={pointRadius > 0 ? { r: pointRadius, fill: s.color } : false}
+            activeDot={{ r: (pointRadius || 3) + 2 }}
+            hide={s.hide}
           />
-          <YAxis
-            tick={CHART_TICK}
-            tickLine={false}
-            axisLine={false}
-            tickFormatter={yFormatter}
-            width={yFormatter ? 56 : 40}
-          />
-
-          <Tooltip
-            content={<CustomTooltip formatter={tooltipFormatter} />}
-            cursor={CHART_TOOLTIP_STYLE.cursor}
-          />
-
-          {showLegend && (
-            <Legend
-              iconType="circle"
-              iconSize={8}
-              wrapperStyle={{ fontSize: 11, color: 'hsl(var(--muted-foreground))' }}
-            />
-          )}
-
-          {series.map((s) => (
-            <Line
-              key={s.key}
-              type="monotone"
-              dataKey={s.key}
-              name={s.name}
-              stroke={s.color}
-              strokeWidth={s.strokeWidth ?? 2}
-              strokeDasharray={s.strokeDasharray}
-              dot={false}
-              activeDot={{ r: 4, strokeWidth: 0 }}
-            />
-          ))}
-        </LineChart>
-      </ResponsiveContainer>
-    </div>
+        ))}
+      </LineChart>
+    </ResponsiveContainer>
   )
 }

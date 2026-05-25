@@ -1,147 +1,137 @@
-/**
- * LineAreaChart — Recharts AreaChart com gradiente.
- * Uso: evolução de receita/volume ao longo do tempo com área preenchida.
- * Regras ADR-011: ResponsiveContainer obrigatório, sem Recharts fora de /charts/.
- */
+// LineAreaChart — Receita & Margem (Visão Geral / DRE evolução)
+// Spec: FRONTEND_TODO Bloco 13 — ComposedChart com Area + Line
 import {
-  AreaChart,
+  ResponsiveContainer,
+  ComposedChart,
   Area,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   Legend,
-  ResponsiveContainer,
-  type TooltipProps,
 } from 'recharts'
-import { CHART_GRID, CHART_TICK, CHART_TOOLTIP_STYLE } from '@/lib/chart-theme'
-import { cn } from '@/lib/cn'
+import { ChartTooltip } from './ChartTooltip'
+import { fCurrency } from '@/lib/format'
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-export interface Serie {
+export interface LineAreaSeries {
   key: string
+  label: string
   color: string
-  name: string
-  /** Optional: override area opacity (default 0.5 → 0.05 gradient) */
-  areaOpacity?: number
+  yAxisId?: 'left' | 'right'
+  type?: 'area' | 'line'
+  dashed?: boolean
+  hide?: boolean
 }
 
 interface LineAreaChartProps {
   data: Record<string, unknown>[]
-  series: Serie[]
-  xKey?: string
-  yFormatter?: (v: number) => string
+  xKey: string
+  series: LineAreaSeries[]
+  yLeftFormatter?: (v: number) => string
+  yRightFormatter?: (v: number) => string
   tooltipFormatter?: (v: number, name: string) => string
-  height?: number
-  showLegend?: boolean
-  className?: string
+  showRightAxis?: boolean
 }
-
-// ─── Custom Tooltip ───────────────────────────────────────────────────────────
-
-function CustomTooltip({
-  active,
-  payload,
-  label,
-  formatter,
-}: TooltipProps<number, string> & { formatter?: (v: number, name: string) => string }) {
-  if (!active || !payload?.length) return null
-  return (
-    <div style={CHART_TOOLTIP_STYLE.contentStyle}>
-      <p style={{ ...CHART_TOOLTIP_STYLE.labelStyle, marginBottom: 6 }}>{label}</p>
-      {payload.map((entry) => (
-        <div key={entry.dataKey as string} className="flex items-center gap-2 text-[12px]">
-          <span
-            className="inline-block w-2 h-2 rounded-full flex-shrink-0"
-            style={{ background: entry.color }}
-          />
-          <span style={{ color: 'hsl(var(--muted-foreground))' }}>{entry.name}:</span>
-          <span className="font-semibold tabular-nums" style={{ color: 'hsl(var(--foreground))' }}>
-            {formatter
-              ? formatter(entry.value as number, entry.name as string)
-              : (entry.value as number)?.toLocaleString('pt-BR')}
-          </span>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-// ─── Component ────────────────────────────────────────────────────────────────
 
 export function LineAreaChart({
   data,
+  xKey,
   series,
-  xKey = 'label',
-  yFormatter,
+  yLeftFormatter = v => 'R$ ' + (v / 1000).toFixed(0) + 'k',
+  yRightFormatter = v => v.toFixed(1) + '%',
   tooltipFormatter,
-  height = 260,
-  showLegend = false,
-  className,
+  showRightAxis = false,
 }: LineAreaChartProps) {
   return (
-    <div className={cn('w-full', className)} style={{ height }}>
-      <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
-          <defs>
-            {series.map((s) => {
-              const gradId = `grad-${s.key}`
-              const op = s.areaOpacity ?? 0.5
-              return (
-                <linearGradient key={gradId} id={gradId} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor={s.color} stopOpacity={op} />
-                  <stop offset="95%" stopColor={s.color} stopOpacity={0.03} />
-                </linearGradient>
-              )
-            })}
-          </defs>
+    <ResponsiveContainer width="100%" height="100%">
+      <ComposedChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
+        <defs>
+          {series.filter(s => s.type !== 'line').map(s => (
+            <linearGradient key={s.key} id={`grad-${s.key}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%"   stopColor={s.color} stopOpacity={0.5} />
+              <stop offset="100%" stopColor={s.color} stopOpacity={0.05} />
+            </linearGradient>
+          ))}
+        </defs>
 
-          <CartesianGrid vertical={false} stroke={CHART_GRID.stroke} />
+        <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="0" vertical={false} />
 
-          <XAxis
-            dataKey={xKey}
-            tick={CHART_TICK}
-            tickLine={false}
-            axisLine={false}
-            interval="preserveStartEnd"
-          />
+        <XAxis
+          dataKey={xKey}
+          tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
+          axisLine={false}
+          tickLine={false}
+          dy={8}
+        />
+
+        <YAxis
+          yAxisId="left"
+          tickFormatter={yLeftFormatter}
+          tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
+          axisLine={false}
+          tickLine={false}
+          width={64}
+        />
+
+        {showRightAxis && (
           <YAxis
-            tick={CHART_TICK}
-            tickLine={false}
+            yAxisId="right"
+            orientation="right"
+            tickFormatter={yRightFormatter}
+            tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
             axisLine={false}
-            tickFormatter={yFormatter}
-            width={yFormatter ? 56 : 40}
+            tickLine={false}
+            width={48}
           />
+        )}
 
-          <Tooltip
-            content={<CustomTooltip formatter={tooltipFormatter} />}
-            cursor={CHART_TOOLTIP_STYLE.cursor}
-          />
+        <Tooltip
+          content={<ChartTooltip formatter={tooltipFormatter ?? ((v) => fCurrency(v))} />}
+        />
 
-          {showLegend && (
-            <Legend
-              iconType="circle"
-              iconSize={8}
-              wrapperStyle={{ fontSize: 11, color: 'hsl(var(--muted-foreground))' }}
-            />
-          )}
+        <Legend
+          wrapperStyle={{ paddingTop: '12px', fontSize: '12px' }}
+          iconType="circle"
+          iconSize={8}
+        />
 
-          {series.map((s) => (
+        {series.map(s => {
+          const yId = s.yAxisId ?? 'left'
+          if (s.type === 'line') {
+            return (
+              <Line
+                key={s.key}
+                yAxisId={yId}
+                type="monotone"
+                dataKey={s.key}
+                name={s.label}
+                stroke={s.color}
+                strokeWidth={2}
+                strokeDasharray={s.dashed ? '6 4' : undefined}
+                dot={false}
+                activeDot={{ r: 4 }}
+                hide={s.hide}
+              />
+            )
+          }
+          return (
             <Area
               key={s.key}
+              yAxisId={yId}
               type="monotone"
               dataKey={s.key}
-              name={s.name}
+              name={s.label}
               stroke={s.color}
               fill={`url(#grad-${s.key})`}
               strokeWidth={2}
               dot={false}
-              activeDot={{ r: 4, strokeWidth: 0 }}
+              activeDot={{ r: 4 }}
+              hide={s.hide}
             />
-          ))}
-        </AreaChart>
-      </ResponsiveContainer>
-    </div>
+          )
+        })}
+      </ComposedChart>
+    </ResponsiveContainer>
   )
 }

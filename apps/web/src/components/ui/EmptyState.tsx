@@ -1,29 +1,48 @@
-import type { LucideIcon } from 'lucide-react'
-import { BarChart2 } from 'lucide-react'
-import { cn } from '@/lib/cn'
+// EmptyState — spec: FRONTEND_TODO Bloco 10
+import type { ReactNode } from 'react'
 
 interface EmptyStateProps {
-  icon?: LucideIcon
+  icon?: ReactNode
   title: string
   description?: string
-  className?: string
 }
 
-export function EmptyState({ icon: Icon = BarChart2, title, description, className }: EmptyStateProps) {
+export function EmptyState({ icon, title, description }: EmptyStateProps) {
   return (
-    <div
-      className={cn(
-        'flex flex-col items-center justify-center text-center py-10 px-6',
-        'border-[1.5px] border-dashed border-border rounded bg-muted/30',
-        className,
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      textAlign: 'center',
+      padding: '40px 24px',
+      color: 'hsl(var(--muted-foreground))',
+      border: '1.5px dashed hsl(var(--border))',
+      borderRadius: 'var(--radius)',
+      background: 'hsl(var(--muted) / 0.3)',
+    }}>
+      {icon && (
+        <div style={{
+          width: '40px',
+          height: '40px',
+          borderRadius: '999px',
+          background: 'hsl(var(--muted))',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginBottom: '12px',
+          color: 'hsl(var(--muted-foreground))',
+        }}>
+          {icon}
+        </div>
       )}
-    >
-      <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center mb-3">
-        <Icon size={18} className="text-muted-foreground" strokeWidth={1.6} />
+      <div style={{ fontSize: '14px', fontWeight: 600, color: 'hsl(var(--foreground))', marginBottom: '4px' }}>
+        {title}
       </div>
-      <p className="text-sm font-semibold text-foreground mb-1">{title}</p>
       {description && (
-        <p className="text-xs text-muted-foreground max-w-xs">{description}</p>
+        <div style={{ fontSize: '12px', maxWidth: '320px' }}>
+          {description}
+        </div>
       )}
     </div>
   )

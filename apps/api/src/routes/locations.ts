@@ -36,8 +36,9 @@ export const locationsRoutes: FastifyPluginAsync = async (app) => {
     // Busca locations ativas do tenant
     const rows = await db
       .select({
-        id:   locations.id,
-        name: locations.name,
+        id:               locations.id,
+        name:             locations.name,
+        sourceLocationId: locations.sourceLocationId,
       })
       .from(locations)
       .where(and(
@@ -69,7 +70,8 @@ export const locationsRoutes: FastifyPluginAsync = async (app) => {
       const job = jobByLocation.get(loc.id)
       return {
         id:     loc.id,
-        nome:   loc.name,
+        name:             loc.name,
+        sourceLocationId: loc.sourceLocationId,
         status: deriveStatus(job?.status ?? null, job?.completedAt ?? null),
       }
     })

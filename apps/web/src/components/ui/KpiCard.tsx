@@ -1,82 +1,134 @@
-import { type LucideIcon } from 'lucide-react';
-import { cn } from '@/lib/cn';
-import { DeltaTag } from './DeltaTag';
-import { Sparkline } from '@/components/charts/Sparkline';
+// KpiCard — spec: FRONTEND_TODO Bloco 5
+import type { ReactNode } from 'react'
+import { Sparkline } from './Sparkline'
 
-interface KpiCardProps {
-  label: string;
-  icon?: LucideIcon;
-  value: string;
-  delta?: number;
-  deltaLabel?: string;
-  delta2?: number;
-  delta2Label?: string;
-  sparklineData?: number[];
-  sparklineColor?: string;
-  loading?: boolean;
-  invertColors?: boolean;
-  className?: string;
+interface DeltaTagProps {
+  value: number
+  isPP?: boolean // percentage points — shows "p.p." instead of "%"
 }
 
-export function KpiCard({
-  label,
-  icon: Icon,
-  value,
-  delta,
-  deltaLabel,
-  delta2,
-  delta2Label,
-  sparklineData,
-  sparklineColor = 'hsl(var(--primary))',
-  loading = false,
-  invertColors = false,
-  className,
-}: KpiCardProps) {
-  if (loading) {
-    return (
-      <div className={cn('h-[108px] rounded bg-muted animate-pulse', className)} />
-    );
+export function DeltaTag({ value, isPP }: DeltaTagProps) {
+  const unit = isPP ? ' p.p.' : '%'
+  const abs  = Math.abs(value).toFixed(1).replace('.', ',')
+
+  if (Math.abs(value) < 0.15) {
+    return <span style={{ color: 'hsl(var(--muted-foreground))' }}>→ {abs}{unit}</span>
   }
-
+  const isPos = value >= 0
   return (
-    <div
-      className={cn(
-        'relative bg-card border border-border rounded shadow-sm overflow-hidden flex flex-col min-h-[108px] p-[14px]',
-        className
-      )}
-    >
-      {/* Sparkline de fundo — decorativa */}
-      {sparklineData && sparklineData.length > 1 && (
-        <Sparkline
-          data={sparklineData}
-          color={sparklineColor}
-          showArea
-          opacity={0.25}
-          className="absolute inset-0 w-full h-full pointer-events-none"
-          aria-hidden
-        />
-      )}
+    <span style={{ color: isPos ? 'hsl(var(--success))' : 'hsl(var(--danger))' }}>
+      {isPos ? '↑' : '↓'} {abs}{unit}
+    </span>
+  )
+}
 
-      {/* Conteúdo */}
-      <div className="relative z-10 flex flex-col h-full">
-        <span className="text-[11px] font-medium text-muted-foreground flex items-center gap-1.5">
-          {Icon && <Icon size={12} strokeWidth={1.6} />}
-          {label}
-        </span>
+interface KpiCardProps {
+  label: string
+  value: string           // formatted value — caller does the formatting
+  deltaMonth?: number     // % vs mês ant. (undefined = hide)
+  deltaYear?: number      // % vs ano ant. (undefined = hide)
+  deltaPP?: boolean       // if true, unit is "p.p." instead of "%"
+  sparkData?: number[]    // series for sparkline
+  sparkColor?: string     // sparkline stroke/fill color
+  icon?: ReactNode        // 12×12 icon (optional)
+}
 
-        <span className="text-[22px] font-semibold text-foreground tracking-tight tabular-nums mt-1.5 mb-2 leading-none">
-          {value}
-        </span>
+export function KpiCard({ label, value, deltaMonth, deltaYear, deltaPP, sparkData, sparkColor = '#0073BB', icon }: KpiCardProps) {
+  return (
+    <div style={{
+      position: 'relative',
+      background: 'hsl(var(--card))',
+      border: '1px solid hsl(var(--border))',
+      borderRadius: 'var(--radius)',
+      padding: 'var(--kpi-pad)',
+      boxShadow: 'var(--shadow-sm)',
+      overflow: 'hidden',
+      display: 'flex',
+      flexDirection: 'column',
+      minHeight: '116px',
+    }}>
+      {/* Label */}
+      <div style={{
+        fontSize: '11px',
+        fontWeight: 500,
+        color: 'hsl(var(--muted-foreground))',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '6px',
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        position: 'relative',
+        zIndex: 1,
+      }}>
+        {icon && <span style={{ width: '12px', height: '12px', opacity: 0.7, flexShrink: 0 }}>{icon}</span>}
+        {label}
+      </div>
 
-        <div className="mt-auto flex flex-col gap-0.5">
-          {delta !== undefined && (
-            <DeltaTag value={delta} label={deltaLabel} invertColors={invertColors} />
+      {/* Value */}
+      <div style={{
+        fontSize: 'var(--kpi-val-size)',
+        fontWeight: 600,
+        letterSpacing: '-0.6px',
+        color: 'hsl(var(--foreground))',
+        margin: '6px 0 8px',
+        lineHeight: 1.1,
+        fontVariantNumeric: 'tabular-nums',
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        position: 'relative',
+        zIndex: 1,
+      }}>
+        {value}
+      </div>
+
+      {/* Deltas */}
+      {(deltaMonth !== undefined || deltaYear !== undefined) && (
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '2px',
+          fontSize: '11px',
+          color: 'hsl(var(--muted-foreground))',
+          marginTop: 'auto',
+          position: 'relative',
+          zIndex: 1,
+        }}>
+          {deltaMonth !== undefined && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <DeltaTag value={deltaMonth} isPP={deltaPP} />
+              <span style={{ fontSize: '11px', color: 'hsl(var(--muted-foreground))', whiteSpace: 'nowrap' }}>
+                vs mês ant.
+              </span>
+            </div>
           )}
-          {delta2 !== undefined && (
-            <DeltaTag value={delta2} label={delta2Label} invertColors={invertColors} />
+          {deltaYear !== undefined && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <DeltaTag value={deltaYear} isPP={deltaPP} />
+              <span style={{ fontSize: '11px', color: 'hsl(var(--muted-foreground))', whiteSpace: 'nowrap' }}>
+                vs ano ant.
+              </span>
+            </div>
           )}
         </div>
-      </div>
+      )}
+
+      {/* Sparkline — absolute background */}
+      {sparkData && sparkData.length >= 2 && (
+        <div style={{
+          position: 'absolute',
+          left: '-2px',
+          right: '-2px',
+          top: 0,
+          bottom: '-1px',
+          opacity: 0.28,
+          pointerEvents: 'none',
+          zIndex: 0,
+        }}>
+          <Sparkline data={sparkData} color={sparkColor} width="100%" height="100%" />
+        </div>
+      )}
     </div>
-  );
+  )
 }

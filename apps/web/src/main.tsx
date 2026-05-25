@@ -1,14 +1,14 @@
-import { StrictMode } from 'react';
-import { createRoot } from 'react-dom/client';
-import { initTheme } from '@/lib/theme';
-import { App } from '@/App';
-import '@/styles/globals.css';
+import { StrictMode } from 'react'
+import { createRoot } from 'react-dom/client'
+import './index.css'
+import App from './App'
+import { initTheme } from './lib/theme'
 
-// Init theme before render to avoid flash
-initTheme();
+// Apply persisted theme/density before first render — prevents flash
+initTheme()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />
   </StrictMode>,
-);
+)
