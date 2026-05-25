@@ -671,7 +671,7 @@ export const vendasRoutes: FastifyPluginAsync = async (app) => {
     const rows = await db
       .select({
         location_id:   fatoVenda.locationId,
-        location_nome: locations.nome,
+        location_nome: locations.name,
         descricao:     sql<string>`MAX(${fatoVenda.descricaoProduto})`,
         receita_bruta: sum(fatoVenda.vlrTotal).mapWith(Number),
         cmv:           sql<number>`COALESCE(SUM(${fatoVenda.custoUnitario} * ${fatoVenda.qtdVenda}), 0)`.mapWith(Number),
@@ -690,7 +690,7 @@ export const vendasRoutes: FastifyPluginAsync = async (app) => {
         lte(fatoVenda.dataVenda, dataFim),
         locationIds ? inArray(fatoVenda.locationId, locationIds) : undefined,
       ))
-      .groupBy(fatoVenda.locationId, locations.nome)
+      .groupBy(fatoVenda.locationId, locations.name)
       .orderBy(desc(sum(fatoVenda.vlrTotal)))
 
     const totalReceita = rows.reduce((acc, r) => acc + n(r.receita_bruta), 0)
