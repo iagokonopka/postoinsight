@@ -45,21 +45,18 @@ async function issueSessionToken(claims: Record<string, unknown>): Promise<strin
 /**
  * Configura o cookie de sessão na resposta.
  * - HttpOnly: JS nunca acessa o token
- * - SameSite=Lax: protege contra CSRF em POST/PUT, permite navegação cross-site via link
- * - Secure: apenas HTTPS (omitido em dev para funcionar via http://localhost)
- * - Domain: .postoinsight.com.br em produção para cobrir subdomínios
+ * - SameSite=None + Secure: necessário para cross-site (frontend e API em subdomínios
+ *   distintos do Railway, que estão na Public Suffix List e são tratados como sites separados)
+ * - Em dev: SameSite=Lax sem Secure para funcionar via http://localhost
  */
 function setSessionCookie(reply: FastifyReply, token: string): void {
   const isProd = env.NODE_ENV === 'production'
   reply.setCookie(COOKIE_NAME, token, {
     httpOnly:  true,
-    sameSite:  'lax',
+    sameSite:  isProd ? 'none' : 'lax',
     secure:    isProd,
     path:      '/',
     maxAge:    SESSION_MAX_AGE,
-    ...(isProd && process.env.COOKIE_DOMAIN
-      ? { domain: process.env.COOKIE_DOMAIN }
-      : {}),
   })
 }
 
