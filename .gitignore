@@ -7,5 +7,5 @@ dist/
 *.exe
 *.tsbuildinfo
 tokens_rede_jam.env
-tokens_rede_jam.env
-tokens_rede_jam.env
+# Claude Code worktrees (sessões de agente — nunca commitar)
+.claude/worktrees/
