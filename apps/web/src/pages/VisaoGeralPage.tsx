@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { Download, ChevronRight, ArrowLeft } from 'lucide-react'
 
-import { useVendasResumo, useVendasEvolucao, useTopProdutos, usePadraoSemanal, useDrillSubgrupos, useDrillProdutos } from '@/hooks/useVendas'
+import { useVendasResumo, useVendasEvolucao, useTopProdutos, usePadraoSemanal, useDrillSubgrupos, useDrillProdutos, useVendasByLocation } from '@/hooks/useVendas'
 import { useApp } from '@/context/AppContext'
+import { useLocations } from '@/hooks/useLocations'
 
 import { Page, Card, CardHeader, CardBody, ChartBox, KpiGrid, Row } from '@/components/ui/Card'
 import { KpiCard } from '@/components/ui/KpiCard'
@@ -12,6 +13,7 @@ import { Spinner } from '@/components/ui/Spinner'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Drawer, DrawerRow } from '@/components/ui/Drawer'
 import { PageHeader } from '@/components/layout/PageHeader'
+import { LocationComparisonPanel } from '@/components/LocationComparisonPanel'
 import { LineAreaChart } from '@/components/charts/LineAreaChart'
 import { DonutChart, type DonutSlice } from '@/components/charts/DonutChart'
 import { Heatmap } from '@/components/charts/Heatmap'
@@ -40,7 +42,9 @@ const SEG_CONFIG = {
 type TopItemDrill = { grupo_id: number; nome: string; segmento: string }
 
 export default function VisaoGeralPage() {
-  const { period } = useApp()
+  const { period, locationId } = useApp()
+  const { data: allLocations } = useLocations()
+  const showComparison = locationId === null && (allLocations?.length ?? 0) > 1
   const [topSort, setTopSort] = useState<'receita' | 'margem'>('receita')
   const [drawerSeg, setDrawerSeg] = useState<string | null>(null)
   // Drill do Top 10: grupo → subgrupos → produtos
@@ -53,6 +57,7 @@ export default function VisaoGeralPage() {
   )
   const { data: topData, isLoading: loadingTop } = useTopProdutos(10)
   const { data: heatmapData, isLoading: loadingHeatmap } = usePadraoSemanal()
+  const { data: byLocation, isLoading: loadingByLocation } = useVendasByLocation()
   const { data: drillSubs, isLoading: loadingDrillSubs } = useDrillSubgrupos(
     drillGrupo?.grupo_id ?? null,
     drillGrupo?.segmento ?? 'conveniencia',
@@ -337,6 +342,15 @@ export default function VisaoGeralPage() {
           </CardBody>
         </Card>
       </Row>
+
+      {/* Comparativo de Unidades */}
+      {showComparison && (
+        <LocationComparisonPanel
+          locations={byLocation?.locations}
+          loading={loadingByLocation}
+          secondaryMetric={{ key: 'margem_pct', label: 'Margem %', format: (v) => fPct(v, 1) }}
+        />
+      )}
 
       {/* Drill-down Drawer */}
       <Drawer

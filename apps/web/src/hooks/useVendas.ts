@@ -200,6 +200,29 @@ export interface ProdutoLocation {
   participacao_pct: number
 }
 
+// ─── /api/v1/vendas/by-location ──────────────────────────────────────────────
+
+export interface VendasByLocation {
+  location_id: string
+  location_nome: string
+  receita_bruta: number
+  margem_bruta: number
+  margem_pct: number
+  qtd_venda: number
+  participacao_pct: number
+}
+
+export function useVendasByLocation() {
+  const { period } = useApp()
+  const { data_inicio, data_fim } = periodToRange(period)
+  const params = { data_inicio, data_fim }
+  const qs = buildQS(params)
+  return useQuery<{ locations: VendasByLocation[] }>({
+    queryKey: ['vendas', 'by-location', params],
+    queryFn: () => get(`/api/v1/vendas/by-location${qs}`),
+  })
+}
+
 export function useProdutoPorLocation(sourceProdutoId: string | null) {
   const params = useBaseParams()
   const qs = buildQS(params)

@@ -100,3 +100,25 @@ export function useConvGrupos(categoriaCodigo: string | null) {
     enabled:  !!categoriaCodigo,
   })
 }
+
+// ─── /api/v1/conveniencia/by-location ────────────────────────────────────────
+
+export interface ConvByLocation {
+  location_id: string
+  location_nome: string
+  receita_bruta: number
+  margem_bruta: number
+  margem_pct: number
+  participacao_pct: number
+}
+
+export function useConvenienciaByLocation(segmento?: string) {
+  const { period } = useApp()
+  const { data_inicio, data_fim } = periodToRange(period)
+  const params = { data_inicio, data_fim, segmento }
+  const qs = buildQS(params)
+  return useQuery<{ locations: ConvByLocation[] }>({
+    queryKey: ['conv', 'by-location', params],
+    queryFn: () => get(`/api/v1/conveniencia/by-location${qs}`),
+  })
+}

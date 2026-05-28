@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { and, eq, gte, lte, inArray, sql, sum, desc } from 'drizzle-orm'
 import { db } from '../db.js'
-import { mvCombustivelDiario as mv, fatoVenda } from '@postoinsight/db'
+import { mvCombustivelDiario as mv, fatoVenda, locations } from '@postoinsight/db'
 import { requireTenantSession } from '../lib/auth.js'
 import {
   BadQueryError, parseDateRange, parseUuidArray, parseIntArray, parseEnum, n, pct, round2,
@@ -333,6 +333,66 @@ export const combustivelRoutes: FastifyPluginAsync = async (app) => {
           custo_medio_litro:  qtd_venda > 0 && cmv > 0 ? round2(cmv / qtd_venda) : null,
           participacao_receita_pct: pct(receita_bruta, totalReceita),
           participacao_volume_pct:  pct(qtd_venda, totalVolume),
+        }
+      }),
+    })
+  })
+
+  // ---------------------------------------------------------------------
+  // GET /api/v1/combustivel/by-location
+  // Receita, volume e participação por unidade no período selecionado.
+  // Query params: data_inicio, data_fim
+  // Retorno: { locations: [...] }
+  // ---------------------------------------------------------------------
+  app.get('/by-location', async (req, reply) => {
+    const tenantId = req.tenantId!
+    let dataInicio: string, dataFim: string
+    try {
+      ({ dataInicio, dataFim } = parseDateRange(req.query as Record<string, unknown>))
+    } catch (err) {
+      if (err instanceof BadQueryError) return reply.status(400).send({ error: err.message })
+      throw err
+    }
+
+    const rows = await db
+      .select({
+        location_id:     mv.locationId,
+        location_nome:   locations.name,
+        receita_bruta:   sum(mv.receitaBruta).mapWith(Number),
+        receita_liquida: sum(mv.receitaLiquida).mapWith(Number),
+        cmv:             sum(mv.cmv).mapWith(Number),
+        margem_bruta:    sum(mv.margemBruta).mapWith(Number),
+        volume_litros:   sum(mv.volumeLitros).mapWith(Number),
+      })
+      .from(mv)
+      .innerJoin(locations, and(
+        eq(locations.id, mv.locationId),
+        eq(locations.tenantId, tenantId),
+      ))
+      .where(and(
+        eq(mv.tenantId, tenantId),
+        gte(mv.dataVenda, dataInicio),
+        lte(mv.dataVenda, dataFim),
+      ))
+      .groupBy(mv.locationId, locations.name)
+      .orderBy(desc(sum(mv.receitaBruta)))
+
+    const totalReceita = rows.reduce((acc, r) => acc + n(r.receita_bruta), 0)
+    const totalVolume  = rows.reduce((acc, r) => acc + n(r.volume_litros), 0)
+
+    return reply.send({
+      locations: rows.map(r => {
+        const receita_bruta = n(r.receita_bruta)
+        const volume_litros = n(r.volume_litros)
+        const preco_medio   = volume_litros > 0 ? round2(receita_bruta / volume_litros) : null
+        return {
+          location_id:             r.location_id,
+          location_nome:           r.location_nome,
+          receita_bruta:           round2(receita_bruta),
+          volume_litros:           round2(volume_litros),
+          preco_medio:             preco_medio,
+          participacao_pct:        pct(receita_bruta, totalReceita),
+          participacao_volume_pct: pct(volume_litros, totalVolume),
         }
       }),
     })

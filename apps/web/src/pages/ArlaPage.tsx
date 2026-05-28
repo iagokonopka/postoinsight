@@ -1,22 +1,39 @@
-import { useArlaResumo, useArlaEvolucao } from '@/hooks/useArla'
+import { useNavigate } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
+import { useArlaResumo, useArlaEvolucao, useArlaByLocation } from '@/hooks/useArla'
+import type { ArlaProduto } from '@/hooks/useArla'
+import type { DrillSubgrupo, DrillProduto } from '@/hooks/useVendas'
 import { Page, Card, CardHeader, CardBody, ChartBox, KpiGrid} from '@/components/ui/Card'
 import { KpiCard } from '@/components/ui/KpiCard'
 import { Spinner } from '@/components/ui/Spinner'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { PageHeader } from '@/components/layout/PageHeader'
+import { LocationComparisonPanel } from '@/components/LocationComparisonPanel'
+import { useLocations } from '@/hooks/useLocations'
 import { LineAreaChart } from '@/components/charts/LineAreaChart'
 import { CHART_COLORS } from '@/lib/chart-colors'
 import { fCurrency, fInt, fPct, fLiters, fDayMonth } from '@/lib/format'
-import {
-  TableWrap, Table, Thead, Th, Tbody, Tr, Td, Tfoot, TfootTd,
-} from '@/components/ui/Table'
+import { useApp } from '@/context/AppContext'
+import { periodToRange, buildQS } from '@/lib/periods'
+import { apiUrl } from '@/lib/api'
+import { Tfoot, TfootTd } from '@/components/ui/Table'
+import { ExpandableTable, type ExpandableColumn, BarCell } from '@/components/ui/ExpandableTable'
 
 export default function ArlaPage() {
+  const navigate = useNavigate()
+  const { period, locationId } = useApp()
+  const queryClient = useQueryClient()
+
+  const { data: allLocations } = useLocations()
+  const showComparison = locationId === null && (allLocations?.length ?? 0) > 1
+
   const { data: resumo, isLoading: loadingR } = useArlaResumo()
+  const { data: byLocation, isLoading: loadingByLocation } = useArlaByLocation()
   const { data: evo,    isLoading: loadingE } = useArlaEvolucao('dia')
 
   const t = resumo?.totais
   const produtos = resumo?.por_produto ?? []
+  const recMax = produtos[0]?.receita_bruta ?? 1
 
   // Chart data
   const chartData = (evo?.serie ?? []).map(p => ({
@@ -30,6 +47,156 @@ export default function ArlaPage() {
   const sparkVol = evo?.serie.map(p => p.volume_litros) ?? []
   const sparkRec = evo?.serie.map(p => p.receita_bruta) ?? []
   const sparkMg  = evo?.serie.map(p => p.margem_bruta) ?? []
+
+  // ── Base params helper (imperative) ────────────────────────────────────────
+  function getBaseParams() {
+    const { data_inicio, data_fim } = periodToRange(period)
+    return { data_inicio, data_fim, location_id: locationId ?? undefined }
+  }
+
+  // ── Fetch subgrupos for a grupo (level 1) ──────────────────────────────────
+  const fetchSubgrupos = async (grupo: ArlaProduto): Promise<DrillSubgrupo[]> => {
+    const params = getBaseParams()
+    const qs = buildQS({ ...params, grupo_id: String(grupo.grupo_id), segmento: 'combustivel' })
+    const data = await queryClient.fetchQuery<{ segmento: string; grupo_id: number; subgrupos: DrillSubgrupo[] }>({
+      queryKey: ['vendas', 'drill', 'subgrupos', params, grupo.grupo_id, 'combustivel'],
+      queryFn: () =>
+        fetch(apiUrl(`/api/v1/vendas/drill/subgrupos${qs}`), { credentials: 'include' })
+          .then(r => { if (!r.ok) throw new Error(`API ${r.status}`); return r.json() }),
+    })
+    return data.subgrupos
+  }
+
+  // ── Fetch produtos for a subgrupo (level 2 — leaves) ─────────────────────
+  const fetchProdutos = async (sub: DrillSubgrupo): Promise<DrillProduto[]> => {
+    const params = getBaseParams()
+    const qs = buildQS({ ...params, subgrupo_id: String(sub.subgrupo_id) })
+    const data = await queryClient.fetchQuery<{ subgrupo_id: number; produtos: DrillProduto[] }>({
+      queryKey: ['vendas', 'drill', 'produtos', params, sub.subgrupo_id],
+      queryFn: () =>
+        fetch(apiUrl(`/api/v1/vendas/drill/produtos${qs}`), { credentials: 'include' })
+          .then(r => { if (!r.ok) throw new Error(`API ${r.status}`); return r.json() }),
+    })
+    return data.produtos
+  }
+
+  // ── Column definitions ────────────────────────────────────────────────────
+
+  // L0 — Arla-specific columns (keep volume, preco/L, custo/L)
+  const arlaColumns: ExpandableColumn<ArlaProduto>[] = [
+    {
+      key: 'grupo_descricao',
+      header: 'Produto',
+      first: true,
+      render: (p) => p.grupo_descricao ?? `Produto ${p.grupo_id}`,
+    },
+    { key: 'volume_litros',           header: 'Volume (L)',    right: true, render: (p) => fInt(p.volume_litros) },
+    { key: 'participacao_volume_pct', header: 'Part.%',        right: true, render: (p) => fPct(p.participacao_volume_pct, 1) },
+    { key: 'receita_bruta',           header: 'Receita',       right: true, render: (p) => fCurrency(p.receita_bruta) },
+    { key: 'cmv',                     header: 'CMV',           right: true, render: (p) => fCurrency(p.cmv) },
+    { key: 'margem_bruta',            header: 'Margem Bruta',  right: true, render: (p) => fCurrency(p.margem_bruta) },
+    {
+      key: 'margem_pct',
+      header: 'Margem %',
+      right: true,
+      render: (p) => (
+        <b style={{ color: p.margem_pct >= 0 ? 'hsl(var(--success))' : 'hsl(var(--danger))' }}>
+          {fPct(p.margem_pct, 1)}
+        </b>
+      ),
+    },
+    {
+      key: 'preco_medio_litro',
+      header: 'Preço/L',
+      right: true,
+      render: (p) => (
+        <span style={{ fontVariantNumeric: 'tabular-nums' }}>
+          {p.preco_medio_litro != null ? p.preco_medio_litro.toFixed(2).replace('.', ',') : '—'}
+        </span>
+      ),
+    },
+    {
+      key: 'custo_medio_litro',
+      header: 'Custo/L',
+      right: true,
+      last: true,
+      render: (p) => (
+        <span style={{ fontVariantNumeric: 'tabular-nums' }}>
+          {p.custo_medio_litro != null ? p.custo_medio_litro.toFixed(2).replace('.', ',') : '—'}
+        </span>
+      ),
+    },
+  ]
+
+  // L1 — subgrupo columns
+  const subgrupoColumns: ExpandableColumn<DrillSubgrupo>[] = [
+    {
+      key: 'subgrupo_descricao',
+      header: 'Subgrupo',
+      first: true,
+      render: (row) => row.subgrupo_descricao,
+    },
+    {
+      key: 'peso',
+      header: 'Peso',
+      render: (row) => (
+        <BarCell
+          value={row.receita_bruta}
+          max={recMax}
+          label={fPct(row.participacao_pct, 1)}
+        />
+      ),
+    },
+    { key: 'qtd_itens',     header: 'Qtd',         right: true, render: (row) => fInt(row.qtd_itens) },
+    { key: 'receita_bruta', header: 'Receita',      right: true, render: (row) => fCurrency(row.receita_bruta) },
+    { key: 'cmv',           header: 'CMV',          right: true, render: (row) => fCurrency(row.cmv) },
+    { key: 'margem_bruta',  header: 'Margem Bruta', right: true, render: (row) => fCurrency(row.margem_bruta) },
+    {
+      key: 'margem_pct',
+      header: 'Margem %',
+      right: true,
+      last: true,
+      render: (row) => (
+        <b style={{ color: row.margem_pct >= 0 ? 'hsl(var(--success))' : 'hsl(var(--danger))' }}>
+          {fPct(row.margem_pct, 1)}
+        </b>
+      ),
+    },
+  ]
+
+  // L2 — produto columns (leaves)
+  const produtoColumns: ExpandableColumn<DrillProduto>[] = [
+    {
+      key: 'descricao_produto',
+      header: 'Produto',
+      first: true,
+      render: (row) => row.descricao_produto,
+    },
+    {
+      key: 'peso',
+      header: 'Peso',
+      render: (row) => (
+        <BarCell
+          value={row.receita_bruta}
+          max={recMax}
+          label={fPct(row.participacao_pct, 1)}
+        />
+      ),
+    },
+    { key: 'qtd_venda',     header: 'Qtd',         right: true, render: (row) => fInt(row.qtd_venda) },
+    { key: 'receita_bruta', header: 'Receita',      right: true, render: (row) => fCurrency(row.receita_bruta) },
+    {
+      key: 'margem_pct',
+      header: 'Margem %',
+      right: true,
+      last: true,
+      render: (row) => (
+        <b style={{ color: row.margem_pct >= 0 ? 'hsl(var(--success))' : 'hsl(var(--danger))' }}>
+          {fPct(row.margem_pct, 1)}
+        </b>
+      ),
+    },
+  ]
 
   return (
     <Page>
@@ -90,55 +257,26 @@ export default function ArlaPage() {
         </CardBody>
       </Card>
 
-      {/* Tabela */}
+      {/* Tabela expandável grupo → subgrupo → produto */}
       <Card>
         <CardHeader title="Breakdown por produto" />
         {loadingR
           ? <CardBody><LoadingBox /></CardBody>
           : produtos.length === 0
             ? <CardBody><EmptyState title="Sem dados" description="Nenhum produto Arla 32 no período." /></CardBody>
-            : <TableWrap>
-                <Table>
-                  <Thead>
-                    <Th first>Produto</Th>
-                    <Th right>Volume (L)</Th>
-                    <Th right>Part.%</Th>
-                    <Th right>Receita</Th>
-                    <Th right>CMV</Th>
-                    <Th right>Margem Bruta</Th>
-                    <Th right>Margem %</Th>
-                    <Th right>Preço/L</Th>
-                    <Th right last>Custo/L</Th>
-                  </Thead>
-                  <Tbody>
-                    {produtos.map(p => (
-                      <Tr key={p.grupo_id}>
-                        <Td first style={{ fontWeight: 500 }}>
-                          {p.grupo_descricao ?? `Produto ${p.grupo_id}`}
-                        </Td>
-                        <Td right>{fInt(p.volume_litros)}</Td>
-                        <Td right>{fPct(p.participacao_volume_pct, 1)}</Td>
-                        <Td right>{fCurrency(p.receita_bruta)}</Td>
-                        <Td right>{fCurrency(p.cmv)}</Td>
-                        <Td right>{fCurrency(p.margem_bruta)}</Td>
-                        <Td right>
-                          <b style={{ color: p.margem_pct >= 0 ? 'hsl(var(--success))' : 'hsl(var(--danger))' }}>
-                            {fPct(p.margem_pct, 1)}
-                          </b>
-                        </Td>
-                        <Td right>
-                          <span className="mono">
-                            {p.preco_medio_litro != null ? p.preco_medio_litro.toFixed(2).replace('.', ',') : '—'}
-                          </span>
-                        </Td>
-                        <Td right last>
-                          <span className="mono">
-                            {p.custo_medio_litro != null ? p.custo_medio_litro.toFixed(2).replace('.', ',') : '—'}
-                          </span>
-                        </Td>
-                      </Tr>
-                    ))}
-                  </Tbody>
+            : <ExpandableTable<ArlaProduto, DrillSubgrupo, DrillProduto>
+                columns={arlaColumns}
+                rows={produtos}
+                rowKey="grupo_id"
+                rowColor={() => CHART_COLORS.arla}
+                getChildren={fetchSubgrupos}
+                childColumns={subgrupoColumns}
+                childRowKey="subgrupo_id"
+                getGrandchildren={fetchProdutos}
+                grandchildColumns={produtoColumns}
+                grandchildRowKey="source_produto_id"
+                onGrandchildClick={(gc) => navigate('/produto/' + encodeURIComponent(gc.source_produto_id))}
+                footer={
                   <Tfoot>
                     <TfootTd first>TOTAL</TfootTd>
                     <TfootTd right>{t ? fInt(t.volume_litros) : '—'}</TfootTd>
@@ -149,10 +287,20 @@ export default function ArlaPage() {
                     <TfootTd right><b>{t ? fPct(t.margem_pct, 1) : '—'}</b></TfootTd>
                     <TfootTd right last colSpan={2} />
                   </Tfoot>
-                </Table>
-              </TableWrap>
+                }
+              />
         }
       </Card>
+
+      {/* Comparativo de Unidades */}
+      {showComparison && (
+        <LocationComparisonPanel
+          locations={byLocation?.locations}
+          loading={loadingByLocation}
+          description="Receita de Arla 32 por unidade no período selecionado"
+          secondaryMetric={{ key: 'volume_litros', label: 'Volume (L)', format: (v) => `${v.toLocaleString('pt-BR', { maximumFractionDigits: 0 })} L` }}
+        />
+      )}
     </Page>
   )
 }

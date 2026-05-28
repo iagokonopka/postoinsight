@@ -74,3 +74,26 @@ export function useCombustivelEvolucaoPorProduto(granularidade: 'dia' | 'semana'
     queryFn: () => get(`/api/v1/combustivel/evolucao${qs}`),
   })
 }
+
+// ─── /api/v1/combustivel/by-location ─────────────────────────────────────────
+
+export interface CombustivelByLocation {
+  location_id: string
+  location_nome: string
+  receita_bruta: number
+  volume_litros: number
+  preco_medio: number | null
+  participacao_pct: number
+  participacao_volume_pct: number
+}
+
+export function useCombustivelByLocation() {
+  const { period } = useApp()
+  const { data_inicio, data_fim } = periodToRange(period)
+  const params = { data_inicio, data_fim }
+  const qs = buildQS(params)
+  return useQuery<{ locations: CombustivelByLocation[] }>({
+    queryKey: ['combustivel', 'by-location', params],
+    queryFn: () => get(`/api/v1/combustivel/by-location${qs}`),
+  })
+}

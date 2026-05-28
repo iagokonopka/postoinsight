@@ -164,8 +164,8 @@ export function Topbar() {
           </div>
         )}
 
-        {/* Location select */}
-        {showLocationSelect && (
+        {/* Location select — oculto quando só há 1 unidade */}
+        {showLocationSelect && (locations?.length ?? 0) > 1 && (
           <select
             value={locationId ?? ''}
             onChange={e => setLocationId(e.target.value || null)}

@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify'
-import { and, eq, gte, lte, inArray, sql, sum } from 'drizzle-orm'
+import { and, eq, gte, lte, inArray, sql, sum, desc } from 'drizzle-orm'
 import { db } from '../db.js'
-import { mvCombustivelDiario as mv } from '@postoinsight/db'
+import { mvCombustivelDiario as mv, locations } from '@postoinsight/db'
 import { requireTenantSession } from '../lib/auth.js'
 import {
   BadQueryError, parseDateRange, parseUuidArray, parseIntArray, parseEnum, n, pct, round2,
@@ -220,5 +220,61 @@ export const arlaRoutes: FastifyPluginAsync = async (app) => {
       .sort((a, b) => b.volume_litros - a.volume_litros)
 
     return reply.send({ produtos })
+  })
+
+  // ---------------------------------------------------------------------
+  // GET /api/v1/arla/by-location
+  // Receita e volume de Arla 32 por unidade no período selecionado.
+  // Query params: data_inicio, data_fim
+  // Retorno: { locations: [...] }
+  // ---------------------------------------------------------------------
+  app.get('/by-location', async (req, reply) => {
+    const tenantId = req.tenantId!
+    let dataInicio: string, dataFim: string
+    try {
+      ({ dataInicio, dataFim } = parseDateRange(req.query as Record<string, unknown>))
+    } catch (err) {
+      if (err instanceof BadQueryError) return reply.status(400).send({ error: err.message })
+      throw err
+    }
+
+    const rows = await db
+      .select({
+        location_id:   mv.locationId,
+        location_nome: locations.name,
+        receita_bruta: sum(mv.receitaBruta).mapWith(Number),
+        volume_litros: sum(mv.volumeLitros).mapWith(Number),
+      })
+      .from(mv)
+      .innerJoin(locations, and(
+        eq(locations.id, mv.locationId),
+        eq(locations.tenantId, tenantId),
+      ))
+      .where(and(
+        eq(mv.tenantId, tenantId),
+        eq(mv.categoriaCodigo, ARL),
+        gte(mv.dataVenda, dataInicio),
+        lte(mv.dataVenda, dataFim),
+      ))
+      .groupBy(mv.locationId, locations.name)
+      .orderBy(desc(sum(mv.receitaBruta)))
+
+    const totalReceita = rows.reduce((acc, r) => acc + n(r.receita_bruta), 0)
+    const totalVolume  = rows.reduce((acc, r) => acc + n(r.volume_litros), 0)
+
+    return reply.send({
+      locations: rows.map(r => {
+        const receita_bruta = n(r.receita_bruta)
+        const volume_litros = n(r.volume_litros)
+        return {
+          location_id:             r.location_id,
+          location_nome:           r.location_nome,
+          receita_bruta:           round2(receita_bruta),
+          volume_litros:           round2(volume_litros),
+          participacao_pct:        pct(receita_bruta, totalReceita),
+          participacao_volume_pct: pct(volume_litros, totalVolume),
+        }
+      }),
+    })
   })
 }

@@ -1,19 +1,25 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { Clock } from 'lucide-react'
 
-import { useCombustivelResumo, useCombustivelEvolucaoPorProduto } from '@/hooks/useCombustivel'
+import { useCombustivelResumo, useCombustivelEvolucaoPorProduto, useCombustivelByLocation } from '@/hooks/useCombustivel'
+import type { CombustivelProduto } from '@/hooks/useCombustivel'
+import type { DrillSubgrupo, DrillProduto } from '@/hooks/useVendas'
 import { useApp } from '@/context/AppContext'
-import { periodLabel } from '@/lib/periods'
+import { periodLabel, periodToRange, buildQS } from '@/lib/periods'
+import { apiUrl } from '@/lib/api'
 
 import { Page, Card, CardHeader, CardBody, ChartBox, KpiGrid, Row } from '@/components/ui/Card'
 import { KpiCard } from '@/components/ui/KpiCard'
 import { Spinner } from '@/components/ui/Spinner'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { PageHeader } from '@/components/layout/PageHeader'
+import { LocationComparisonPanel } from '@/components/LocationComparisonPanel'
+import { useLocations } from '@/hooks/useLocations'
 import { DonutChart, type DonutSlice } from '@/components/charts/DonutChart'
-import {
-  TableWrap, Table, Thead, Th, Tbody, Tr, Td, Tfoot, TfootTd,
-} from '@/components/ui/Table'
+import { Tfoot, TfootTd } from '@/components/ui/Table'
+import { ExpandableTable, type ExpandableColumn, BarCell } from '@/components/ui/ExpandableTable'
 import { fCurrency, fInt, fPct } from '@/lib/format'
 import { Sparkline } from '@/components/ui/Sparkline'
 
@@ -71,12 +77,18 @@ function SegControl<T extends string>({
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function CombustivelPage() {
-  const { period } = useApp()
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const { period, locationId } = useApp()
   const [mode, setMode]           = useState<CombMode>('volume')
   const [includeArla, setArla]    = useState(false)
 
+  const { data: allLocations } = useLocations()
+  const showComparison = locationId === null && (allLocations?.length ?? 0) > 1
+
   const { data: resumo, isLoading: loadingResumo } = useCombustivelResumo()
   const { data: evoData, isLoading: loadingEvo }   = useCombustivelEvolucaoPorProduto('dia')
+  const { data: byLocation, isLoading: loadingByLocation } = useCombustivelByLocation()
 
   const t = resumo?.totais
 
@@ -142,6 +154,184 @@ export default function CombustivelPage() {
   }
 
   const evoDesc = `${mode === 'volume' ? 'Volume' : 'Receita'} por produto · ${periodLabel(period).toLowerCase()}`
+
+  // ── Base params helper (imperative) ────────────────────────────────────────
+  function getBaseParams() {
+    const { data_inicio, data_fim } = periodToRange(period)
+    return { data_inicio, data_fim, location_id: locationId ?? undefined }
+  }
+
+  // ── Fetch subgrupos for a grupo (level 1) ──────────────────────────────────
+  const fetchSubgrupos = async (grupo: CombustivelProduto): Promise<DrillSubgrupo[]> => {
+    const params = getBaseParams()
+    const qs = buildQS({ ...params, grupo_id: String(grupo.grupo_id), segmento: 'combustivel' })
+    const data = await queryClient.fetchQuery<{ segmento: string; grupo_id: number; subgrupos: DrillSubgrupo[] }>({
+      queryKey: ['vendas', 'drill', 'subgrupos', params, grupo.grupo_id, 'combustivel'],
+      queryFn: () =>
+        fetch(apiUrl(`/api/v1/vendas/drill/subgrupos${qs}`), { credentials: 'include' })
+          .then(r => { if (!r.ok) throw new Error(`API ${r.status}`); return r.json() }),
+    })
+    return data.subgrupos
+  }
+
+  // ── Fetch produtos for a subgrupo (level 2 — leaves) ─────────────────────
+  const fetchProdutos = async (sub: DrillSubgrupo): Promise<DrillProduto[]> => {
+    const params = getBaseParams()
+    const qs = buildQS({ ...params, subgrupo_id: String(sub.subgrupo_id) })
+    const data = await queryClient.fetchQuery<{ subgrupo_id: number; produtos: DrillProduto[] }>({
+      queryKey: ['vendas', 'drill', 'produtos', params, sub.subgrupo_id],
+      queryFn: () =>
+        fetch(apiUrl(`/api/v1/vendas/drill/produtos${qs}`), { credentials: 'include' })
+          .then(r => { if (!r.ok) throw new Error(`API ${r.status}`); return r.json() }),
+    })
+    return data.produtos
+  }
+
+  // ── Column definitions ────────────────────────────────────────────────────
+
+  const recMax = produtos[0]?.receita_bruta ?? 1
+
+  // L0 — combustível grupo columns
+  const grupoColumns: ExpandableColumn<CombustivelProduto>[] = [
+    {
+      key: 'grupo_descricao',
+      header: 'Produto',
+      first: true,
+      render: (p) => p.grupo_descricao ?? `Produto ${p.grupo_id}`,
+    },
+    { key: 'volume_litros',       header: 'Volume (L)', right: true, render: (p) => fInt(p.volume_litros) },
+    { key: 'participacao_volume', header: 'Part.%',     right: true, render: (p) => fPct(p.participacao_volume_pct, 1) },
+    { key: 'receita_bruta',       header: 'Receita',    right: true, render: (p) => fCurrency(p.receita_bruta) },
+    {
+      key: 'margem_pct',
+      header: 'Margem %',
+      right: true,
+      render: (p) => (
+        <b style={{ color: p.margem_pct >= 0 ? 'hsl(var(--success))' : 'hsl(var(--danger))' }}>
+          {fPct(p.margem_pct, 1)}
+        </b>
+      ),
+    },
+    {
+      key: 'preco_medio_litro',
+      header: 'Preço/L',
+      right: true,
+      render: (p) => (
+        <span style={{ fontVariantNumeric: 'tabular-nums' }}>
+          {p.preco_medio_litro != null ? p.preco_medio_litro.toFixed(2).replace('.', ',') : '—'}
+        </span>
+      ),
+    },
+    {
+      key: 'custo_medio_litro',
+      header: 'Custo/L',
+      right: true,
+      render: (p) => (
+        <span style={{ fontVariantNumeric: 'tabular-nums' }}>
+          {p.custo_medio_litro != null ? p.custo_medio_litro.toFixed(2).replace('.', ',') : '—'}
+        </span>
+      ),
+    },
+    {
+      key: 'tendencia',
+      header: 'Tendência',
+      right: true,
+      last: true,
+      render: (p) => {
+        const spark = sparkSeries(p.grupo_id)
+        const trend = spark.length >= 2
+          ? (spark[spark.length - 1] - spark[0]) / Math.max(spark[0], 1)
+          : 0
+        const trendColor = trend > 0.02 ? '#16a34a' : trend < -0.02 ? '#dc2626' : '#64748b'
+        const trendArrow = trend > 0.02 ? '↑' : trend < -0.02 ? '↓' : '→'
+        const trendPct   = (Math.abs(trend) * 100).toFixed(1).replace('.', ',') + '%'
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end' }}>
+            {spark.length >= 2 && (
+              <div style={{ width: '72px', height: '22px', flexShrink: 0 }}>
+                <Sparkline data={spark} color={trendColor} width="100%" height="100%" />
+              </div>
+            )}
+            <span style={{ fontSize: '11px', fontWeight: 600, color: trendColor, minWidth: '42px', textAlign: 'right' }}>
+              {trendArrow} {trendPct}
+            </span>
+          </div>
+        )
+      },
+    },
+  ]
+
+  // L1 — subgrupo columns
+  const subgrupoColumns: ExpandableColumn<DrillSubgrupo>[] = [
+    {
+      key: 'subgrupo_descricao',
+      header: 'Subgrupo',
+      first: true,
+      render: (row) => row.subgrupo_descricao,
+    },
+    {
+      key: 'peso',
+      header: 'Peso',
+      render: (row) => (
+        <BarCell
+          value={row.receita_bruta}
+          max={recMax}
+          label={fPct(row.participacao_pct, 1)}
+        />
+      ),
+    },
+    { key: 'qtd_itens',     header: 'Qtd',         right: true, render: (row) => fInt(row.qtd_itens) },
+    { key: 'receita_bruta', header: 'Receita',      right: true, render: (row) => fCurrency(row.receita_bruta) },
+    { key: 'cmv',           header: 'CMV',          right: true, render: (row) => fCurrency(row.cmv) },
+    { key: 'margem_bruta',  header: 'Margem Bruta', right: true, render: (row) => fCurrency(row.margem_bruta) },
+    {
+      key: 'margem_pct',
+      header: 'Margem %',
+      right: true,
+      last: true,
+      render: (row) => (
+        <b style={{ color: row.margem_pct >= 0 ? 'hsl(var(--success))' : 'hsl(var(--danger))' }}>
+          {fPct(row.margem_pct, 1)}
+        </b>
+      ),
+    },
+  ]
+
+  // L2 — produto columns (leaves)
+  const produtoColumns: ExpandableColumn<DrillProduto>[] = [
+    {
+      key: 'descricao_produto',
+      header: 'Produto',
+      first: true,
+      render: (row) => row.descricao_produto,
+    },
+    {
+      key: 'peso',
+      header: 'Peso',
+      render: (row) => (
+        <BarCell
+          value={row.receita_bruta}
+          max={recMax}
+          label={fPct(row.participacao_pct, 1)}
+        />
+      ),
+    },
+    { key: 'qtd_venda',     header: 'Qtd',         right: true, render: (row) => fInt(row.qtd_venda) },
+    { key: 'receita_bruta', header: 'Receita',      right: true, render: (row) => fCurrency(row.receita_bruta) },
+    { key: 'cmv',           header: 'CMV',          right: true, render: (row) => fCurrency(row.cmv) },
+    { key: 'margem_bruta',  header: 'Margem Bruta', right: true, render: (row) => fCurrency(row.margem_bruta) },
+    {
+      key: 'margem_pct',
+      header: 'Margem %',
+      right: true,
+      last: true,
+      render: (row) => (
+        <b style={{ color: row.margem_pct >= 0 ? 'hsl(var(--success))' : 'hsl(var(--danger))' }}>
+          {fPct(row.margem_pct, 1)}
+        </b>
+      ),
+    },
+  ]
 
   return (
     <Page>
@@ -260,71 +450,19 @@ export default function CombustivelPage() {
           <CardHeader title="Breakdown por produto" />
           {loadingResumo
             ? <CardBody><LoadingBox /></CardBody>
-            : <TableWrap>
-                <Table>
-                  <Thead>
-                    <Th first>Produto</Th>
-                    <Th right>Volume (L)</Th>
-                    <Th right>Part.%</Th>
-                    <Th right>Receita</Th>
-                    <Th right>Margem %</Th>
-                    <Th right>Preço/L</Th>
-                    <Th right>Custo/L</Th>
-                    <Th right last>Tendência</Th>
-                  </Thead>
-                  <Tbody>
-                    {produtos.map((p, _i) => {
-                      const spark = sparkSeries(p.grupo_id)
-                      const trend = spark.length >= 2
-                        ? (spark[spark.length - 1] - spark[0]) / Math.max(spark[0], 1)
-                        : 0
-                      const trendColor = trend > 0.02 ? '#16a34a' : trend < -0.02 ? '#dc2626' : '#64748b'
-                      const trendArrow = trend > 0.02 ? '↑' : trend < -0.02 ? '↓' : '→'
-                      const trendPct   = (Math.abs(trend) * 100).toFixed(1).replace('.', ',') + '%'
-
-                      return (
-                        <Tr key={p.grupo_id}>
-                          <Td first style={{ fontWeight: 500 }}>
-                            {p.grupo_descricao ?? `Produto ${p.grupo_id}`}
-                          </Td>
-                          <Td right>{fInt(p.volume_litros)}</Td>
-                          <Td right>{fPct(p.participacao_volume_pct, 1)}</Td>
-                          <Td right>{fCurrency(p.receita_bruta)}</Td>
-                          <Td right>
-                            <b style={{ color: p.margem_pct >= 0 ? 'hsl(var(--success))' : 'hsl(var(--danger))' }}>
-                              {fPct(p.margem_pct, 1)}
-                            </b>
-                          </Td>
-                          <Td right>
-                            <span className="mono">
-                              {p.preco_medio_litro != null
-                                ? p.preco_medio_litro.toFixed(2).replace('.', ',')
-                                : '—'}
-                            </span>
-                          </Td>
-                          <Td right>
-                            <span className="mono">
-                              {p.custo_medio_litro != null
-                                ? p.custo_medio_litro.toFixed(2).replace('.', ',')
-                                : '—'}
-                            </span>
-                          </Td>
-                          <Td right last>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end' }}>
-                              {spark.length >= 2 && (
-                                <div style={{ width: '72px', height: '22px', flexShrink: 0 }}>
-                                  <Sparkline data={spark} color={trendColor} width="100%" height="100%" />
-                                </div>
-                              )}
-                              <span style={{ fontSize: '11px', fontWeight: 600, color: trendColor, minWidth: '42px', textAlign: 'right' }}>
-                                {trendArrow} {trendPct}
-                              </span>
-                            </div>
-                          </Td>
-                        </Tr>
-                      )
-                    })}
-                  </Tbody>
+            : <ExpandableTable<CombustivelProduto, DrillSubgrupo, DrillProduto>
+                columns={grupoColumns}
+                rows={produtos}
+                rowKey="grupo_id"
+                rowColor={(_row, i) => PROD_COLORS[i % PROD_COLORS.length]}
+                getChildren={fetchSubgrupos}
+                childColumns={subgrupoColumns}
+                childRowKey="subgrupo_id"
+                getGrandchildren={fetchProdutos}
+                grandchildColumns={produtoColumns}
+                grandchildRowKey="source_produto_id"
+                onGrandchildClick={(gc) => navigate(`/produto/${encodeURIComponent(gc.source_produto_id)}`)}
+                footer={
                   <Tfoot>
                     <TfootTd first>TOTAL</TfootTd>
                     <TfootTd right>{fInt(totVol)}</TfootTd>
@@ -335,8 +473,8 @@ export default function CombustivelPage() {
                     </TfootTd>
                     <TfootTd right last colSpan={3} />
                   </Tfoot>
-                </Table>
-              </TableWrap>
+                }
+              />
           }
         </Card>
 
@@ -351,6 +489,16 @@ export default function CombustivelPage() {
           </CardBody>
         </Card>
       </Row>
+
+      {/* Comparativo de Unidades */}
+      {showComparison && (
+        <LocationComparisonPanel
+          locations={byLocation?.locations}
+          loading={loadingByLocation}
+          description="Receita de combustível por unidade no período selecionado"
+          secondaryMetric={{ key: 'volume_litros', label: 'Volume (L)', format: (v) => `${v.toLocaleString('pt-BR', { maximumFractionDigits: 0 })} L` }}
+        />
+      )}
     </Page>
   )
 }

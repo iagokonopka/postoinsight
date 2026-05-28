@@ -67,3 +67,25 @@ export function useArlaEvolucao(granularidade: 'dia' | 'semana' | 'mes' = 'dia')
     queryFn: () => get(`/api/v1/arla/evolucao${qs}`),
   })
 }
+
+// ─── /api/v1/arla/by-location ─────────────────────────────────────────────────
+
+export interface ArlaByLocation {
+  location_id: string
+  location_nome: string
+  receita_bruta: number
+  volume_litros: number
+  participacao_pct: number
+  participacao_volume_pct: number
+}
+
+export function useArlaByLocation() {
+  const { period } = useApp()
+  const { data_inicio, data_fim } = periodToRange(period)
+  const params = { data_inicio, data_fim }
+  const qs = buildQS(params)
+  return useQuery<{ locations: ArlaByLocation[] }>({
+    queryKey: ['arla', 'by-location', params],
+    queryFn: () => get(`/api/v1/arla/by-location${qs}`),
+  })
+}
