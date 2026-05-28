@@ -742,7 +742,7 @@ export const vendasRoutes: FastifyPluginAsync = async (app) => {
         receita_liquida: sum(mv.receitaLiquida).mapWith(Number),
         cmv:             sum(mv.cmv).mapWith(Number),
         margem_bruta:    sum(mv.margemBruta).mapWith(Number),
-        qtd_venda:       sum(mv.qtdVenda).mapWith(Number),
+        qtd_venda:       sum(mv.qtdTotal).mapWith(Number),
       })
       .from(mv)
       .innerJoin(locations, and(

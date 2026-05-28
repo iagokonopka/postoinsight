@@ -85,6 +85,7 @@ export interface CombustivelByLocation {
   preco_medio: number | null
   participacao_pct: number
   participacao_volume_pct: number
+  [key: string]: unknown
 }
 
 export function useCombustivelByLocation() {

@@ -38,7 +38,7 @@ export default function LubrificantesPage() {
   const { period, locationId } = useApp()
   const queryClient = useQueryClient()
 
-  const { data: resumo, isLoading: loadingR } = useLubrificantesResumo()
+  const { data: resumo } = useLubrificantesResumo()
   const { data: evo,    isLoading: loadingE } = useLubrificantesEvolucao('dia')
   const { data: cats,  isLoading: loadingC } = useConvCategorias('lubrificantes')
 

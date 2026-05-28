@@ -77,6 +77,7 @@ export interface ArlaByLocation {
   volume_litros: number
   participacao_pct: number
   participacao_volume_pct: number
+  [key: string]: unknown
 }
 
 export function useArlaByLocation() {

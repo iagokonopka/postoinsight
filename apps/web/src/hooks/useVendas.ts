@@ -210,6 +210,7 @@ export interface VendasByLocation {
   margem_pct: number
   qtd_venda: number
   participacao_pct: number
+  [key: string]: unknown
 }
 
 export function useVendasByLocation() {

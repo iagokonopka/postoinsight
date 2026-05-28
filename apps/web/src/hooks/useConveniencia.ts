@@ -110,6 +110,7 @@ export interface ConvByLocation {
   margem_bruta: number
   margem_pct: number
   participacao_pct: number
+  [key: string]: unknown
 }
 
 export function useConvenienciaByLocation(segmento?: string) {
