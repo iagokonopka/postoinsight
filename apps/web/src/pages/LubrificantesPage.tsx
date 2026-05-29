@@ -1,14 +1,16 @@
 import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { useLubrificantesResumo, useLubrificantesEvolucao } from '@/hooks/useLubrificantes'
+import { useLubrificantesResumo, useLubrificantesEvolucao, useLubrificantesByLocation } from '@/hooks/useLubrificantes'
 import { useConvCategorias } from '@/hooks/useConveniencia'
 import type { ConvCategoria, ConvGrupo } from '@/hooks/useConveniencia'
 import type { DrillSubgrupo, DrillProduto } from '@/hooks/useVendas'
-import { Page, Card, CardHeader, CardBody, ChartBox, KpiGrid } from '@/components/ui/Card'
+import { Page, Card, CardHeader, CardBody, ChartBox, KpiGrid, Row } from '@/components/ui/Card'
 import { KpiCard } from '@/components/ui/KpiCard'
 import { Spinner } from '@/components/ui/Spinner'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { PageHeader } from '@/components/layout/PageHeader'
+import { LocationBarChart } from '@/components/charts/LocationBarChart'
+import { useLocations } from '@/hooks/useLocations'
 import { LineAreaChart } from '@/components/charts/LineAreaChart'
 import { CHART_COLORS } from '@/lib/chart-colors'
 import { fCurrency, fInt, fPct, fDayMonth } from '@/lib/format'
@@ -35,12 +37,16 @@ const LUB_COLORS = [
 
 export default function LubrificantesPage() {
   const navigate = useNavigate()
-  const { period, locationId } = useApp()
+  const { period, locationId, setLocationId } = useApp()
   const queryClient = useQueryClient()
 
+  const { data: allLocations } = useLocations()
+  const showComparison = locationId === null && (allLocations?.length ?? 0) > 1
+
   const { data: resumo } = useLubrificantesResumo()
-  const { data: evo,    isLoading: loadingE } = useLubrificantesEvolucao('dia')
-  const { data: cats,  isLoading: loadingC } = useConvCategorias('lubrificantes')
+  const { data: evo,        isLoading: loadingE }          = useLubrificantesEvolucao('dia')
+  const { data: cats,       isLoading: loadingC }          = useConvCategorias('lubrificantes')
+  const { data: byLocation, isLoading: loadingByLocation } = useLubrificantesByLocation()
 
   const t      = resumo?.totais
   const recMax = cats?.categorias[0]?.receita_bruta ?? 1
@@ -276,28 +282,39 @@ export default function LubrificantesPage() {
         />
       </KpiGrid>
 
-      {/* Evolução */}
-      <Card>
-        <CardHeader title="Evolução — Receita & Margem" description="Lubrificantes · período selecionado" />
-        <CardBody>
-          <ChartBox>
-            {loadingE
-              ? <LoadingBox />
-              : chartData.length === 0
-                ? <EmptyState title="Sem dados" description="Nenhum registro de lubrificantes no período." />
-                : <LineAreaChart
-                    data={chartData}
-                    xKey="label"
-                    series={[
-                      { key: 'receita',     label: 'Receita',      color: CHART_COLORS.lubrificantes, type: 'area', yAxisId: 'left' },
-                      { key: 'margemBruta', label: 'Margem Bruta', color: CHART_COLORS.pos,           type: 'area', yAxisId: 'left' },
-                    ]}
-                    tooltipFormatter={fCurrency}
-                  />
-            }
-          </ChartBox>
-        </CardBody>
-      </Card>
+      {/* Evolução [+ Por Unidade quando multi-location] */}
+      <Row style={{ gridTemplateColumns: showComparison ? '3fr 2fr' : '1fr' }}>
+        <Card>
+          <CardHeader title="Evolução — Receita & Margem" description="Lubrificantes · período selecionado" />
+          <CardBody>
+            <ChartBox>
+              {loadingE
+                ? <LoadingBox />
+                : chartData.length === 0
+                  ? <EmptyState title="Sem dados" description="Nenhum registro de lubrificantes no período." />
+                  : <LineAreaChart
+                      data={chartData}
+                      xKey="label"
+                      series={[
+                        { key: 'receita',     label: 'Receita',      color: CHART_COLORS.lubrificantes, type: 'area', yAxisId: 'left' },
+                        { key: 'margemBruta', label: 'Margem Bruta', color: CHART_COLORS.pos,           type: 'area', yAxisId: 'left' },
+                      ]}
+                      tooltipFormatter={fCurrency}
+                    />
+              }
+            </ChartBox>
+          </CardBody>
+        </Card>
+
+        {showComparison && (
+          <LocationBarChart
+            locations={byLocation?.locations}
+            loading={loadingByLocation}
+            onLocationClick={(id) => setLocationId(id === locationId ? null : id)}
+            selectedLocationId={locationId}
+          />
+        )}
+      </Row>
 
       {/* Tabela expandável categoria → grupos → subgrupos → produtos */}
       <Card>

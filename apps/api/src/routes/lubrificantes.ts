@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify'
-import { and, eq, gte, lte, inArray, sql, sum } from 'drizzle-orm'
+import { and, eq, gte, lte, inArray, sql, sum, desc } from 'drizzle-orm'
 import { db } from '../db.js'
-import { mvConvenienciaDiario as mv } from '@postoinsight/db'
+import { mvConvenienciaDiario as mv, locations } from '@postoinsight/db'
 import { requireTenantSession } from '../lib/auth.js'
 import {
   BadQueryError, parseDateRange, parseUuidArray, parseEnum, n, pct, round2,
@@ -208,5 +208,64 @@ export const lubrificantesRoutes: FastifyPluginAsync = async (app) => {
       .sort((a, b) => b.receita_bruta - a.receita_bruta)
 
     return reply.send({ grupos })
+  })
+
+  // ---------------------------------------------------------------------
+  // GET /api/v1/lubrificantes/by-location
+  // Receita, margem e participação por unidade no período selecionado.
+  // Query params: data_inicio, data_fim
+  // Retorno: { locations: [...] }
+  // ---------------------------------------------------------------------
+  app.get('/by-location', async (req, reply) => {
+    const tenantId = req.tenantId!
+    let dataInicio: string, dataFim: string
+    try {
+      ({ dataInicio, dataFim } = parseDateRange(req.query as Record<string, unknown>))
+    } catch (err) {
+      if (err instanceof BadQueryError) return reply.status(400).send({ error: err.message })
+      throw err
+    }
+
+    const rows = await db
+      .select({
+        location_id:     mv.locationId,
+        location_nome:   locations.name,
+        receita_bruta:   sum(mv.receitaBruta).mapWith(Number),
+        receita_liquida: sum(mv.receitaLiquida).mapWith(Number),
+        cmv:             sum(mv.cmv).mapWith(Number),
+        margem_bruta:    sum(mv.margemBruta).mapWith(Number),
+      })
+      .from(mv)
+      .innerJoin(locations, and(
+        eq(locations.id, mv.locationId),
+        eq(locations.tenantId, tenantId),
+      ))
+      .where(and(
+        eq(mv.tenantId, tenantId),
+        eq(mv.segmento, SEG),
+        gte(mv.dataVenda, dataInicio),
+        lte(mv.dataVenda, dataFim),
+      ))
+      .groupBy(mv.locationId, locations.name)
+      .orderBy(desc(sum(mv.receitaBruta)))
+
+    const totalReceita = rows.reduce((acc, r) => acc + n(r.receita_bruta), 0)
+
+    return reply.send({
+      locations: rows.map(r => {
+        const receita_bruta = n(r.receita_bruta)
+        const cmv           = n(r.cmv)
+        const receita_liq   = n(r.receita_liquida)
+        const margem_bruta  = receita_liq - cmv
+        return {
+          location_id:      r.location_id,
+          location_nome:    r.location_nome,
+          receita_bruta:    round2(receita_bruta),
+          margem_bruta:     round2(margem_bruta),
+          margem_pct:       pct(margem_bruta, receita_liq),
+          participacao_pct: pct(receita_bruta, totalReceita),
+        }
+      }),
+    })
   })
 }

@@ -15,7 +15,7 @@ import { KpiCard } from '@/components/ui/KpiCard'
 import { Spinner } from '@/components/ui/Spinner'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { PageHeader } from '@/components/layout/PageHeader'
-import { LocationComparisonPanel } from '@/components/LocationComparisonPanel'
+import { LocationBarChart } from '@/components/charts/LocationBarChart'
 import { useLocations } from '@/hooks/useLocations'
 import { DonutChart, type DonutSlice } from '@/components/charts/DonutChart'
 import { Tfoot, TfootTd } from '@/components/ui/Table'
@@ -79,7 +79,7 @@ function SegControl<T extends string>({
 export default function CombustivelPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const { period, locationId } = useApp()
+  const { period, locationId, setLocationId } = useApp()
   const [mode, setMode]           = useState<CombMode>('volume')
   const [includeArla, setArla]    = useState(false)
 
@@ -384,8 +384,8 @@ export default function CombustivelPage() {
         />
       </KpiGrid>
 
-      {/* Evolução + Donut */}
-      <Row variant="3-2">
+      {/* Evolução + Donut [+ Por Unidade quando multi-location] */}
+      <Row style={{ gridTemplateColumns: showComparison ? '3fr 2fr 2fr' : '3fr 2fr' }}>
         <Card>
           <CardHeader title="Evolução por produto" description={evoDesc} />
           <CardBody>
@@ -442,6 +442,15 @@ export default function CombustivelPage() {
             }
           </CardBody>
         </Card>
+
+        {showComparison && (
+          <LocationBarChart
+            locations={byLocation?.locations}
+            loading={loadingByLocation}
+            onLocationClick={(id) => setLocationId(id === locationId ? null : id)}
+            selectedLocationId={locationId}
+          />
+        )}
       </Row>
 
       {/* Breakdown + Ranking bicos */}
@@ -489,16 +498,6 @@ export default function CombustivelPage() {
           </CardBody>
         </Card>
       </Row>
-
-      {/* Comparativo de Unidades */}
-      {showComparison && (
-        <LocationComparisonPanel
-          locations={byLocation?.locations}
-          loading={loadingByLocation}
-          description="Receita de combustível por unidade no período selecionado"
-          secondaryMetric={{ key: 'volume_litros', label: 'Volume (L)', format: (v) => `${v.toLocaleString('pt-BR', { maximumFractionDigits: 0 })} L` }}
-        />
-      )}
     </Page>
   )
 }

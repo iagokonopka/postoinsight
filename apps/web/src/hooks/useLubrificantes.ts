@@ -63,3 +63,25 @@ export function useLubrificantesEvolucao(granularidade: 'dia' | 'semana' | 'mes'
     queryFn: () => get(`/api/v1/lubrificantes/evolucao${qs}`),
   })
 }
+
+// ─── /api/v1/lubrificantes/by-location ───────────────────────────────────────
+
+export interface LubrificantesByLocation {
+  location_id: string
+  location_nome: string
+  receita_bruta: number
+  margem_bruta: number
+  margem_pct: number
+  participacao_pct: number
+}
+
+export function useLubrificantesByLocation() {
+  const { period } = useApp()
+  const { data_inicio, data_fim } = periodToRange(period)
+  const params = { data_inicio, data_fim }
+  const qs = buildQS(params)
+  return useQuery<{ locations: LubrificantesByLocation[] }>({
+    queryKey: ['lubrificantes', 'by-location', params],
+    queryFn: () => get(`/api/v1/lubrificantes/by-location${qs}`),
+  })
+}

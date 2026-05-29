@@ -7,7 +7,7 @@ import { KpiCard } from '@/components/ui/KpiCard'
 import { Spinner } from '@/components/ui/Spinner'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { PageHeader } from '@/components/layout/PageHeader'
-import { LocationComparisonPanel } from '@/components/LocationComparisonPanel'
+import { LocationBarChart } from '@/components/charts/LocationBarChart'
 import { useLocations } from '@/hooks/useLocations'
 import { LineAreaChart } from '@/components/charts/LineAreaChart'
 import { DonutChart, type DonutSlice } from '@/components/charts/DonutChart'
@@ -88,7 +88,7 @@ function SegControl({ value, onChange }: { value: ConvView; onChange: (v: ConvVi
 
 export default function ConvenienciaPage() {
   const navigate = useNavigate()
-  const { period, locationId } = useApp()
+  const { period, locationId, setLocationId } = useApp()
   const queryClient = useQueryClient()
 
   const [view, setView] = useState<ConvView>('conveniencia')
@@ -356,8 +356,8 @@ export default function ConvenienciaPage() {
         />
       </KpiGrid>
 
-      {/* Evolução + Donut */}
-      <Row variant="3-2">
+      {/* Evolução + Donut [+ Por Unidade quando multi-location] */}
+      <Row style={{ gridTemplateColumns: showComparison ? '3fr 2fr 2fr' : '3fr 2fr' }}>
         <Card>
           <CardHeader title="Receita × Margem Bruta" />
           <CardBody>
@@ -394,6 +394,15 @@ export default function ConvenienciaPage() {
             }
           </CardBody>
         </Card>
+
+        {showComparison && (
+          <LocationBarChart
+            locations={byLocation?.locations}
+            loading={loadingByLocation}
+            onLocationClick={(id) => setLocationId(id === locationId ? null : id)}
+            selectedLocationId={locationId}
+          />
+        )}
       </Row>
 
       {/* Scatter */}
@@ -451,16 +460,6 @@ export default function ConvenienciaPage() {
               />
         }
       </Card>
-
-      {/* Comparativo de Unidades */}
-      {showComparison && (
-        <LocationComparisonPanel
-          locations={byLocation?.locations}
-          loading={loadingByLocation}
-          description={`Receita de ${VIEW_LABEL[view].toLowerCase()} por unidade no período selecionado`}
-          secondaryMetric={{ key: 'margem_pct', label: 'Margem %', format: (v) => fPct(v, 1) }}
-        />
-      )}
     </Page>
   )
 }

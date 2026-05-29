@@ -13,7 +13,7 @@ import { Spinner } from '@/components/ui/Spinner'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Drawer, DrawerRow } from '@/components/ui/Drawer'
 import { PageHeader } from '@/components/layout/PageHeader'
-import { LocationComparisonPanel } from '@/components/LocationComparisonPanel'
+import { LocationBarChart } from '@/components/charts/LocationBarChart'
 import { LineAreaChart } from '@/components/charts/LineAreaChart'
 import { DonutChart, type DonutSlice } from '@/components/charts/DonutChart'
 import { Heatmap } from '@/components/charts/Heatmap'
@@ -42,7 +42,7 @@ const SEG_CONFIG = {
 type TopItemDrill = { grupo_id: number; nome: string; segmento: string }
 
 export default function VisaoGeralPage() {
-  const { period, locationId } = useApp()
+  const { period, locationId, setLocationId } = useApp()
   const { data: allLocations } = useLocations()
   const showComparison = locationId === null && (allLocations?.length ?? 0) > 1
   const [topSort, setTopSort] = useState<'receita' | 'margem'>('receita')
@@ -152,8 +152,8 @@ export default function VisaoGeralPage() {
         />
       </KpiGrid>
 
-      {/* Evolução + Donut */}
-      <Row variant="3-2">
+      {/* Evolução + Donut [+ Por Unidade quando multi-location] */}
+      <Row style={{ gridTemplateColumns: showComparison ? '3fr 2fr 2fr' : '3fr 2fr' }}>
         <Card>
           <CardHeader title="Evolução de Receita & Margem" />
           <CardBody>
@@ -193,6 +193,15 @@ export default function VisaoGeralPage() {
             }
           </CardBody>
         </Card>
+
+        {showComparison && (
+          <LocationBarChart
+            locations={byLocation?.locations}
+            loading={loadingByLocation}
+            onLocationClick={(id) => setLocationId(id === locationId ? null : id)}
+            selectedLocationId={locationId}
+          />
+        )}
       </Row>
 
       {/* Breakdown por segmento */}
@@ -342,15 +351,6 @@ export default function VisaoGeralPage() {
           </CardBody>
         </Card>
       </Row>
-
-      {/* Comparativo de Unidades */}
-      {showComparison && (
-        <LocationComparisonPanel
-          locations={byLocation?.locations}
-          loading={loadingByLocation}
-          secondaryMetric={{ key: 'margem_pct', label: 'Margem %', format: (v) => fPct(v, 1) }}
-        />
-      )}
 
       {/* Drill-down Drawer */}
       <Drawer
