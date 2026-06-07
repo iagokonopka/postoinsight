@@ -22,7 +22,7 @@ export interface LocationBarItem {
   location_id: string
   location_nome: string
   receita_bruta: number
-  margem_pct: number
+  margem_pct?: number
   participacao_pct: number
 }
 
@@ -58,10 +58,12 @@ function CustomTooltip({ active, payload }: any) {
         <span style={{ color: 'hsl(var(--muted-foreground))' }}>Receita</span>
         <span style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{fCurrency(d.receita_bruta)}</span>
       </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px', marginBottom: '3px' }}>
-        <span style={{ color: 'hsl(var(--muted-foreground))' }}>Margem</span>
-        <span style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{fPct(d.margem_pct, 1)}</span>
-      </div>
+      {d.margem_pct !== undefined && (
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px', marginBottom: '3px' }}>
+          <span style={{ color: 'hsl(var(--muted-foreground))' }}>Margem</span>
+          <span style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{fPct(d.margem_pct, 1)}</span>
+        </div>
+      )}
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px' }}>
         <span style={{ color: 'hsl(var(--muted-foreground))' }}>Participação</span>
         <span style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{fPct(d.participacao_pct, 1)}</span>
