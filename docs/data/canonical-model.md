@@ -21,6 +21,7 @@
 ## Índice
 
 - [fato_venda](#fato_venda)
+- [fato_despesa](#fato_despesa)
 - [dim_produto](#dim_produto)
 - [dim_tempo](#dim_tempo)
 
@@ -168,6 +169,57 @@
 | `qtd_venda <= 0` | Registro rejeitado |
 | `vlr_unitario` ou `vlr_total` nulos | Registro rejeitado |
 | `source_produto_id` ausente | Registro rejeitado |
+| Duplicata `(tenant_id, location_id, source, source_id)` | Ignorado silenciosamente — idempotência |
+
+---
+
+## fato_despesa
+
+**Grão:** 1 linha = 1 baixa financeira (movimento de pagamento). Sem segmento — despesas
+não são segmentadas. Spec: `docs/specs/despesas.md`.
+
+> **Atenção:** o dado bruto de despesa mistura despesa operacional real, **compra de mercadoria
+> (= CMV, já contado em `fato_venda`)**, impostos, investimentos e lixo de rateio. A `fato_despesa`
+> preserva tudo (exceto o lixo de rateio); a separação contábil por grupo financeiro é feita na
+> camada de mapping (Plano 2). Por isso o DRE ainda **não** subtrai despesas da margem.
+
+### Schema canônico
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `id` | uuid | PK |
+| `tenant_id` | uuid | Rede |
+| `location_id` | uuid | Unidade |
+| `source_location_id` | text | `CD_ESTAB` de origem |
+| `data_despesa` | date | Data do movimento (`DATA_MOV`) — watermark |
+| `descricao` | text | Descrição livre (`DESCR_LOP` / `TIPO_MOVTO`) |
+| `grupo_financeiro_codigo` | text | `CD_GRPFOPER` — chave de classificação (Plano 2) |
+| `grupo_financeiro_descricao` | text | `DESCR_GF` |
+| `centro_custo_codigo` | text | `CD_CENTRO` |
+| `centro_custo_descricao` | text | `DESCR_CENTRO` |
+| `operacao` | text | À VISTA / À PRAZO |
+| `tipo_lancamento` | text | MANUAL / NOTA |
+| `fornecedor_nome` | text | `NOME` |
+| `fornecedor_doc` | text | `CGC` |
+| `valor` | numeric(15,2) | `VALOR_MOV` normalizado para positivo |
+| `source` | text | `'status'` |
+| `source_id` | text | `ID_DOCUM-SQ_DOCUM-SQ_BAIXA_MOV` |
+| `raw_ingest_id` | uuid | Rastreio ao payload bronze |
+| `synced_at` | timestamptz | — |
+
+### Mapeamento — Status ERP
+
+Fonte: `TMPBI_DOCUMENTOS_BAIXADOS`. Watermark: `DATA_MOV`. Detalhamento campo a campo e
+recorte de ingestão em `docs/specs/despesas.md` e `docs/data/inventory/status-inventory.md`.
+
+### Regras de validação — fato_despesa
+
+| Regra | Consequência |
+|-------|-------------|
+| Lixo de rateio (`CD_TIPTIT='RB'` + `DESCR_MODPAG='DESCONTO ADIANT.CLIENTES'`) | Excluído na ingestão |
+| `source_location_id` sem location no tenant | Não ingerido (cada agente consulta só seu `CD_ESTAB`) |
+| `data_despesa` nula | Registro rejeitado |
+| `valor <= 0` | Registro rejeitado |
 | Duplicata `(tenant_id, location_id, source, source_id)` | Ignorado silenciosamente — idempotência |
 
 ---

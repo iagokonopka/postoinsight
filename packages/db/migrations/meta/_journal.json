@@ -43,6 +43,13 @@
       "when": 1746316800000,
       "tag": "0005_sync_state_unique_erp",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1749312000000,
+      "tag": "0006_create_fato_despesa",
+      "breakpoints": true
     }
   ]
 }

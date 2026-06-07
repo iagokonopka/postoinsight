@@ -27,12 +27,19 @@ Cobre:
 
 Não cobre (MVP):
 
-- Despesas operacionais (aluguel, folha, energia) — fora do modelo de dados atual
+- **Cálculo do Resultado Operacional** (Margem Bruta − despesas) — depende da classificação
+  contábil por grupo financeiro (Plano 2, `docs/specs/admin-mapping.md`).
 - EBITDA, EBIT, resultado líquido — dependem de dados fora do ERP de vendas
 - DRE por posto individual (disponível via filtro, mas não como layout alternativo)
 - Exportação PDF/Excel (pós-MVP)
 
-> **Nota:** O DRE do PostoInsight é um **DRE de Margem Bruta**. Vai até `Margem Bruta = Receita Líquida - CMV`. Despesas operacionais não estão no escopo porque não chegam via ERP de vendas — são registradas em sistemas contábeis externos. Esta limitação é explícita na UI.
+> **Nota (atualizada 2026-06):** As despesas passaram a chegar via Status ERP
+> (`TMPBI_DOCUMENTOS_BAIXADOS` — ver `docs/specs/despesas.md`). O DRE evolui em duas etapas:
+> **Plano 1** exibe as despesas como **bloco informativo bruto por grupo financeiro**, ainda
+> **sem subtrair da margem** (porque o dado mistura despesa operacional, compra de mercadoria já
+> contada no CMV, impostos e lixo de rateio). **Plano 2** introduz a classificação por grupo e só
+> então calcula `Resultado Operacional`. Até lá, o DRE continua sendo um **DRE de Margem Bruta**
+> com um anexo informativo de despesas.
 
 ---
 
@@ -50,6 +57,28 @@ RECEITA BRUTA
 ```
 
 Cada linha existe para **cada segmento** e para o **consolidado** (soma de todos os segmentos).
+
+### 3.3 Anexo de Despesas (Plano 1 — informativo)
+
+Abaixo da Margem Bruta, o DRE exibe um **anexo informativo de despesas por grupo financeiro**,
+alimentado por `analytics.mv_despesa_grupo_mensal` (ver `docs/specs/despesas.md`):
+
+```
+(=) MARGEM BRUTA
+─────────────────────────────────────────────────
+DESPESAS (bruto, não classificado) — anexo informativo
+  Salários                 R$ ...
+  Energia Elétrica         R$ ...
+  Honorários Contador      R$ ...
+  ...                      R$ ...
+  Total bruto              R$ ...
+⚠ Inclui compras de mercadoria (CMV) e impostos. Resultado Operacional virá após classificação.
+```
+
+- **Não** subtrai da Margem Bruta nesta etapa.
+- A linha `(=) RESULTADO OPERACIONAL = Margem Bruta − Σ(despesa_operacional classificada)` e o
+  KPI de margem operacional entram no **Plano 2**, quando cada grupo financeiro recebe um tipo
+  contábil (`despesa_operacional` / `cmv` / `imposto` / `investimento` / `ignorar`).
 
 ### 3.2 Colunas do DRE
 

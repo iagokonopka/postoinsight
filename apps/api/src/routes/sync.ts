@@ -195,29 +195,34 @@ export const syncRoutes: FastifyPluginAsync = async (app) => {
         continue
       }
 
-      // Busca watermark atual para passar ao agente
-      const [state] = await db
-        .select({ lastSyncedAt: syncState.lastSyncedAt })
-        .from(syncState)
-        .where(and(
-          eq(syncState.tenantId, tenantId),
-          eq(syncState.locationId, connector.locationId),
-          eq(syncState.entity, 'fato_venda'),
-        ))
-        .limit(1)
+      // Dispara sync para cada entidade incremental (fato_venda + despesa),
+      // cada uma com seu próprio watermark.
+      const entities: Array<'fato_venda' | 'despesa'> = ['fato_venda', 'despesa']
 
-      const jobId = randomUUID()
-      const watermark = state?.lastSyncedAt?.toISOString() ?? new Date('2000-01-01').toISOString()
+      for (const entity of entities) {
+        const [state] = await db
+          .select({ lastSyncedAt: syncState.lastSyncedAt })
+          .from(syncState)
+          .where(and(
+            eq(syncState.tenantId, tenantId),
+            eq(syncState.locationId, connector.locationId),
+            eq(syncState.entity, entity),
+          ))
+          .limit(1)
 
-      const command: AgentCommand = {
-        command: 'sync',
-        job_id: jobId,
-        entity: 'fato_venda',
-        watermark,
+        const jobId = randomUUID()
+        const watermark = state?.lastSyncedAt?.toISOString() ?? new Date('2000-01-01').toISOString()
+
+        const command: AgentCommand = {
+          command: 'sync',
+          job_id: jobId,
+          entity,
+          watermark,
+        }
+
+        socket.socket.send(JSON.stringify(command))
+        triggered.push({ location_id: connector.locationId, job_id: jobId, status: 'triggered' })
       }
-
-      socket.socket.send(JSON.stringify(command))
-      triggered.push({ location_id: connector.locationId, job_id: jobId, status: 'triggered' })
     }
 
     const httpStatus = triggered.length > 0 ? 202 : 503

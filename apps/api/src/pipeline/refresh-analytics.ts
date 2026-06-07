@@ -2,7 +2,7 @@ import { sql } from 'drizzle-orm'
 import { db } from '../db.js'
 
 /**
- * Atualiza as 4 materialized views do schema `analytics` que servem
+ * Atualiza as materialized views do schema `analytics` que servem
  * os dashboards. Usa REFRESH ... CONCURRENTLY (não bloqueia leituras).
  *
  * `CONCURRENTLY` exige que cada MV tenha um unique index (criados em
@@ -18,6 +18,8 @@ const MVS = [
   'analytics.mv_combustivel_diario',
   'analytics.mv_conveniencia_diario',
   'analytics.mv_dre_mensal',
+  'analytics.mv_despesa_mensal',
+  'analytics.mv_despesa_grupo_mensal',
 ] as const
 
 export async function refreshAnalyticsMvs(): Promise<void> {

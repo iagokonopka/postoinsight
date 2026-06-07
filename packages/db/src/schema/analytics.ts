@@ -117,3 +117,33 @@ export const mvDreMensal = analyticsSchema.materializedView('mv_dre_mensal', {
   cmv:             numeric('cmv', { precision: 18, scale: 4 }).notNull(),
   margemBruta:     numeric('margem_bruta', { precision: 18, scale: 4 }).notNull(),
 }).existing()
+
+// ---------------------------------------------------------------------------
+// mv_despesa_mensal — total de despesas por mês (anexo do DRE)
+// Grão: 1 linha = 1 mês × 1 location (sem segmento)
+// ---------------------------------------------------------------------------
+export const mvDespesaMensal = analyticsSchema.materializedView('mv_despesa_mensal', {
+  tenantId:        uuid('tenant_id').notNull(),
+  locationId:      uuid('location_id').notNull(),
+  ano:             smallint('ano').notNull(),
+  mes:             smallint('mes').notNull(),
+  anoMes:          text('ano_mes').notNull(),
+  qtdLancamentos:  bigint('qtd_lancamentos', { mode: 'number' }).notNull(),
+  totalDespesas:   numeric('total_despesas', { precision: 18, scale: 2 }).notNull(),
+}).existing()
+
+// ---------------------------------------------------------------------------
+// mv_despesa_grupo_mensal — despesas por grupo financeiro (breakdown do DRE)
+// Grão: 1 linha = 1 mês × 1 location × 1 grupo financeiro
+// ---------------------------------------------------------------------------
+export const mvDespesaGrupoMensal = analyticsSchema.materializedView('mv_despesa_grupo_mensal', {
+  tenantId:                  uuid('tenant_id').notNull(),
+  locationId:                uuid('location_id').notNull(),
+  ano:                       smallint('ano').notNull(),
+  mes:                       smallint('mes').notNull(),
+  anoMes:                    text('ano_mes').notNull(),
+  grupoFinanceiroCodigo:     text('grupo_financeiro_codigo').notNull(),
+  grupoFinanceiroDescricao:  text('grupo_financeiro_descricao'),
+  qtdLancamentos:            bigint('qtd_lancamentos', { mode: 'number' }).notNull(),
+  totalDespesas:             numeric('total_despesas', { precision: 18, scale: 2 }).notNull(),
+}).existing()

@@ -267,6 +267,59 @@ export default function DrePage() {
             </div>
         }
       </Card>
+
+      {/* Anexo informativo de despesas (Plano 1 — bruto, não classificado) */}
+      <Card>
+        <CardHeader title={`Despesas por grupo financeiro — ${fMonthShort(curMes + '-01')}`} />
+        <CardBody>
+          <div style={{
+            fontSize: '12px',
+            color: 'hsl(var(--warning-foreground, var(--muted-foreground)))',
+            background: 'hsl(var(--warning-subtle, var(--muted) / 0.4))',
+            border: '1px solid hsl(var(--border))',
+            borderRadius: '8px',
+            padding: '10px 12px',
+            marginBottom: '12px',
+          }}>
+            ⚠ Valores brutos <strong>não classificados</strong> — incluem compras de mercadoria
+            (já contadas no CMV) e impostos. O Resultado Operacional será calculado após a
+            classificação por grupo financeiro (em breve).
+          </div>
+          {isLoading
+            ? <LoadingBox />
+            : (() => {
+                const dp = dreData?.despesas?.[curMes]
+                if (!dp || dp.porGrupo.length === 0) {
+                  return <EmptyState title="Sem despesas" description="Nenhuma despesa para o mês selecionado." />
+                }
+                return (
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                      <thead>
+                        <tr style={{ borderBottom: '1px solid hsl(var(--border))' }}>
+                          <th style={{ ...TD_FIRST, textAlign: 'left', fontSize: '11px', fontWeight: 500, color: 'hsl(var(--muted-foreground))' }}>Grupo financeiro</th>
+                          <th style={{ ...TD_RIGHT, fontSize: '11px', fontWeight: 500, color: 'hsl(var(--muted-foreground))', paddingRight: '20px' }}>Valor</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {dp.porGrupo.map(g => (
+                          <tr key={g.grupo_financeiro}>
+                            <td style={{ ...TD_FIRST, ...ROW_NORMAL, textAlign: 'left' }}>{g.grupo_financeiro}</td>
+                            <td style={{ ...TD_RIGHT, ...ROW_NORMAL, paddingRight: '20px' }}>{fCurrency(g.valor)}</td>
+                          </tr>
+                        ))}
+                        <tr>
+                          <td style={{ ...TD_FIRST, ...ROW_TOTAL, textAlign: 'left' }}>Total bruto</td>
+                          <td style={{ ...TD_RIGHT, ...ROW_TOTAL, paddingRight: '20px' }}>{fCurrency(dp.total_bruto)}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                )
+              })()
+          }
+        </CardBody>
+      </Card>
     </Page>
   )
 }

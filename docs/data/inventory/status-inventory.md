@@ -539,6 +539,122 @@
 
 ---
 
+### TMPBI_DOCUMENTOS_BAIXADOS
+
+> **Fonte de DESPESAS.** Liberada pela Status em 2026-05. Movimento financeiro de baixas
+> (contas a pagar/receber liquidadas). É a fonte do `canonical.fato_despesa` — ver
+> `docs/specs/despesas.md`. Exemplos extraídos de `tabelas_sql/TMPBI_DOCUMENTOS_BAIXADOS_100_ROWS.csv`
+> (Rede JAM, baixas de abr–mai/2026).
+>
+> **Watermark de sync:** `DATA_MOV` (data do movimento/baixa).
+> **`source_id` canônico:** `ID_DOCUM-SQ_DOCUM-SQ_BAIXA_MOV` (uma baixa = uma linha imutável).
+
+| Campo | Tipo | Nullable | Exemplos | % Nulos |
+|-------|------|----------|----------|---------|
+| DTHR_GERACAO | datetime | — | 2026-05-20 00:12:40 | 0% |
+| ORIGEM | varchar(3) | — | PAG | 0% |
+| CD_CENTRO | varchar(12) | Sim | 001, 080, 005 | 0% |
+| CD_ESTAB | varchar(3) | — | 001, 002, 005, 006, 080 | 0% |
+| POSTO | varchar(36) | — | 001 - JAM ROTA 1, 080 - CENTRO DE DISTRIBUICAO | 0% |
+| CD_PESSOA | int | — | 93639, 90006, 5810 | 0% |
+| ID_DOCUM | varchar(6) | — | 200526, 001756, 5810 | 0% |
+| CD_TIPTIT | varchar(2) | Sim | NF, BO, AF, RC, RB, T2, T3, DA | 0% |
+| SQ_DOCUM | varchar(2) | — | 00, 01, 02, CT | 0% |
+| VALOR_MOV | money | Sim | 500.00, 12780.00, 478.00 | 0% |
+| DATA_MOV | datetime | — | 2026-05-19, 2026-04-30 | 0% |
+| ID_OPERACAO_MOV | varchar(2) | — | BT | 0% |
+| SQ_BAIXA_MOV | int | — | 1, 2, 5 | 0% |
+| SQ_ESTORNO_MOV | int | Sim | 0 | 0% |
+| TIPO_MOV | varchar(2) | — | B | 0% |
+| DT_EMISSAO | datetime | Sim | 2026-05-19, 2026-04-20 | 0% |
+| DT_ULT_PAGAMENTO | datetime | Sim | 2026-05-19 | 0% |
+| DT_VENCIMENTO | datetime | Sim | 2026-05-20 | 0% |
+| DT_REFERENCIA | datetime | Sim | 2026-05-20 | 0% |
+| SALDO_LIQUIDO | money | Sim | 0.00, 492.66, 318.47 | 0% |
+| SALDO | money | Sim | 0.00, 492.66 | 0% |
+| CD_MODPAG | varchar(3) | Sim | 868, 168, DAC, DAF | 0% |
+| VALOR_BRUTO | money | Sim | 12780.00, 5000.00 | 0% |
+| VALOR_LIQUIDO | money | Sim | 12780.00, 221.21 | 0% |
+| VALOR_ACRDES | money | Sim | 0.00, 10.79 | 0% |
+| NOME | varchar(40) | Sim | Adiantamento de salarios, BEBIDAS FRUKI S/A | 0% |
+| TELEFONE1 | varchar(20) | Sim | 51 3666 1564 | ~50% |
+| EMAIL | varchar(60) | Sim | financeiro@... | ~70% |
+| CGC | varchar(14) | Sim | 10527743000178, 0 | 0% |
+| CELULAR | varchar(20) | Sim | 51 97912675 | ~80% |
+| CD_LOP | int | Sim | 111111, 111204, 110001 | 0% |
+| CD_ENTRADA | int | Sim | 0, 900076463 | 0% |
+| CD_LOTE | int | Sim | 0, 202604230 | 0% |
+| CD_LANCFIN | int | Sim | 902213905, 0 | 0% |
+| OBS | varchar(5000) | Sim | " " | ~95% |
+| TIPO_MOVTO | varchar(15) | — | BAIXA | 0% |
+| DT_ALTMOV | varchar(10) | Sim | 06/05/2026 | 0% |
+| HR_LOGONSIS | varchar(8) | Sim | 11:11:44 | 0% |
+| MAQ_ALTMOV | varchar(50) | Sim | CONTABILIDADE02, NOTE-FINANCIERO | 0% |
+| USU_ALTMOV | varchar(12) | Sim | CRISTIANE, VERONICA, MARILIA | 0% |
+| CD_GRPFOPER | int | Sim | 702, 513, 552, 0 | 0% |
+| VLR_JUROS | money | Sim | 0.00, 0.02, 64.28 | 0% |
+| VLR_MULTA | money | Sim | 0.00 | 0% |
+| VLR_DESCONTO | money | Sim | 0.00 | 0% |
+| VLR_OUTROS | money | Sim | 0.00 | 0% |
+| CD_PDV_CAIXA_MOV | varchar(50) | Sim | 001-9 CX: 4611 TRANS.197 | ~40% |
+| SIT_PDV | varchar(20) | Sim | FECHADO, ABERTO | ~40% |
+| CD_PDV | varchar(5) | Sim | 001-9 | ~40% |
+| CD_CAIXA | int | Sim | 4611, 4624 | ~40% |
+| ID_TRANS | int | Sim | 197, 52 | ~40% |
+| HR_ULTMOV | varchar(8) | Sim | 09:45:41 | 0% |
+| TIPO_LANCAMENTO | varchar(6) | — | MANUAL, NOTA | 0% |
+| EMISSAO_DIA | int | Sim | 11, 19 | 0% |
+| EMISSAO_MES | int | Sim | 12, 5, 4 | 0% |
+| EMISSAO_ANO | int | Sim | 2025, 2026 | 0% |
+| MOVIMENTO_DIA | int | Sim | 30, 19 | 0% |
+| MOVIMENTO_MES | int | Sim | 4, 5 | 0% |
+| MOVIMENTO_ANO | int | Sim | 2026 | 0% |
+| OPERACAO | varchar(7) | — | À VISTA, À PRAZO | 0% |
+| DESCR_MODPAG | varchar(30) | Sim | Pagamentos sicredi 10131 BO, DESCONTO ADIANT.CLIENTES | 0% |
+| VALOR_RECEBIDO | money | Sim | 12780.00, 4507.34 | 0% |
+| DESCR_LOP | varchar(30) | Sim | CARTEIRA, CHEQUE TROCO LAYOUT 3 | 0% |
+| INS_FEDERAL | varchar(14) | Sim | 10527743000178 | 0% |
+| CD_EXTERNO | varchar(20) | Sim | " " | ~100% |
+| COD_CONTABANCO | int | Sim | 1, NULL | ~20% |
+| CD_BANCO | int | Sim | 748, 756, NULL | ~20% |
+| NOMEBANCO | varchar(30) | Sim | SICREDI, CREDITRIL, NULL | ~20% |
+| AGENCIA | varchar(5) | Sim | 109, 3074, NULL | ~20% |
+| AGENCIA_DIG | varchar(2) | Sim | NULL | ~80% |
+| CONTACORRENTE | varchar(15) | Sim | 10131, 130862, NULL | ~20% |
+| CONTACORRENTE_DIG | varchar(2) | Sim | 1, 9, 2, NULL | ~20% |
+| **DESCR_GF** | varchar(40) | Sim | **Salários, Energia Elétrica, BEBIDAS, Conveniência, Honorários Contador, ARLA, DESPESAS** | ~20% |
+| DESCR_CENTRO | varchar(100) | Sim | AUTO POSTO JAM LTDA | 0% |
+| VALOR_TOTAL | money | Sim | 500.00, 1008.49 | 0% |
+| RN | int | — | 1 | 0% |
+
+#### Notas de análise (críticas para o recorte de ingestão)
+
+A amostra de 100 linhas revelou que **somar `VALOR_MOV` cegamente produz um DRE incorreto**.
+O `DESCR_GF` (grupo financeiro) é o campo-chave de classificação, e mistura naturezas distintas:
+
+1. **Despesa operacional real** — `Salários`, `Energia Elétrica`, `Água e Esgoto`, `Internet`,
+   `Honorários Contador/Advocatícios`, `Décimo Terceiro`, `Manutenção Predial/Veículos`, `Propaganda`,
+   `Contribuição Social (CSLL)`, `Segurança e Vigilância`, `Material de Consumo`, etc.
+2. **Compra de mercadoria para revenda (= CMV, JÁ contado na venda)** — `BEBIDAS`, `Conveniência`,
+   `TABACARIA`, `Lancheria`, `Insumos Produção`, `ARLA`. Concentradas no estab **080**. Somar como
+   despesa operacional **conta o custo da mercadoria duas vezes**.
+3. **Impostos / Investimentos** — `Contribuição Social`, `Impostos S/ Lucro`, `Investimentos`.
+4. **Lixo / rateio / template (NÃO é despesa)** — bloco do fornecedor `COOPERBONJE` (`CD_PESSOA=5810`),
+   marcado por `CD_TIPTIT='RB'` + `DESCR_MODPAG='DESCONTO ADIANT.CLIENTES'`, `CD_GRPFOPER=0`,
+   `CD_LOP` vazio. Seu `DESCR_GF` são os próprios nomes de baldes de DRE (`RECEITA`, `DESPESAS`,
+   `INVESTIMENTOS`, `NÃO CONTABILIZAR`, `SOMENTE CONTAS A PAGAR`, `Transferencias Entre Ctas`…) —
+   ~40% das linhas de amostra. **Deve ser excluído na ingestão.**
+
+**Estabelecimento `080 - CENTRO DE DISTRIBUIÇÃO`** não é uma location conectada (as locations da
+Rede JAM são 001, 002, 005, 006). Compras centralizadas do CD não entram no DRE operacional das
+locations. **Ingestão filtra `CD_ESTAB` sem location correspondente.**
+
+> **Conclusão:** a ingestão (Plano 1) traz tudo exceto o lixo de rateio e estabs sem location;
+> a separação despesa-operacional × CMV × imposto × investimento é feita pela **classificação por
+> grupo financeiro** na área Admin de Mapeamento (Plano 2). Ver `docs/specs/despesas.md`.
+
+---
+
 ### TMPBI_ESTOQUE_DATABASE
 
 | Campo | Tipo | Nullable | Exemplos | % Nulos |

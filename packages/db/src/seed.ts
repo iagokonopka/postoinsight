@@ -123,6 +123,13 @@ for (const loc of locationsData) {
     erpSource: 'status',
     entity:    'dim_produto',
   }).onConflictDoNothing()
+
+  await db.insert(schema.syncState).values({
+    tenantId,
+    locationId,
+    erpSource: 'status',
+    entity:    'despesa',
+  }).onConflictDoNothing()
 }
 
 // ---------------------------------------------------------------------------

@@ -2,8 +2,9 @@ import PgBoss from 'pg-boss'
 import { eq, and } from 'drizzle-orm'
 import { db } from './db.js'
 import { env } from './env.js'
-import { rawIngest, fatoVenda, locations, syncState } from '@postoinsight/db'
+import { rawIngest, fatoVenda, fatoDespesa, locations, syncState } from '@postoinsight/db'
 import { transformStatusVenda, type StatusVendaRow } from './pipeline/transform-fato-venda.js'
+import { transformStatusDespesa, isRateioNoise, type StatusDespesaRow } from './pipeline/transform-despesa.js'
 import { transformDimProduto, type DimProdutoPayload } from './pipeline/transform-dim-produto.js'
 import { dimProduto } from '@postoinsight/db'
 import { refreshAnalyticsMvs } from './pipeline/refresh-analytics.js'
@@ -120,6 +121,92 @@ await boss.work('pipeline:fato_venda', { teamSize: 4, teamConcurrency: 4 }, asyn
   console.log(`pipeline:fato_venda — inserted=${validRows.length} rejected=${rejected} locationId=${locationId}`)
 
   // 7. Enfileira refresh das MVs de analytics (throttled — singleton 30s)
+  if (validRows.length > 0) {
+    await enqueueAnalyticsRefresh()
+  }
+})
+
+// ---------------------------------------------------------------------------
+// pipeline:despesa
+// Transforma baixas financeiras (TMPBI_DOCUMENTOS_BAIXADOS) → canonical.fato_despesa.
+// Sem segmento. Filtra lixo de rateio. Spec: docs/specs/despesas.md
+// ---------------------------------------------------------------------------
+await boss.work('pipeline:despesa', { teamSize: 2, teamConcurrency: 2 }, async (job) => {
+  const { rawIngestId, tenantId, locationId } = job.data as {
+    rawIngestId: string
+    tenantId: string
+    locationId: string
+  }
+
+  const [record] = await db
+    .select()
+    .from(rawIngest)
+    .where(eq(rawIngest.id, rawIngestId))
+    .limit(1)
+
+  if (!record) throw new Error(`raw_ingest not found: ${rawIngestId}`)
+
+  const rows = record.payload as StatusDespesaRow[]
+
+  // Valida que a location existe no tenant
+  const [location] = await db
+    .select({ id: locations.id })
+    .from(locations)
+    .where(and(eq(locations.id, locationId), eq(locations.tenantId, tenantId)))
+    .limit(1)
+
+  if (!location) throw new Error(`Location not found: locationId=${locationId} tenantId=${tenantId}`)
+
+  let rejected = 0
+  const validRows: ReturnType<typeof transformStatusDespesa>[] = []
+
+  for (const row of rows) {
+    try {
+      if (isRateioNoise(row)) { rejected++; continue }
+      const transformed = transformStatusDespesa(row, tenantId, locationId)
+
+      if (!transformed.dataDespesa) { rejected++; continue }
+      if (!(Number(transformed.valor) > 0)) { rejected++; continue }
+      if (!transformed.sourceId || transformed.sourceId === '--') { rejected++; continue }
+
+      validRows.push({ ...transformed, rawIngestId } as typeof transformed)
+    } catch {
+      rejected++
+    }
+  }
+
+  const BATCH = 100
+  for (let i = 0; i < validRows.length; i += BATCH) {
+    const chunk = validRows.slice(i, i + BATCH)
+    await db
+      .insert(fatoDespesa)
+      .values(chunk)
+      .onConflictDoNothing()
+  }
+
+  // Watermark: maior DATA_MOV do lote
+  const maxDate = rows.reduce((max, r) => {
+    const d = (r.DATA_MOV ?? '').split('T')[0] ?? ''
+    return d > max ? d : max
+  }, '')
+
+  if (maxDate) {
+    await db
+      .update(syncState)
+      .set({ lastSyncedAt: new Date(maxDate), updatedAt: new Date() })
+      .where(and(
+        eq(syncState.locationId, locationId),
+        eq(syncState.entity, 'despesa'),
+      ))
+  }
+
+  await db
+    .update(rawIngest)
+    .set({ processedAt: new Date() })
+    .where(eq(rawIngest.id, rawIngestId))
+
+  console.log(`pipeline:despesa — inserted=${validRows.length} rejected=${rejected} locationId=${locationId}`)
+
   if (validRows.length > 0) {
     await enqueueAnalyticsRefresh()
   }

@@ -98,3 +98,37 @@ export const fatoVenda = canonicalSchema.table('fato_venda', {
   idxFatoVendaSegmento: index('idx_fato_venda_segmento').on(t.tenantId, t.segmento, t.dataVenda),
   chkFatoSegmento: check('chk_fato_segmento', sql`${t.segmento} IN ('combustivel','lubrificantes','servicos','conveniencia') OR ${t.segmento} IS NULL`),
 }))
+
+// ---------------------------------------------------------------------------
+// fato_despesa — despesas (baixas financeiras) do Status ERP
+// Fonte: TMPBI_DOCUMENTOS_BAIXADOS. Grão: 1 linha = 1 baixa.
+// Sem segmento — despesas não são segmentadas. A classificação contábil por
+// grupo financeiro (operacional/CMV/imposto/...) é feita na camada de mapping
+// (Plano 2). Spec: docs/specs/despesas.md
+// ---------------------------------------------------------------------------
+export const fatoDespesa = canonicalSchema.table('fato_despesa', {
+  id:                        uuid('id').primaryKey().defaultRandom(),
+  tenantId:                  uuid('tenant_id').notNull(),
+  locationId:                uuid('location_id').notNull(),
+  sourceLocationId:          text('source_location_id').notNull(),
+  dataDespesa:               date('data_despesa').notNull(),
+  descricao:                 text('descricao'),
+  grupoFinanceiroCodigo:     text('grupo_financeiro_codigo'),
+  grupoFinanceiroDescricao:  text('grupo_financeiro_descricao'),
+  centroCustoCodigo:         text('centro_custo_codigo'),
+  centroCustoDescricao:      text('centro_custo_descricao'),
+  operacao:                  text('operacao'),
+  tipoLancamento:            text('tipo_lancamento'),
+  fornecedorNome:            text('fornecedor_nome'),
+  fornecedorDoc:             text('fornecedor_doc'),
+  valor:                     numeric('valor', { precision: 15, scale: 2 }).notNull(),
+  source:                    text('source').notNull(),
+  sourceId:                  text('source_id').notNull(),
+  rawIngestId:               uuid('raw_ingest_id'),
+  syncedAt:                  timestamp('synced_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  uqFatoDespesa: unique('uq_fato_despesa').on(t.tenantId, t.locationId, t.source, t.sourceId),
+  idxFatoDespesaTenantData: index('idx_fato_despesa_tenant_data').on(t.tenantId, t.dataDespesa),
+  idxFatoDespesaLocationData: index('idx_fato_despesa_location_data').on(t.locationId, t.dataDespesa),
+  idxFatoDespesaGrupo: index('idx_fato_despesa_grupo').on(t.tenantId, t.grupoFinanceiroCodigo, t.dataDespesa),
+}))

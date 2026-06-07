@@ -40,9 +40,21 @@ export interface DreLinhaAPI {
   periodos: Record<string, DrePeriodo>
 }
 
+export interface DespesaGrupo {
+  grupo_financeiro: string
+  valor: number
+}
+
+export interface DespesaPeriodo {
+  total_bruto: number
+  porGrupo: DespesaGrupo[]
+}
+
 export interface DreMensal {
   meses: string[]
   linhas: DreLinhaAPI[]
+  /** Anexo informativo de despesas (Plano 1) — bruto, não classificado. */
+  despesas?: Record<string, DespesaPeriodo>
 }
 
 export function useDreMensal(meses: string[]) {

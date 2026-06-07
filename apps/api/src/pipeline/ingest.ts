@@ -50,6 +50,8 @@ export async function ingestBatch(
 
   const queue = msg.entity === 'fato_venda'
     ? 'pipeline:fato_venda'
+    : msg.entity === 'despesa'
+    ? 'pipeline:despesa'
     : 'pipeline:dim_produto'
 
   await b.send(queue, {

@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { and, eq, inArray, sql, sum, desc } from 'drizzle-orm'
 import { db } from '../db.js'
-import { mvDreMensal as mv } from '@postoinsight/db'
+import { mvDreMensal as mv, mvDespesaGrupoMensal as dg } from '@postoinsight/db'
 import { requireTenantSession } from '../lib/auth.js'
 import {
   BadQueryError, parseUuidArray, parseAnoMesArray, n, pct, round2,
@@ -123,10 +123,43 @@ export const dreRoutes: FastifyPluginAsync = async (app) => {
       periodos: finalizePeriodos(totalPeriodos),
     })
 
+    // -------------------------------------------------------------------
+    // Anexo informativo de despesas por grupo financeiro (Plano 1).
+    // NÃO subtrai da margem — classificação contábil vem no Plano 2.
+    // -------------------------------------------------------------------
+    const despesaRows = await db
+      .select({
+        ano_mes: dg.anoMes,
+        grupo_financeiro: dg.grupoFinanceiroDescricao,
+        valor: sum(dg.totalDespesas).mapWith(Number),
+      })
+      .from(dg)
+      .where(and(
+        eq(dg.tenantId, tenantId),
+        inArray(dg.anoMes, meses),
+        locationIds ? inArray(dg.locationId, locationIds) : undefined,
+      ))
+      .groupBy(dg.anoMes, dg.grupoFinanceiroDescricao)
+
+    type DespesaPeriodo = { total_bruto: number; porGrupo: Array<{ grupo_financeiro: string; valor: number }> }
+    const despesas: Record<string, DespesaPeriodo> = {}
+    for (const m of meses) despesas[m] = { total_bruto: 0, porGrupo: [] }
+
+    for (const r of despesaRows) {
+      const p = despesas[r.ano_mes]
+      if (!p) continue
+      const valor = round2(n(r.valor))
+      p.porGrupo.push({ grupo_financeiro: r.grupo_financeiro ?? 'Sem grupo', valor })
+      p.total_bruto = round2(p.total_bruto + valor)
+    }
+    // Ordena cada mês por valor desc
+    for (const m of meses) despesas[m]!.porGrupo.sort((a, b) => b.valor - a.valor)
+
     return reply.send({
       meses,
       locations: locationIds ?? 'all',
       linhas,
+      despesas,
     })
   })
 

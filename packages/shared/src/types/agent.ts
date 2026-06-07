@@ -1,8 +1,8 @@
-export type AgentEntity = 'fato_venda' | 'dim_produto_titem' | 'dim_produto_tcati' | 'dim_produto_tgrpi' | 'dim_produto_tsgri'
+export type AgentEntity = 'fato_venda' | 'despesa' | 'dim_produto_titem' | 'dim_produto_tcati' | 'dim_produto_tgrpi' | 'dim_produto_tsgri'
 
 export type AgentCommand =
-  | { command: 'sync';     job_id: string; entity: 'fato_venda' | 'dim_produto'; watermark: string }
-  | { command: 'backfill'; job_id: string; entity: 'fato_venda'; from: string; to: string; batch_size: number; delay_ms: number }
+  | { command: 'sync';     job_id: string; entity: 'fato_venda' | 'despesa' | 'dim_produto'; watermark: string }
+  | { command: 'backfill'; job_id: string; entity: 'fato_venda' | 'despesa'; from: string; to: string; batch_size: number; delay_ms: number }
   | { command: 'ping' }
 
 export type AgentMessage =
