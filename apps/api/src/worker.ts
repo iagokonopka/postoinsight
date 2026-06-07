@@ -18,7 +18,12 @@ async function startWithRetry(maxAttempts = 10, delayMs = 3000) {
       await boss.start()
       return
     } catch (err: any) {
-      const isNotReady = err?.code === '57P03' || err?.message?.includes('not yet accepting connections')
+      const isNotReady =
+        err?.code === '57P03' ||
+        err?.errno === -104 ||
+        err?.message?.includes('not yet accepting connections') ||
+        err?.message?.includes('ECONNRESET') ||
+        err?.message?.includes('ECONNREFUSED')
       if (!isNotReady || attempt === maxAttempts) throw err
       console.log(`Worker: Postgres not ready yet (attempt ${attempt}/${maxAttempts}), retrying in ${delayMs}ms...`)
       await new Promise(resolve => setTimeout(resolve, delayMs))
