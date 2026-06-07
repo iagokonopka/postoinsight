@@ -12,7 +12,7 @@ import { enqueueAnalyticsRefresh } from './pipeline/ingest.js'
 const boss = new PgBoss(env.DATABASE_URL)
 
 // Retry logic — Railway may start the worker before Postgres is ready
-async function startWithRetry(maxAttempts = 10, delayMs = 3000) {
+async function startWithRetry(maxAttempts = 20, delayMs = 5000) {
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       await boss.start()
