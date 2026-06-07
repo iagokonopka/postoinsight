@@ -10,7 +10,23 @@ import { refreshAnalyticsMvs } from './pipeline/refresh-analytics.js'
 import { enqueueAnalyticsRefresh } from './pipeline/ingest.js'
 
 const boss = new PgBoss(env.DATABASE_URL)
-await boss.start()
+
+// Retry logic — Railway may start the worker before Postgres is ready
+async function startWithRetry(maxAttempts = 10, delayMs = 3000) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      await boss.start()
+      return
+    } catch (err: any) {
+      const isNotReady = err?.code === '57P03' || err?.message?.includes('not yet accepting connections')
+      if (!isNotReady || attempt === maxAttempts) throw err
+      console.log(`Worker: Postgres not ready yet (attempt ${attempt}/${maxAttempts}), retrying in ${delayMs}ms...`)
+      await new Promise(resolve => setTimeout(resolve, delayMs))
+    }
+  }
+}
+
+await startWithRetry()
 
 console.log('Worker started — listening for pipeline jobs')
 
