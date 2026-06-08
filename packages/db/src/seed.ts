@@ -145,6 +145,35 @@ for (const loc of locationsData) {
 }
 
 // ---------------------------------------------------------------------------
+// dim_tempo — calendário (NÃO vem do ERP). As MVs de analytics fazem INNER JOIN
+// em dim_tempo; sem ela populada, todo dashboard fica vazio mesmo com fato_venda
+// cheia. Cobre 2024-01-01 a 2027-12-31. Idempotente (ON CONFLICT DO NOTHING).
+// ---------------------------------------------------------------------------
+await client.unsafe(`
+  INSERT INTO canonical.dim_tempo
+    (data, ano, mes, dia, ano_mes, trimestre, semana_ano, dia_semana, nome_dia_semana, nome_mes, is_fim_de_semana)
+  SELECT
+    d::date,
+    EXTRACT(YEAR  FROM d)::smallint,
+    EXTRACT(MONTH FROM d)::smallint,
+    EXTRACT(DAY   FROM d)::smallint,
+    to_char(d, 'YYYY-MM'),
+    EXTRACT(QUARTER FROM d)::smallint,
+    EXTRACT(WEEK FROM d)::smallint,
+    EXTRACT(DOW  FROM d)::smallint,
+    (ARRAY['Domingo','Segunda-feira','Terça-feira','Quarta-feira','Quinta-feira','Sexta-feira','Sábado'])[EXTRACT(DOW FROM d)::int + 1],
+    (ARRAY['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'])[EXTRACT(MONTH FROM d)::int],
+    EXTRACT(DOW FROM d) IN (0, 6)
+  FROM generate_series('2024-01-01'::date, '2027-12-31'::date, '1 day') AS d
+  ON CONFLICT (data) DO NOTHING;
+`)
+
+const [{ count: dimTempoCount }] = await client.unsafe<{ count: string }[]>(
+  `SELECT count(*)::text AS count FROM canonical.dim_tempo`
+)
+console.log(`  dim_tempo: ${dimTempoCount} dias`)
+
+// ---------------------------------------------------------------------------
 // Usuário admin do tenant JAM
 // ---------------------------------------------------------------------------
 const adminEmail = process.env['JAM_ADMIN_EMAIL'] ?? 'admin@postosjam.com.br'
