@@ -23,6 +23,8 @@
  *   DATABASE_URL  (via --env-file=.env) — banco do Railway
  *   API_URL       — base da API (default: produção Railway)
  *   START_DATE    — primeiro mês a puxar (default: 2025-01-01)
+ *   SOURCE_LOCATIONS — CSV de source_location_id a processar (ex: "001").
+ *                      Vazio = todas. Ex: backfill só da Rota 1: SOURCE_LOCATIONS=001
  *   BATCH_SIZE    — default 200
  *   DELAY_MS      — delay entre lotes no agente (default 200)
  *   JOB_TIMEOUT_S — timeout por janela em segundos (default 1800 = 30min)
@@ -119,11 +121,15 @@ try {
   process.exit(1)
 }
 
+const onlyLocations = (process.env['SOURCE_LOCATIONS'] ?? '')
+  .split(',').map(s => s.trim()).filter(Boolean)
+
 const locs = await sql<{ id: string; source_location_id: string; name: string }[]>`
   SELECT l.id, l.source_location_id, l.name
   FROM app.locations l
   JOIN app.tenants t ON t.id = l.tenant_id
   WHERE t.slug = 'rede-jam' AND l.deleted_at IS NULL
+    ${onlyLocations.length > 0 ? sql`AND l.source_location_id = ANY(${onlyLocations})` : sql``}
   ORDER BY l.source_location_id
 `
 
