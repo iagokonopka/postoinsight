@@ -60,6 +60,16 @@ export function connectLocation(location: LocationConfig): void {
     }
   }
 
+  // Backpressure: espera a fila de envio do WebSocket drenar antes de mandar o
+  // próximo lote, evitando que os dados se acumulem na RAM (causa do OOM).
+  const WS_BUFFER_LIMIT = 4 * 1024 * 1024 // 4 MB
+  async function sendBatch(msg: AgentMessage): Promise<void> {
+    while (ws?.readyState === WebSocket.OPEN && ws.bufferedAmount > WS_BUFFER_LIMIT) {
+      await new Promise((r) => setTimeout(r, 50))
+    }
+    send(msg)
+  }
+
   async function handleCommand(cmd: AgentCommand): Promise<void> {
     if (cmd.command === 'ping') {
       send({ type: 'pong' })
@@ -79,7 +89,7 @@ export function connectLocation(location: LocationConfig): void {
         })) {
           batch++
           total += rows.length
-          send({ type: 'batch', job_id: cmd.job_id, entity: 'fato_venda', batch, total_rows: rows.length, rows })
+          await sendBatch({ type: 'batch', job_id: cmd.job_id, entity: 'fato_venda', batch, total_rows: rows.length, rows })
         }
         send({ type: 'done', job_id: cmd.job_id, entity: 'fato_venda', total_rows: total })
         console.log(`[${location.sourceLocationId}] Sync done — ${total} rows in ${batch} batches`)
@@ -102,7 +112,7 @@ export function connectLocation(location: LocationConfig): void {
         })) {
           batch++
           total += rows.length
-          send({ type: 'batch', job_id: cmd.job_id, entity: 'despesa', batch, total_rows: rows.length, rows })
+          await sendBatch({ type: 'batch', job_id: cmd.job_id, entity: 'despesa', batch, total_rows: rows.length, rows })
         }
         send({ type: 'done', job_id: cmd.job_id, entity: 'despesa', total_rows: total })
         console.log(`[${location.sourceLocationId}] Sync despesa done — ${total} rows in ${batch} batches`)
@@ -129,7 +139,7 @@ export function connectLocation(location: LocationConfig): void {
         })) {
           batch++
           total += rows.length
-          send({ type: 'batch', job_id: cmd.job_id, entity, batch, total_rows: rows.length, rows })
+          await sendBatch({ type: 'batch', job_id: cmd.job_id, entity, batch, total_rows: rows.length, rows })
         }
         send({ type: 'done', job_id: cmd.job_id, entity, total_rows: total })
         console.log(`[${location.sourceLocationId}] Backfill done — ${total} rows in ${batch} batches`)

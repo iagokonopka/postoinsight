@@ -1,4 +1,63 @@
+import type sql from 'mssql'
 import { getPool } from './db.js'
+
+/**
+ * Executa uma query em modo STREAMING e emite as linhas em lotes, com
+ * backpressure: o stream é pausado enquanto o consumidor processa cada lote,
+ * mantendo o uso de memória constante independente do tamanho do resultado.
+ *
+ * Substitui o padrão antigo (request.query carregava o recordset inteiro na
+ * RAM → estourava o heap em sincronizações de histórico completo).
+ */
+export async function* streamQuery(
+  pool: sql.ConnectionPool,
+  query: string,
+  inputs: Record<string, string>,
+  batchSize: number,
+): AsyncGenerator<unknown[]> {
+  const request = pool.request()
+  for (const [k, v] of Object.entries(inputs)) request.input(k, v)
+  request.stream = true
+
+  let batch: unknown[] = []
+  const queue: unknown[][] = []
+  let finished = false
+  let failure: Error | null = null
+  let wake: (() => void) | null = null
+
+  const signal = () => { if (wake) { wake(); wake = null } }
+
+  request.on('row', (row: unknown) => {
+    batch.push(row)
+    if (batch.length >= batchSize) {
+      queue.push(batch)
+      batch = []
+      request.pause()   // backpressure: para até o consumidor drenar
+      signal()
+    }
+  })
+  request.on('error', (err: Error) => { failure = err; signal() })
+  request.on('done', () => {
+    if (batch.length > 0) { queue.push(batch); batch = [] }
+    finished = true
+    signal()
+  })
+
+  // Dispara a query (em stream mode os dados chegam pelos eventos acima).
+  request.query(query).catch((err: Error) => { failure = err; signal() })
+
+  while (true) {
+    if (failure) throw failure
+    const next = queue.shift()
+    if (next) {
+      yield next
+      if (!finished) request.resume()   // retoma após o lote ser consumido
+      continue
+    }
+    if (finished) return
+    await new Promise<void>((r) => { wake = r })
+  }
+}
 
 const FATO_VENDA_SYNC_QUERY = `
   SELECT
@@ -47,29 +106,23 @@ export async function* extractFatoVenda(params: {
 })): AsyncGenerator<unknown[]> {
   console.log(`[extract] connecting to SQL Server...`)
   const pool = await getPool()
-  console.log(`[extract] connected — running query for ${params.sourceLocationId}`)
-  const request = pool.request()
-  request.input('cdEstab', params.sourceLocationId)
+  console.log(`[extract] connected — streaming venda for ${params.sourceLocationId}`)
 
+  const inputs: Record<string, string> = { cdEstab: params.sourceLocationId }
   let query: string
   if (params.mode === 'sync') {
-    request.input('watermark', params.watermark)
+    inputs.watermark = params.watermark
     query = FATO_VENDA_SYNC_QUERY
   } else {
-    request.input('from', params.from)
-    request.input('to', params.to)
+    inputs.from = params.from
+    inputs.to = params.to
     query = FATO_VENDA_BACKFILL_QUERY
   }
 
-  const result = await request.query(query)
-  const rows = result.recordset as unknown[]
-
-  for (let i = 0; i < rows.length; i += params.batchSize) {
-    yield rows.slice(i, i + params.batchSize)
-
-    if (params.mode === 'backfill' && params.delayMs > 0 && i + params.batchSize < rows.length) {
-      await new Promise((r) => setTimeout(r, params.delayMs))
-    }
+  const delayMs = params.mode === 'backfill' ? params.delayMs : 0
+  for await (const rows of streamQuery(pool, query, inputs, params.batchSize)) {
+    yield rows
+    if (delayMs > 0) await new Promise((r) => setTimeout(r, delayMs))
   }
 }
 
@@ -122,28 +175,22 @@ export async function* extractDespesa(params: {
   delayMs: number
 })): AsyncGenerator<unknown[]> {
   const pool = await getPool()
-  const request = pool.request()
-  request.input('cdEstab', params.sourceLocationId)
 
+  const inputs: Record<string, string> = { cdEstab: params.sourceLocationId }
   let query: string
   if (params.mode === 'sync') {
-    request.input('watermark', params.watermark)
+    inputs.watermark = params.watermark
     query = DESPESA_SYNC_QUERY
   } else {
-    request.input('from', params.from)
-    request.input('to', params.to)
+    inputs.from = params.from
+    inputs.to = params.to
     query = DESPESA_BACKFILL_QUERY
   }
 
-  const result = await request.query(query)
-  const rows = result.recordset as unknown[]
-
-  for (let i = 0; i < rows.length; i += params.batchSize) {
-    yield rows.slice(i, i + params.batchSize)
-
-    if (params.mode === 'backfill' && params.delayMs > 0 && i + params.batchSize < rows.length) {
-      await new Promise((r) => setTimeout(r, params.delayMs))
-    }
+  const delayMs = params.mode === 'backfill' ? params.delayMs : 0
+  for await (const rows of streamQuery(pool, query, inputs, params.batchSize)) {
+    yield rows
+    if (delayMs > 0) await new Promise((r) => setTimeout(r, delayMs))
   }
 }
 
