@@ -4,6 +4,7 @@ import { db } from '../db.js'
 import { locations, syncJobs, syncState, connectors } from '@postoinsight/db'
 import { requireTenantSession } from '../lib/auth.js'
 import { activeConnections } from './agent.js'
+import { startSyncJob } from '../lib/sync-jobs.js'
 import type { AgentCommand } from '@postoinsight/shared'
 import { randomUUID } from 'crypto'
 
@@ -177,6 +178,7 @@ export const syncRoutes: FastifyPluginAsync = async (app) => {
         locationId:  connectors.locationId,
         agentToken:  connectors.agentToken,
         active:      connectors.active,
+        erpSource:   connectors.erpSource,
       })
       .from(connectors)
       .where(and(
@@ -184,7 +186,7 @@ export const syncRoutes: FastifyPluginAsync = async (app) => {
         eq(connectors.active, true),
       ))
 
-    const triggered: { location_id: string; job_id: string; status: string }[] = []
+    const triggered: { location_id: string; entity: string; job_id: string; desde: string; status: string }[] = []
     const skipped:   { location_id: string; reason: string }[] = []
 
     for (const connector of tenantConnectors) {
@@ -213,6 +215,19 @@ export const syncRoutes: FastifyPluginAsync = async (app) => {
         const jobId = randomUUID()
         const watermark = state?.lastSyncedAt?.toISOString() ?? new Date('2000-01-01').toISOString()
 
+        // Cria a linha em sync_jobs ANTES de disparar — torna o sync rastreável.
+        await startSyncJob({
+          jobId,
+          tenantId,
+          locationId:  connector.locationId,
+          erpSource:   connector.erpSource,
+          entity,
+          jobType:     'incremental',
+          triggeredBy: 'user',
+          triggeredByUserId: req.userId ?? null,
+          watermark,
+        })
+
         const command: AgentCommand = {
           command: 'sync',
           job_id: jobId,
@@ -221,7 +236,7 @@ export const syncRoutes: FastifyPluginAsync = async (app) => {
         }
 
         socket.socket.send(JSON.stringify(command))
-        triggered.push({ location_id: connector.locationId, job_id: jobId, status: 'triggered' })
+        triggered.push({ location_id: connector.locationId, entity, job_id: jobId, desde: watermark, status: 'triggered' })
       }
     }
 

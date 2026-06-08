@@ -82,6 +82,18 @@ const sqlCreds = {
 
 const agentTokens: Array<{ location: string; sourceLocationId: string; token: string }> = []
 
+// Tokens fixos (opcional) via env LOCATIONS=cdEstab:token,cdEstab:token,...
+// Mesmo formato consumido pelo agente. Após um wipe, define os tokens originais
+// para NÃO invalidar o .exe já instalado no RDP do cliente.
+const fixedTokens: Record<string, string> = {}
+const locationsEnv = process.env['LOCATIONS']
+if (locationsEnv) {
+  for (const part of locationsEnv.split(',')) {
+    const [cd, tok] = part.split(':')
+    if (cd && tok) fixedTokens[cd.trim()] = tok.trim()
+  }
+}
+
 for (const loc of locationsData) {
   const locationId = locationIds[loc.sourceLocationId]!
 
@@ -95,8 +107,8 @@ for (const loc of locationsData) {
     ))
     .limit(1)
 
-  // Gera novo token apenas na primeira inserção
-  const agentToken = existingConnector?.agentToken ?? randomUUID()
+  // Prioridade: token existente > token fixo do env (LOCATIONS) > novo aleatório
+  const agentToken = existingConnector?.agentToken ?? fixedTokens[loc.sourceLocationId] ?? randomUUID()
   agentTokens.push({ location: loc.name, sourceLocationId: loc.sourceLocationId, token: agentToken })
 
   if (!existingConnector) {

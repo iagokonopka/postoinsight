@@ -15,6 +15,7 @@
     "migrate": "tsx --env-file=.env src/migrate.ts",
     "seed": "tsx src/seed.ts",
     "seed:reset": "tsx src/seed-reset.ts",
+    "wipe": "tsx src/wipe.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

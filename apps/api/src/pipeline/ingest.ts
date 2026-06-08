@@ -1,6 +1,7 @@
 import { db } from '../db.js'
-import { rawIngest, syncJobs } from '@postoinsight/db'
+import { rawIngest } from '@postoinsight/db'
 import type { AgentMessage } from '@postoinsight/shared'
+import { completeSyncJob } from '../lib/sync-jobs.js'
 import type { connectors } from '@postoinsight/db'
 import type { InferSelectModel } from 'drizzle-orm'
 import PgBoss from 'pg-boss'
@@ -23,11 +24,8 @@ export async function ingestBatch(
   connector: Connector,
 ): Promise<void> {
   if (msg.type === 'done') {
-    // Sinaliza conclusão do job no sync_jobs
-    await db
-      .update(syncJobs)
-      .set({ status: 'success', completedAt: new Date() })
-      .where(/* job_id match — simplificado */ undefined as never)
+    // Finaliza o job: total_rows é o nº de registros puxados do ERP neste job.
+    await completeSyncJob(msg.job_id, msg.total_rows)
     return
   }
 

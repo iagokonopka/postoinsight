@@ -5,6 +5,7 @@ import { db } from '../db.js'
 import { connectors } from '@postoinsight/db'
 import type { AgentMessage } from '@postoinsight/shared'
 import { ingestBatch } from '../pipeline/ingest.js'
+import { failSyncJob } from '../lib/sync-jobs.js'
 
 // Mapa de conexões ativas: agentToken → SocketStream
 export const activeConnections = new Map<string, SocketStream>()
@@ -57,6 +58,7 @@ export const agentRoutes: FastifyPluginAsync = async (app) => {
 
         if (msg.type === 'error') {
           app.log.error({ jobId: msg.job_id, message: msg.message }, 'Agent reported error')
+          await failSyncJob(msg.job_id, msg.message)
         }
       } catch (err) {
         app.log.error(err, 'Failed to process agent message')
