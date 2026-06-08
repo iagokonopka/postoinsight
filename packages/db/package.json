@@ -13,9 +13,10 @@
     "build": "tsc",
     "generate": "drizzle-kit generate",
     "migrate": "tsx --env-file=.env src/migrate.ts",
-    "seed": "tsx src/seed.ts",
-    "seed:reset": "tsx src/seed-reset.ts",
-    "wipe": "tsx src/wipe.ts",
+    "seed": "tsx --env-file=.env src/seed.ts",
+    "seed:reset": "tsx --env-file=.env src/seed-reset.ts",
+    "wipe": "tsx --env-file=.env src/wipe.ts",
+    "backfill:jam": "tsx --env-file=.env src/backfill-jam.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
