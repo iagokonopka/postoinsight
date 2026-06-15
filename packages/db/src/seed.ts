@@ -168,10 +168,10 @@ await client.unsafe(`
   ON CONFLICT (data) DO NOTHING;
 `)
 
-const [{ count: dimTempoCount }] = await client.unsafe<{ count: string }[]>(
+const dimTempoRows = await client.unsafe<{ count: string }[]>(
   `SELECT count(*)::text AS count FROM canonical.dim_tempo`
 )
-console.log(`  dim_tempo: ${dimTempoCount} dias`)
+console.log(`  dim_tempo: ${dimTempoRows[0]?.count ?? '0'} dias`)
 
 // ---------------------------------------------------------------------------
 // Usuário admin do tenant JAM

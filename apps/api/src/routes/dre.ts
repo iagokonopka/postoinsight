@@ -1,11 +1,25 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { and, eq, inArray, sql, sum, desc } from 'drizzle-orm'
 import { db } from '../db.js'
-import { mvDreMensal as mv, mvDespesaGrupoMensal as dg } from '@postoinsight/db'
+import { mvDreMensal as mv, mvDespesaGrupoMensal as dg, despesaClassificacao as dc } from '@postoinsight/db'
 import { requireTenantSession } from '../lib/auth.js'
 import {
   BadQueryError, parseUuidArray, parseAnoMesArray, n, pct, round2,
 } from '../lib/queryParsers.js'
+
+/** accounting_type (banco) → chave do bloco `despesas` no response do DRE. */
+const TIPO_TO_BUCKET = {
+  despesa_operacional: 'operacional',
+  despesa_financeira:  'financeira',
+  imposto:             'imposto',
+  investimento:        'investimento',
+  cmv:                 'cmv',
+  nao_operacional:     'nao_operacional',
+} as const
+const BUCKETS = [
+  'operacional', 'financeira', 'imposto', 'investimento', 'cmv', 'nao_operacional', 'nao_classificado',
+] as const
+type Bucket = typeof BUCKETS[number]
 
 const SEGMENTOS = ['combustivel', 'lubrificantes', 'servicos', 'conveniencia'] as const
 
@@ -124,14 +138,18 @@ export const dreRoutes: FastifyPluginAsync = async (app) => {
     })
 
     // -------------------------------------------------------------------
-    // Anexo informativo de despesas por grupo financeiro (Plano 1).
-    // NÃO subtrai da margem — classificação contábil vem no Plano 2.
+    // Despesas classificadas por tipo contábil (Plano 2a).
+    // Override não-destrutivo aplicado em tempo de leitura: faz merge do mapa
+    // de classificação do tenant (app.despesa_classificacao) sobre os grupos
+    // de mv_despesa_grupo_mensal. Apenas `despesa_operacional` subtrai da
+    // Margem Bruta → Resultado Operacional. Spec: docs/specs/admin-mapping.md
     // -------------------------------------------------------------------
     const despesaRows = await db
       .select({
-        ano_mes: dg.anoMes,
-        grupo_financeiro: dg.grupoFinanceiroDescricao,
-        valor: sum(dg.totalDespesas).mapWith(Number),
+        ano_mes:   dg.anoMes,
+        codigo:    dg.grupoFinanceiroCodigo,
+        descricao: sql<string>`max(${dg.grupoFinanceiroDescricao})`,
+        valor:     sum(dg.totalDespesas).mapWith(Number),
       })
       .from(dg)
       .where(and(
@@ -139,27 +157,68 @@ export const dreRoutes: FastifyPluginAsync = async (app) => {
         inArray(dg.anoMes, meses),
         locationIds ? inArray(dg.locationId, locationIds) : undefined,
       ))
-      .groupBy(dg.anoMes, dg.grupoFinanceiroDescricao)
+      .groupBy(dg.anoMes, dg.grupoFinanceiroCodigo)
 
-    type DespesaPeriodo = { total_bruto: number; porGrupo: Array<{ grupo_financeiro: string; valor: number }> }
-    const despesas: Record<string, DespesaPeriodo> = {}
-    for (const m of meses) despesas[m] = { total_bruto: 0, porGrupo: [] }
+    // Mapa de classificação do tenant: codigo → { tipo, label }
+    const classRows = await db
+      .select({ codigo: dc.grupoFinanceiroCodigo, accounting: dc.accountingType, customLabel: dc.customLabel })
+      .from(dc)
+      .where(eq(dc.tenantId, tenantId))
+    const classMap = new Map(classRows.map(r => [r.codigo, r]))
+
+    type GrupoValor = { label: string; codigo: string; valor: number }
+    type BucketAgg = { total: number; porGrupo: GrupoValor[] }
+    function emptyDespesa(): Record<Bucket, BucketAgg> {
+      const out = {} as Record<Bucket, BucketAgg>
+      for (const b of BUCKETS) out[b] = { total: 0, porGrupo: [] }
+      return out
+    }
+    const despesas: Record<string, Record<Bucket, BucketAgg>> = {}
+    for (const m of meses) despesas[m] = emptyDespesa()
 
     for (const r of despesaRows) {
-      const p = despesas[r.ano_mes]
-      if (!p) continue
-      const valor = round2(n(r.valor))
-      p.porGrupo.push({ grupo_financeiro: r.grupo_financeiro ?? 'Sem grupo', valor })
-      p.total_bruto = round2(p.total_bruto + valor)
+      const mesAgg = despesas[r.ano_mes]
+      if (!mesAgg) continue
+      const cls    = classMap.get(r.codigo)
+      const bucket: Bucket = (cls && TIPO_TO_BUCKET[cls.accounting as keyof typeof TIPO_TO_BUCKET]) || 'nao_classificado'
+      const valor  = round2(n(r.valor))
+      const label  = cls?.customLabel ?? r.descricao ?? '(sem grupo)'
+      const agg    = mesAgg[bucket]
+      agg.porGrupo.push({ label, codigo: r.codigo, valor })
+      agg.total = round2(agg.total + valor)
     }
-    // Ordena cada mês por valor desc
-    for (const m of meses) despesas[m]!.porGrupo.sort((a, b) => b.valor - a.valor)
+    for (const m of meses) {
+      for (const b of BUCKETS) despesas[m]![b].porGrupo.sort((a, c) => c.valor - a.valor)
+    }
+
+    // Resultado Operacional = Margem Bruta (consolidado) − Despesa Operacional
+    const totalFinal = finalizePeriodos(totalPeriodos)
+    type ResultadoOp = {
+      margem_bruta: number
+      despesa_operacional: number
+      resultado_operacional: number
+      margem_operacional_pct: number
+    }
+    const resultadoOperacional: Record<string, ResultadoOp> = {}
+    for (const m of meses) {
+      const margemBruta = totalFinal[m]?.margem_bruta ?? 0
+      const receitaLiq  = totalFinal[m]?.receita_liquida ?? 0
+      const despOp      = despesas[m]!.operacional.total
+      const resultado   = round2(margemBruta - despOp)
+      resultadoOperacional[m] = {
+        margem_bruta:           margemBruta,
+        despesa_operacional:    despOp,
+        resultado_operacional:  resultado,
+        margem_operacional_pct: pct(resultado, receitaLiq),
+      }
+    }
 
     return reply.send({
       meses,
       locations: locationIds ?? 'all',
       linhas,
       despesas,
+      resultado_operacional: resultadoOperacional,
     })
   })
 

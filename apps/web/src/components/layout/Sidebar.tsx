@@ -8,6 +8,7 @@ import {
   Settings,
   Droplets,
   Wrench,
+  Tags,
   type LucideIcon,
 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
@@ -27,10 +28,16 @@ const NAV_OPS = [
   { to: '/configuracoes', label: 'Configurações',  Icon: Settings },
 ]
 
+// Item exclusivo do owner — classificação contábil de despesas (Plano 2a)
+const NAV_OPS_OWNER = [
+  { to: '/configuracoes/mapeamento', label: 'Classificação', Icon: Tags },
+]
+
 export function Sidebar() {
   const { user } = useAuth()
   const location = useLocation()
 
+  const isOwner = user?.role === 'owner' || !!user?.platformRole
   const tenantName = user?.tenantName ?? ''
   const tenantInitials = tenantName ? getTenantInitials(tenantName) : 'PI'
   const roleLabel = user ? getRoleLabel(user.role ?? user.platformRole) : ''
@@ -84,6 +91,9 @@ export function Sidebar() {
           </div>
           {NAV_OPS.map(({ to, label, Icon, badge }) => (
             <SidebarItem key={to} to={to} label={label} Icon={Icon} badge={badge} currentPath={location.pathname} />
+          ))}
+          {isOwner && NAV_OPS_OWNER.map(({ to, label, Icon }) => (
+            <SidebarItem key={to} to={to} label={label} Icon={Icon} sub currentPath={location.pathname} />
           ))}
         </div>
       </nav>

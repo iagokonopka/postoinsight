@@ -1,4 +1,6 @@
-import { useDreMensal, lastNMonths, toAnoMes, type DrePeriodo } from '@/hooks/useDre'
+import { Fragment } from 'react'
+import { Link } from 'react-router-dom'
+import { useDreMensal, lastNMonths, toAnoMes, type DrePeriodo, type DespesaBucketKey } from '@/hooks/useDre'
 import { useApp } from '@/context/AppContext'
 import { Page, Card, CardHeader, CardBody, ChartBox, KpiGrid, Row } from '@/components/ui/Card'
 import { KpiCard } from '@/components/ui/KpiCard'
@@ -268,50 +270,106 @@ export default function DrePage() {
         }
       </Card>
 
-      {/* Anexo informativo de despesas (Plano 1 — bruto, não classificado) */}
+      {/* Resultado Operacional (Plano 2a — Margem Bruta − despesa operacional) */}
       <Card>
-        <CardHeader title={`Despesas por grupo financeiro — ${fMonthShort(curMes + '-01')}`} />
+        <CardHeader title={`Resultado Operacional — ${fMonthShort(curMes + '-01')}`} />
         <CardBody>
-          <div style={{
-            fontSize: '12px',
-            color: 'hsl(var(--warning-foreground, var(--muted-foreground)))',
-            background: 'hsl(var(--warning-subtle, var(--muted) / 0.4))',
-            border: '1px solid hsl(var(--border))',
-            borderRadius: '8px',
-            padding: '10px 12px',
-            marginBottom: '12px',
-          }}>
-            ⚠ Valores brutos <strong>não classificados</strong> — incluem compras de mercadoria
-            (já contadas no CMV) e impostos. O Resultado Operacional será calculado após a
-            classificação por grupo financeiro (em breve).
-          </div>
+          {isLoading
+            ? <LoadingBox />
+            : (() => {
+                const ro = dreData?.resultado_operacional?.[curMes]
+                const dp = dreData?.despesas?.[curMes]
+                if (!ro) {
+                  return <EmptyState title="Sem dados" description="Nenhum dado para o mês selecionado." />
+                }
+                const naoClass = dp?.nao_classificado.total ?? 0
+                return (
+                  <>
+                    {naoClass > 0 && (
+                      <div style={{
+                        fontSize: '12px',
+                        color: 'hsl(var(--warning))',
+                        background: 'hsl(var(--warning-subtle))',
+                        border: '1px solid hsl(var(--warning) / 0.3)',
+                        borderRadius: '8px',
+                        padding: '10px 12px',
+                        marginBottom: '12px',
+                      }}>
+                        ⚠ Existem <strong>{fCurrency(naoClass)}</strong> em despesas não classificadas neste mês —
+                        o Resultado Operacional pode estar incompleto.{' '}
+                        <Link to="/configuracoes/mapeamento" style={{ color: 'hsl(var(--warning))', fontWeight: 600 }}>
+                          Classificar agora →
+                        </Link>
+                      </div>
+                    )}
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                      <tbody>
+                        <tr>
+                          <td style={{ ...TD_FIRST, ...ROW_NORMAL, textAlign: 'left' }}>Margem Bruta</td>
+                          <td style={{ ...TD_RIGHT, ...ROW_NORMAL, paddingRight: '20px' }}>{fCurrency(ro.margem_bruta)}</td>
+                        </tr>
+                        <tr>
+                          <td style={{ ...TD_FIRST, ...ROW_NORMAL, textAlign: 'left' }}>(−) Despesa Operacional</td>
+                          <td style={{ ...TD_RIGHT, ...ROW_NORMAL, paddingRight: '20px' }}>−{fCurrency(ro.despesa_operacional)}</td>
+                        </tr>
+                        <tr>
+                          <td style={{ ...TD_FIRST, ...ROW_RESULT, textAlign: 'left', color: 'hsl(var(--success))' }}>(=) Resultado Operacional</td>
+                          <td style={{ ...TD_RIGHT, ...ROW_RESULT, paddingRight: '20px', color: 'hsl(var(--success))' }}>{fCurrency(ro.resultado_operacional)}</td>
+                        </tr>
+                        <tr>
+                          <td style={{ ...TD_FIRST, ...ROW_NORMAL, textAlign: 'left' }}>Margem Operacional %</td>
+                          <td style={{ ...TD_RIGHT, ...ROW_NORMAL, paddingRight: '20px' }}>{fPct(ro.margem_operacional_pct, 2)}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </>
+                )
+              })()
+          }
+        </CardBody>
+      </Card>
+
+      {/* Despesas por tipo contábil (informativo — não entram no Resultado Operacional) */}
+      <Card>
+        <CardHeader title={`Despesas por tipo contábil — ${fMonthShort(curMes + '-01')}`} description="Tipos informativos abaixo não entram no Resultado Operacional." />
+        <CardBody>
           {isLoading
             ? <LoadingBox />
             : (() => {
                 const dp = dreData?.despesas?.[curMes]
-                if (!dp || dp.porGrupo.length === 0) {
-                  return <EmptyState title="Sem despesas" description="Nenhuma despesa para o mês selecionado." />
-                }
+                if (!dp) return <EmptyState title="Sem despesas" description="Nenhuma despesa para o mês selecionado." />
+                const order: { key: DespesaBucketKey; label: string }[] = [
+                  { key: 'operacional',      label: 'Despesa operacional (entra no resultado)' },
+                  { key: 'financeira',       label: 'Despesa financeira' },
+                  { key: 'imposto',          label: 'Impostos' },
+                  { key: 'investimento',     label: 'Investimentos' },
+                  { key: 'cmv',              label: 'CMV (compras — já no custo da venda)' },
+                  { key: 'nao_operacional',  label: 'Não-operacional' },
+                  { key: 'nao_classificado', label: 'Não classificado' },
+                ]
+                const visible = order.filter(o => dp[o.key].total > 0)
+                if (visible.length === 0) return <EmptyState title="Sem despesas" description="Nenhuma despesa para o mês selecionado." />
                 return (
                   <div style={{ overflowX: 'auto' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                      <thead>
-                        <tr style={{ borderBottom: '1px solid hsl(var(--border))' }}>
-                          <th style={{ ...TD_FIRST, textAlign: 'left', fontSize: '11px', fontWeight: 500, color: 'hsl(var(--muted-foreground))' }}>Grupo financeiro</th>
-                          <th style={{ ...TD_RIGHT, fontSize: '11px', fontWeight: 500, color: 'hsl(var(--muted-foreground))', paddingRight: '20px' }}>Valor</th>
-                        </tr>
-                      </thead>
                       <tbody>
-                        {dp.porGrupo.map(g => (
-                          <tr key={g.grupo_financeiro}>
-                            <td style={{ ...TD_FIRST, ...ROW_NORMAL, textAlign: 'left' }}>{g.grupo_financeiro}</td>
-                            <td style={{ ...TD_RIGHT, ...ROW_NORMAL, paddingRight: '20px' }}>{fCurrency(g.valor)}</td>
-                          </tr>
-                        ))}
-                        <tr>
-                          <td style={{ ...TD_FIRST, ...ROW_TOTAL, textAlign: 'left' }}>Total bruto</td>
-                          <td style={{ ...TD_RIGHT, ...ROW_TOTAL, paddingRight: '20px' }}>{fCurrency(dp.total_bruto)}</td>
-                        </tr>
+                        {visible.map(o => {
+                          const bucket = dp[o.key]
+                          return (
+                            <Fragment key={o.key}>
+                              <tr style={{ background: 'hsl(var(--muted) / 0.4)' }}>
+                                <td style={{ ...TD_FIRST, fontWeight: 600 }}>{o.label}</td>
+                                <td style={{ ...TD_RIGHT, fontWeight: 600, paddingRight: '20px' }}>{fCurrency(bucket.total)}</td>
+                              </tr>
+                              {bucket.porGrupo.map(g => (
+                                <tr key={o.key + g.codigo}>
+                                  <td style={{ ...TD_FIRST, ...ROW_NORMAL, textAlign: 'left', paddingLeft: '36px', color: 'hsl(var(--muted-foreground))' }}>{g.label}</td>
+                                  <td style={{ ...TD_RIGHT, ...ROW_NORMAL, paddingRight: '20px' }}>{fCurrency(g.valor)}</td>
+                                </tr>
+                              ))}
+                            </Fragment>
+                          )
+                        })}
                       </tbody>
                     </table>
                   </div>

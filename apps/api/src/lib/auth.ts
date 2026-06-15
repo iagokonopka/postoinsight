@@ -117,6 +117,28 @@ export async function requireTenantSession(
   reply.status(403).send({ error: 'Usuário sem tenant ativo' })
 }
 
+/**
+ * preHandler de escrita sensível — exige role `owner` do tenant.
+ *
+ * Deve rodar SEMPRE depois de `requireTenantSession` (que popula req.role e
+ * req.platformRole). Platform users (superadmin/support) passam — operam em
+ * nome do suporte. Demais roles do tenant (manager/viewer) recebem 403.
+ *
+ * Uso: app.addHook('preHandler', requireTenantSession) e nas rotas de escrita
+ * { preHandler: requireOwnerRole }.
+ */
+export async function requireOwnerRole(
+  req: FastifyRequest,
+  reply: FastifyReply,
+): Promise<void> {
+  // Platform users (impersonação de suporte) têm passe livre
+  if (req.platformRole) return
+  if (req.role !== 'owner') {
+    reply.status(403).send({ error: 'Apenas o owner da rede pode executar esta ação' })
+    return
+  }
+}
+
 interface ExtractedToken {
   token: string
   /** Origem do token — define o salt a tentar */

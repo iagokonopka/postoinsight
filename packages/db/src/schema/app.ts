@@ -244,6 +244,30 @@ export const auditLog = appSchema.table('audit_log', {
 }))
 
 // ---------------------------------------------------------------------------
+// despesaClassificacao — classificação contábil de despesas por grupo
+// financeiro (tenant-scoped). Override não-destrutivo aplicado em tempo de
+// leitura no DRE; canonical/raw nunca são reescritos.
+//
+// accounting_type é validado na aplicação (ver ACCOUNTING_TYPES), não como
+// enum nativo, para evoluir sem DDL. Chave = grupo_financeiro_codigo (a
+// mv_despesa_grupo_mensal já faz COALESCE(codigo, '')).
+// Spec: docs/specs/admin-mapping.md
+// ---------------------------------------------------------------------------
+export const despesaClassificacao = appSchema.table('despesa_classificacao', {
+  id:                    uuid('id').primaryKey().defaultRandom(),
+  tenantId:              uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  grupoFinanceiroCodigo: text('grupo_financeiro_codigo').notNull(),
+  accountingType:        text('accounting_type').notNull(),
+  customLabel:           text('custom_label'),
+  createdBy:             uuid('created_by').notNull(),
+  createdAt:             timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt:             timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t): PgTableExtraConfig => ({
+  uqDespesaClassificacao: unique('uq_despesa_classificacao').on(t.tenantId, t.grupoFinanceiroCodigo),
+  idxDespesaClassificacaoTenant: index('idx_despesa_classificacao_tenant').on(t.tenantId),
+}))
+
+// ---------------------------------------------------------------------------
 // loginHistory
 // ---------------------------------------------------------------------------
 export const loginHistory = appSchema.table('login_history', {

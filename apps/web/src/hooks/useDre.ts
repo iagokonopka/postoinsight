@@ -40,21 +40,38 @@ export interface DreLinhaAPI {
   periodos: Record<string, DrePeriodo>
 }
 
-export interface DespesaGrupo {
-  grupo_financeiro: string
+export interface DespesaGrupoItem {
+  label: string
+  codigo: string
   valor: number
 }
 
-export interface DespesaPeriodo {
-  total_bruto: number
-  porGrupo: DespesaGrupo[]
+export interface DespesaBucket {
+  total: number
+  porGrupo: DespesaGrupoItem[]
+}
+
+/** Baldes de despesa por tipo contábil (Plano 2a). */
+export type DespesaBucketKey =
+  | 'operacional' | 'financeira' | 'imposto' | 'investimento'
+  | 'cmv' | 'nao_operacional' | 'nao_classificado'
+
+export type DespesaBuckets = Record<DespesaBucketKey, DespesaBucket>
+
+export interface ResultadoOperacional {
+  margem_bruta: number
+  despesa_operacional: number
+  resultado_operacional: number
+  margem_operacional_pct: number
 }
 
 export interface DreMensal {
   meses: string[]
   linhas: DreLinhaAPI[]
-  /** Anexo informativo de despesas (Plano 1) — bruto, não classificado. */
-  despesas?: Record<string, DespesaPeriodo>
+  /** Despesas classificadas por tipo contábil (Plano 2a). */
+  despesas?: Record<string, DespesaBuckets>
+  /** Resultado Operacional = Margem Bruta − despesa_operacional (Plano 2a). */
+  resultado_operacional?: Record<string, ResultadoOperacional>
 }
 
 export function useDreMensal(meses: string[]) {

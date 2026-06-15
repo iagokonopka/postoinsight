@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>PostoInsight — Classificação de Despesas (Análise para o Comercial)</title>
+<style>
+  :root{
+    --azul:#0073BB; --azul-escuro:#024d7d; --tinta:#1a2230; --cinza:#5b6675;
+    --linha:#e3e8ef; --fundo:#f6f8fb; --verde:#1a7f4b; --vermelho:#b3261e;
+    --amarelo:#b7791f; --amarelo-bg:#fef6e6;
+  }
+  *{box-sizing:border-box;}
+  html{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  body{
+    font-family:"Segoe UI",Helvetica,Arial,sans-serif;
+    color:var(--tinta); margin:0; font-size:11px; line-height:1.5;
+  }
+  .page{ width:210mm; min-height:297mm; padding:18mm 16mm; margin:0 auto; background:#fff; }
+  @media print{ .page{ margin:0; padding:14mm 14mm; } .page+ .page{ page-break-before:always; } }
+  h1{ font-size:24px; color:var(--azul-escuro); margin:0 0 4px; }
+  h2{ font-size:15px; color:var(--azul-escuro); margin:22px 0 8px; padding-bottom:5px; border-bottom:2px solid var(--azul); }
+  h3{ font-size:12.5px; color:var(--tinta); margin:16px 0 6px; }
+  p{ margin:7px 0; }
+  .sub{ color:var(--cinza); font-size:12px; margin:0; }
+  .meta{ color:var(--cinza); font-size:10px; margin-top:6px; }
+  .tag{ display:inline-block; background:var(--azul); color:#fff; font-size:10px; font-weight:600;
+        padding:2px 9px; border-radius:10px; letter-spacing:.4px; }
+  table{ width:100%; border-collapse:collapse; margin:8px 0 4px; font-size:10px; }
+  th{ background:var(--azul-escuro); color:#fff; text-align:left; padding:6px 8px; font-weight:600; }
+  td{ padding:5px 8px; border-bottom:1px solid var(--linha); }
+  tr:nth-child(even) td{ background:var(--fundo); }
+  .num{ text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .total td{ font-weight:700; background:#eef4fa !important; border-top:2px solid var(--azul); }
+  .box{ background:var(--fundo); border:1px solid var(--linha); border-left:4px solid var(--azul);
+        padding:12px 14px; border-radius:4px; margin:12px 0; }
+  .alerta{ background:var(--amarelo-bg); border-left-color:var(--amarelo); }
+  .destaque{ background:#eaf4fb; border-left-color:var(--azul); }
+  .kpi-row{ display:flex; gap:10px; margin:12px 0; }
+  .kpi{ flex:1; background:#fff; border:1px solid var(--linha); border-radius:6px; padding:10px 12px; }
+  .kpi .v{ font-size:19px; font-weight:700; color:var(--azul-escuro); }
+  .kpi .l{ font-size:9.5px; color:var(--cinza); text-transform:uppercase; letter-spacing:.4px; }
+  .pill{ display:inline-block; padding:1px 7px; border-radius:9px; font-size:9px; font-weight:600; }
+  .p-cmv{ background:#fde8e6; color:var(--vermelho); }
+  .p-op{ background:#e6f4ec; color:var(--verde); }
+  .p-inf{ background:#eef0f4; color:var(--cinza); }
+  ul{ margin:6px 0; padding-left:18px; } li{ margin:3px 0; }
+  .footer{ margin-top:14px; padding-top:8px; border-top:1px solid var(--linha); color:var(--cinza); font-size:9px; }
+  .check{ color:var(--verde); font-weight:700; } .x{ color:var(--vermelho); font-weight:700; }
+  .escolha{ background:#fff; border:1.5px solid var(--azul); border-radius:6px; padding:12px 14px; margin:10px 0; }
+  .escolha h3{ margin-top:0; color:var(--azul-escuro); }
+  .opt{ border:1px solid var(--linha); border-radius:4px; padding:8px 10px; margin:6px 0; }
+  .opt b{ color:var(--azul-escuro); }
+  .rec{ border-color:var(--verde); background:#f3faf6; }
+  .rec b{ color:var(--verde); }
+</style>
+</head>
+<body>
+
+<!-- ============================ PÁGINA 1 ============================ -->
+<div class="page">
+  <span class="tag">POSTOINSIGHT · DOCUMENTO INTERNO</span>
+  <h1>Classificação Contábil de Despesas</h1>
+  <p class="sub">Análise dos dados reais e recomendações para decisão do setor comercial</p>
+  <p class="meta">Rede analisada: Rede JAM (4 unidades) &nbsp;·&nbsp; Período: jan/2025 a jun/2026 &nbsp;·&nbsp; Gerado em 14/06/2026</p>
+
+  <h2>1. Sumário executivo</h2>
+  <p>
+    Hoje o PostoInsight já traz as despesas da rede do ERP (Status) para a plataforma. O problema é que
+    esse dado vem <b>todo misturado</b>: compra de combustível, compra de mercadoria, salários, impostos,
+    empréstimos, investimentos e movimentações internas de caixa estão todos no mesmo balde de "despesa".
+  </p>
+  <p>
+    Somar tudo isso e subtrair da margem daria um resultado <b>completamente errado</b>. A prova está no
+    próprio dado: descobrimos que <b>89,3% de todo o valor "de despesa" é apenas a compra de combustível</b> —
+    que <u>já é contabilizada como custo da venda</u>. Contá-la de novo dobraria o custo.
+  </p>
+  <p>
+    A solução é uma <b>camada de classificação</b>: cada grupo financeiro do ERP recebe um tipo contábil
+    (despesa operacional, imposto, investimento, etc.), definido <b>uma vez pelo cliente</b>. A partir daí o
+    DRE passa a mostrar o <b>Resultado Operacional real</b>. Este documento mostra o que os dados revelam e
+    quais decisões o comercial precisa validar para a feature ser desenhada corretamente.
+  </p>
+
+  <div class="kpi-row">
+    <div class="kpi"><div class="v">R$ 134,1 mi</div><div class="l">Total bruto lançado (18 meses)</div></div>
+    <div class="kpi"><div class="v">89,3%</div><div class="l">é compra de combustível (custo, não despesa)</div></div>
+    <div class="kpi"><div class="v">106</div><div class="l">grupos financeiros distintos</div></div>
+    <div class="kpi"><div class="v">~30</div><div class="l">grupos = 99% do valor (resto é cauda)</div></div>
+  </div>
+
+  <h2>2. O que os dados mostram</h2>
+  <h3>2.1 Panorama geral</h3>
+  <table>
+    <tr><th>Métrica</th><th class="num">Valor</th></tr>
+    <tr><td>Período coberto</td><td class="num">02/01/2025 a 05/06/2026</td></tr>
+    <tr><td>Lançamentos (baixas financeiras)</td><td class="num">10.962</td></tr>
+    <tr><td>Grupos financeiros distintos</td><td class="num">106</td></tr>
+    <tr><td>Unidades (locations)</td><td class="num">4</td></tr>
+    <tr><td>Valor total bruto</td><td class="num">R$ 134.097.150,35</td></tr>
+  </table>
+
+  <div class="box destaque">
+    <b>Descoberta central:</b> um único grupo — <b>"Combustíveis"</b> (compra da Ipiranga) — soma
+    <b>R$ 119,7 milhões (89,3%)</b>. Isso é o <b>custo da mercadoria vendida (CMV)</b>, já embutido no preço
+    de custo de cada venda. No DRE de despesa, esse grupo precisa ser marcado como <b>"CMV — não recontar"</b>.
+    Sem essa classificação, qualquer cálculo de resultado fica inutilizável.
+  </div>
+
+  <div class="footer">PostoInsight — Análise de despesas · pág. 1/3 · uso interno, não distribuir externamente</div>
+</div>
+
+<!-- ============================ PÁGINA 2 ============================ -->
+<div class="page">
+  <h3>2.2 Os grupos que concentram o valor (Pareto)</h3>
+  <p>Os 30 maiores grupos respondem por <b>99%</b> de todo o valor. A coluna "Tipo sugerido" antecipa a
+     recomendação da seção 4.</p>
+  <table>
+    <tr><th>#</th><th>Grupo financeiro</th><th class="num">Total (R$)</th><th class="num">% acum.</th><th>Tipo sugerido</th></tr>
+    <tr><td>11</td><td>Combustíveis</td><td class="num">119.732.913</td><td class="num">89,3%</td><td><span class="pill p-cmv">CMV</span></td></tr>
+    <tr><td>702</td><td>Cheque Troco</td><td class="num">2.750.200</td><td class="num">91,3%</td><td><span class="pill p-inf">não-operacional</span></td></tr>
+    <tr><td>513</td><td>Salários</td><td class="num">1.583.076</td><td class="num">92,5%</td><td><span class="pill p-op">operacional</span></td></tr>
+    <tr><td>580</td><td>Empréstimos Financeiros</td><td class="num">1.511.492</td><td class="num">93,6%</td><td><span class="pill p-inf">não-operacional</span></td></tr>
+    <tr><td>545</td><td>Locação / Aluguel</td><td class="num">899.740</td><td class="num">94,3%</td><td><span class="pill p-op">operacional</span></td></tr>
+    <tr><td>15</td><td>Conveniência</td><td class="num">606.563</td><td class="num">94,8%</td><td><span class="pill p-cmv">CMV</span></td></tr>
+    <tr><td>19</td><td>ARLA</td><td class="num">557.386</td><td class="num">95,2%</td><td><span class="pill p-cmv">CMV</span></td></tr>
+    <tr><td>12</td><td>Lubrificantes</td><td class="num">523.313</td><td class="num">95,6%</td><td><span class="pill p-cmv">CMV</span></td></tr>
+    <tr><td>546</td><td>Energia Elétrica</td><td class="num">485.568</td><td class="num">95,9%</td><td><span class="pill p-op">operacional</span></td></tr>
+    <tr><td>578</td><td>Empréstimo Posto 1</td><td class="num">315.827</td><td class="num">96,2%</td><td><span class="pill p-inf">não-operacional</span></td></tr>
+    <tr><td>515</td><td>Rescisões / Indenizações Trab.</td><td class="num">278.691</td><td class="num">96,4%</td><td><span class="pill p-op">operacional</span></td></tr>
+    <tr><td>505</td><td>Faltas e Sobras de Caixa</td><td class="num">276.278</td><td class="num">96,6%</td><td><span class="pill p-inf">não-operacional</span></td></tr>
+    <tr><td>561</td><td>Investimentos Estrutural</td><td class="num">248.599</td><td class="num">96,8%</td><td><span class="pill p-inf">investimento</span></td></tr>
+    <tr><td>550</td><td>Manut. Máq/Equip/Bombas/Pista</td><td class="num">242.510</td><td class="num">97,0%</td><td><span class="pill p-op">operacional</span></td></tr>
+    <tr><td>593</td><td>Manut. Softwares (Status/Netuna)</td><td class="num">230.637</td><td class="num">97,1%</td><td><span class="pill p-op">operacional</span></td></tr>
+    <tr><td>563</td><td>Fretes Michelog</td><td class="num">215.461</td><td class="num">97,3%</td><td><span class="pill p-op">operacional</span></td></tr>
+    <tr><td>520</td><td>Cestas Básicas</td><td class="num">203.499</td><td class="num">97,4%</td><td><span class="pill p-op">operacional</span></td></tr>
+    <tr><td>601</td><td>ICMS</td><td class="num">189.496</td><td class="num">97,6%</td><td><span class="pill p-inf">imposto</span></td></tr>
+    <tr><td>551</td><td>Manutenção Predial / Posto</td><td class="num">183.563</td><td class="num">97,7%</td><td><span class="pill p-op">operacional</span></td></tr>
+    <tr><td>519</td><td>FGTS</td><td class="num">165.595</td><td class="num">97,8%</td><td><span class="pill p-op">operacional</span></td></tr>
+    <tr><td>637</td><td>Despesas com Saque Pague</td><td class="num">158.360</td><td class="num">98,0%</td><td><span class="pill p-op">operacional</span></td></tr>
+    <tr><td>568</td><td>Perdas Financeiras</td><td class="num">143.000</td><td class="num">98,1%</td><td><span class="pill p-inf">financeira</span></td></tr>
+    <tr><td>587</td><td>Juros s/ Empréstimos Bancários</td><td class="num">134.705</td><td class="num">98,2%</td><td><span class="pill p-inf">financeira</span></td></tr>
+    <tr><td>925</td><td>Parcelamento de Impostos</td><td class="num">132.471</td><td class="num">98,3%</td><td><span class="pill p-inf">imposto</span></td></tr>
+    <tr><td>572</td><td>Auditorias e Consultorias</td><td class="num">129.405</td><td class="num">98,4%</td><td><span class="pill p-op">operacional</span></td></tr>
+    <tr><td>502</td><td>Propaganda e Publicidade</td><td class="num">126.501</td><td class="num">98,5%</td><td><span class="pill p-op">operacional</span></td></tr>
+    <tr><td>557</td><td>Honorários Advocatícios</td><td class="num">125.482</td><td class="num">98,5%</td><td><span class="pill p-op">operacional</span></td></tr>
+    <tr><td>598</td><td>IBAMA</td><td class="num">121.731</td><td class="num">98,6%</td><td><span class="pill p-inf">imposto</span></td></tr>
+    <tr><td>553</td><td>Despesas Veículos Empresa</td><td class="num">117.972</td><td class="num">98,7%</td><td><span class="pill p-op">operacional</span></td></tr>
+    <tr><td>556</td><td>Honorários Contador</td><td class="num">108.861</td><td class="num">98,8%</td><td><span class="pill p-op">operacional</span></td></tr>
+    <tr class="total"><td colspan="2">Demais 76 grupos (cauda)</td><td class="num">~1.470.000</td><td class="num">100,0%</td><td>—</td></tr>
+  </table>
+  <p class="meta">Fonte: <code>canonical.fato_despesa</code> (dado real de produção). Valores arredondados para leitura.</p>
+
+  <h3>2.3 O que NÃO ajuda a classificar (testado e descartado)</h3>
+  <table>
+    <tr><th>Sinal testado</th><th>Resultado no dado real</th><th>Decisão</th></tr>
+    <tr><td>Centro de custo</td><td>São apenas as 4 unidades, todas com o mesmo nome "Auto Posto JAM". Não diferencia natureza do gasto.</td><td><span class="x">descartado</span></td></tr>
+    <tr><td>Descrição do lançamento</td><td>Quase tudo é a palavra genérica "CARTEIRA". Sem informação útil.</td><td><span class="x">descartado</span></td></tr>
+    <tr><td><b>Grupo financeiro</b></td><td>Cada grupo tem natureza clara e consistente (Salários, ICMS, Aluguel…).</td><td><span class="check">é a chave</span></td></tr>
+  </table>
+  <div class="box">
+    <b>Conclusão técnica:</b> a classificação será feita <b>por grupo financeiro</b> — o cliente classifica o
+    grupo uma vez, e todo lançamento daquele grupo herda o tipo. Como ~30 grupos cobrem 99% do valor, na
+    prática o cliente resolve o essencial classificando poucos itens (e o de combustível sozinho resolve 89%).
+  </div>
+
+  <div class="footer">PostoInsight — Análise de despesas · pág. 2/3 · uso interno, não distribuir externamente</div>
+</div>
+
+<!-- ============================ PÁGINA 3 ============================ -->
+<div class="page">
+  <h2>3. Como a classificação funciona (em linguagem simples)</h2>
+  <ul>
+    <li><b>Não-destrutiva:</b> o dado original do ERP nunca é alterado. A classificação é uma "etiqueta" por cima — reversível a qualquer momento, e re-sincronizar o ERP nunca apaga o trabalho do cliente.</li>
+    <li><b>Por rede (tenant):</b> cada cliente define sua própria classificação. O que vale para a Rede JAM não interfere em outra rede.</li>
+    <li><b>Feita pelo dono:</b> apenas o perfil <i>owner</i> pode classificar (decisão contábil sensível).</li>
+    <li><b>Aplicada na leitura:</b> o DRE monta o resultado já considerando as etiquetas, na hora de exibir.</li>
+  </ul>
+
+  <h2>4. Taxonomia proposta (6 tipos)</h2>
+  <p>Cada grupo recebe <b>um</b> tipo. O tipo decide se o valor <b>entra no Resultado Operacional</b> (subtrai
+     da margem) ou aparece apenas como <b>informativo</b>. Nada é escondido — tudo fica visível, no balde certo.</p>
+  <table>
+    <tr><th>Tipo</th><th>Entra no Resultado Operacional?</th><th>Exemplos reais (Rede JAM)</th></tr>
+    <tr><td><b>Despesa operacional</b></td><td><span class="check">Sim — subtrai da margem</span></td><td>Salários, Aluguel, Energia, Manutenções, Fretes, Honorários, Propaganda, Pró-labore</td></tr>
+    <tr><td><b>Despesa financeira</b></td><td><span class="x">Não — informativo</span></td><td>Juros de empréstimo, Tarifa bancária, IOF, Perdas financeiras</td></tr>
+    <tr><td><b>Imposto</b></td><td><span class="x">Não — informativo</span></td><td>ICMS, PIS/COFINS, IPTU, IPVA, ISS, IBAMA, Parcelamento de impostos</td></tr>
+    <tr><td><b>Investimento</b></td><td><span class="x">Não — informativo (capex)</span></td><td>Investimentos estruturais, Novos postos, Energia solar, Máquinas</td></tr>
+    <tr><td><b>CMV (custo da venda)</b></td><td><span class="x">Não — já contado na venda</span></td><td>Combustíveis, Lubrificantes, ARLA, Conveniência, Bebidas, Lancheria</td></tr>
+    <tr><td><b>Não-operacional</b></td><td><span class="x">Não — movimento de capital/caixa</span></td><td>Empréstimos (principal), Retirada de lucro, Cheque troco, Faltas de caixa</td></tr>
+    <tr class="total"><td>Não classificado</td><td>Não (balde de espera)</td><td>Grupos que o cliente ainda não classificou — exibidos com aviso</td></tr>
+  </table>
+
+  <h2>5. Como o DRE fica (antes → depois)</h2>
+  <table>
+    <tr><th>Hoje (Plano 1)</th><th>Depois (com classificação)</th></tr>
+    <tr>
+      <td>Margem Bruta + "anexo de despesas brutas" (tudo misturado, com aviso de que não dá pra confiar)</td>
+      <td>Margem Bruta <b>−</b> Despesa Operacional <b>=</b> <b>Resultado Operacional</b>. Financeira, imposto, investimento e não-operacional aparecem em seções separadas, informativas.</td>
+    </tr>
+  </table>
+
+  <h2>6. Decisões que o comercial precisa validar</h2>
+
+  <div class="escolha">
+    <h3>Decisão A — Despesa financeira é um tipo próprio?</h3>
+    <div class="opt rec"><b>Recomendado:</b> Sim, tipo próprio "Despesa financeira", informativo, fora do Resultado Operacional. Reflete a contabilidade (resultado financeiro ≠ operacional) e dá visibilidade aos juros (R$ 130k+ reais na JAM).</div>
+    <div class="opt">Alternativa: juntar juros/tarifas dentro de "Despesa operacional" (mais simples, porém mistura custo financeiro com operacional).</div>
+  </div>
+
+  <div class="escolha">
+    <h3>Decisão B — Movimentos de capital e caixa (empréstimos, retirada de lucro, cheque troco)</h3>
+    <div class="opt rec"><b>Recomendado:</b> tipo "Não-operacional" — visível e informativo, mas não entra no resultado (não é despesa de operação, e sim movimento de capital/caixa).</div>
+    <div class="opt">Pró-labore (remuneração de sócio gestor) é a exceção: tratar como <b>despesa operacional</b>, pois é custo real de gestão. Retirada de lucro continua não-operacional.</div>
+  </div>
+
+  <div class="escolha">
+    <h3>Decisão C — Linha de destaque do DRE</h3>
+    <div class="opt rec"><b>Recomendado (MVP):</b> destacar o <b>Resultado Operacional</b> (Margem Bruta − Despesa operacional). Demais tipos como seções informativas abaixo.</div>
+    <div class="opt">Evolução futura: adicionar uma segunda linha "Resultado após financeiro e impostos" para uma visão de resultado mais completa.</div>
+  </div>
+
+  <div class="box alerta">
+    <b>Observação importante para o comercial:</b> mesmo sem nenhuma decisão acima, a feature já entrega valor
+    imediato ao permitir marcar o grupo <b>Combustíveis como CMV</b> — corrigindo de uma vez o erro de 89% no
+    cálculo. As decisões A, B e C apenas refinam o nível de detalhe do relatório.
+  </div>
+
+  <h2>7. Recomendação final</h2>
+  <p>
+    Adotar a <b>taxonomia de 6 tipos</b> (operacional, financeira, imposto, investimento, CMV, não-operacional)
+    com classificação <b>por grupo financeiro</b>, feita pelo dono da rede, aplicada de forma não-destrutiva.
+    Priorizar a tela de classificação <b>por valor</b> (maiores grupos primeiro), já que poucos grupos resolvem
+    quase todo o resultado. Começar destacando o <b>Resultado Operacional</b> no DRE.
+  </p>
+
+  <div class="footer">PostoInsight — Análise de despesas · pág. 3/3 · uso interno, não distribuir externamente</div>
+</div>
+
+</body>
+</html>

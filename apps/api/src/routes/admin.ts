@@ -5,6 +5,7 @@ import { db } from '../db.js'
 import { connectors, locations } from '@postoinsight/db'
 import { activeConnections } from './agent.js'
 import { startSyncJob } from '../lib/sync-jobs.js'
+import { requireTenantSession, requireOwnerRole } from '../lib/auth.js'
 
 interface BackfillBody {
   locationId: string
@@ -20,6 +21,11 @@ interface SyncDimProdutoBody {
 }
 
 export const adminRoutes: FastifyPluginAsync = async (app) => {
+  // Operações administrativas sensíveis (backfill, full sync). Exige sessão de
+  // tenant e role owner; platform users (superadmin/support) passam — operam
+  // via header x-tenant-id. Ver docs/specs/admin-mapping.md §5.
+  app.addHook('preHandler', requireTenantSession)
+  app.addHook('preHandler', requireOwnerRole)
 
   // ---------------------------------------------------------------------------
   // POST /admin/backfill

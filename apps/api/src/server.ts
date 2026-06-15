@@ -16,6 +16,7 @@ import { arlaRoutes } from './routes/arla.js'
 import { lubrificantesRoutes } from './routes/lubrificantes.js'
 import { usersRoutes } from './routes/users.js'
 import { connectorsRoutes } from './routes/connectors.js'
+import { adminMappingRoutes } from './routes/admin-mapping.js'
 
 const server = Fastify({
   logger: env.NODE_ENV === 'development'
@@ -60,6 +61,7 @@ await server.register(arlaRoutes,         { prefix: '/api/v1/arla' })
 await server.register(lubrificantesRoutes, { prefix: '/api/v1/lubrificantes' })
 await server.register(usersRoutes,         { prefix: '/api/v1/users' })
 await server.register(connectorsRoutes,    { prefix: '/api/v1/connectors' })
+await server.register(adminMappingRoutes,   { prefix: '/api/v1/admin' })
 
 server.get('/health', async () => ({ status: 'ok', ts: new Date().toISOString() }))
 

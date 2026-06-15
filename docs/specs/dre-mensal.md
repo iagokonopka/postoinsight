@@ -58,27 +58,36 @@ RECEITA BRUTA
 
 Cada linha existe para **cada segmento** e para o **consolidado** (soma de todos os segmentos).
 
-### 3.3 Anexo de Despesas (Plano 1 — informativo)
+### 3.3 Resultado Operacional (Plano 2a — implementado)
 
-Abaixo da Margem Bruta, o DRE exibe um **anexo informativo de despesas por grupo financeiro**,
-alimentado por `analytics.mv_despesa_grupo_mensal` (ver `docs/specs/despesas.md`):
+Abaixo da Margem Bruta, o DRE calcula o **Resultado Operacional** subtraindo apenas as despesas
+classificadas como `despesa_operacional`, via a camada de classificação contábil por grupo
+financeiro (ver `docs/specs/admin-mapping.md`). Override **não-destrutivo** aplicado em tempo de
+leitura — `canonical`/`raw` nunca são reescritos.
 
 ```
 (=) MARGEM BRUTA
+(-) Despesa Operacional         Σ grupos com accounting_type = 'despesa_operacional'
+(=) RESULTADO OPERACIONAL
+    Margem Operacional %  = Resultado Operacional / Receita Líquida
 ─────────────────────────────────────────────────
-DESPESAS (bruto, não classificado) — anexo informativo
-  Salários                 R$ ...
-  Energia Elétrica         R$ ...
-  Honorários Contador      R$ ...
-  ...                      R$ ...
-  Total bruto              R$ ...
-⚠ Inclui compras de mercadoria (CMV) e impostos. Resultado Operacional virá após classificação.
+Seções informativas (NÃO entram no Resultado Operacional):
+  Despesa Financeira   ·  Impostos  ·  Investimentos  ·  CMV (compras)
+  Não-operacional      ·  Não classificado (com aviso enquanto > 0)
 ```
 
-- **Não** subtrai da Margem Bruta nesta etapa.
-- A linha `(=) RESULTADO OPERACIONAL = Margem Bruta − Σ(despesa_operacional classificada)` e o
-  KPI de margem operacional entram no **Plano 2**, quando cada grupo financeiro recebe um tipo
-  contábil (`despesa_operacional` / `cmv` / `imposto` / `investimento` / `ignorar`).
+- Apenas `despesa_operacional` subtrai. Os demais tipos são exibidos, organizados por balde,
+  mas fora do número — refletindo que CMV já está no custo da venda, e que imposto/financeira/
+  investimento/capital não são despesa operacional.
+- Grupos **não classificados** ficam num balde próprio (passthrough): nunca entram no resultado
+  por engano; o DRE exibe aviso enquanto houver valor não classificado, com link para a tela de
+  classificação (`/configuracoes/mapeamento`, owner-only).
+- Tipos contábeis: `despesa_operacional` (entra) · `despesa_financeira` · `imposto` ·
+  `investimento` · `cmv` · `nao_operacional` (informativos) · default `nao_classificado`.
+
+> A `mv_dre_mensal` **não é alterada**. O cálculo é feito na API (`GET /api/v1/dre/mensal`),
+> que faz merge do mapa de classificação do tenant (`app.despesa_classificacao`) sobre
+> `mv_despesa_grupo_mensal` em tempo de leitura.
 
 ### 3.2 Colunas do DRE
 
