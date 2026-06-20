@@ -2,6 +2,7 @@
 
 /* ─────────────────────────────────────────────
    Tailwind v4 — theme tokens (mapeados para CSS vars)
+   Identidade "Executivo" (variant B) — ver ADR-017
    ───────────────────────────────────────────── */
 @theme inline {
   --color-background:          hsl(var(--background));
@@ -34,103 +35,138 @@
   --color-warning-subtle:      hsl(var(--warning-subtle));
   --color-danger-subtle:       hsl(var(--danger-subtle));
 
-  --font-sans: 'Geist', system-ui, -apple-system, sans-serif;
-  --font-mono: 'Geist Mono', 'JetBrains Mono', monospace;
+  --font-sans: 'Schibsted Grotesk', system-ui, -apple-system, sans-serif;
+  --font-mono: 'Schibsted Grotesk', system-ui, sans-serif;
 }
 
 /* ─────────────────────────────────────────────
-   CSS Custom Properties — Light mode (:root)
+   CSS Custom Properties — Modo claro (:root)
+   Paleta variant B "Executivo" + acento Petróleo (#0e8aa6)
    ───────────────────────────────────────────── */
 :root {
-  --background:           210 40% 98%;
-  --foreground:           222 47% 11%;
-  --card:                 0 0% 100%;
-  --card-foreground:      222 47% 11%;
+  --background:           48 23% 94%;     /* canvas morno  #f3f2ec */
+  --foreground:           45 12% 8%;      /* ink           #181712 */
+  --card:                 0 0% 100%;      /* surface       #ffffff */
+  --card-foreground:      45 12% 8%;
   --popover:              0 0% 100%;
-  --popover-foreground:   222 47% 11%;
-  --sidebar:              217 33% 17%;
-  --sidebar-foreground:   210 40% 96%;
-  --sidebar-muted:        215 25% 27%;
-  --sidebar-active:       204 100% 47%;
-  --sidebar-active-bg:    229 60% 8%;
-  --primary:              204 100% 37%;
-  --primary-foreground:   0 0% 100%;
-  --primary-subtle:       204 100% 95%;
-  --secondary:            210 40% 96%;
-  --secondary-foreground: 215 25% 27%;
-  --muted:                210 40% 96%;
-  --muted-foreground:     215 16% 47%;
-  --accent:               210 40% 96%;
-  --accent-foreground:    222 47% 11%;
-  --border:               214 32% 91%;
-  --input:                214 32% 91%;
-  --ring:                 204 100% 37%;
-  --success:              142 71% 45%;
-  --warning:              38 92% 50%;
-  --danger:               0 84% 60%;
-  --success-subtle:       138 76% 97%;
-  --warning-subtle:       48 100% 96%;
-  --danger-subtle:        0 86% 97%;
-  --radius:               0.5rem;
-  --radius-sm:            0.3rem;
-  --shadow-sm:  0 1px 2px 0 hsl(222 47% 11% / 0.05);
-  --shadow:     0 1px 3px 0 hsl(222 47% 11% / 0.08), 0 1px 2px -1px hsl(222 47% 11% / 0.08);
-  --shadow-md:  0 4px 6px -1px hsl(222 47% 11% / 0.08), 0 2px 4px -2px hsl(222 47% 11% / 0.08);
+  --popover-foreground:   45 12% 8%;
 
-  /* Density scale — default */
+  /* Sidebar escura "Executivo" */
+  --sidebar:              223 14% 10%;    /* rail-bg       #16181d */
+  --sidebar-foreground:   48 23% 93%;     /* rail-fg       #f2f1ea */
+  --sidebar-muted:        220 8% 30%;     /* bordas/sutil  #262a31 */
+  --sidebar-active:       191 55% 78%;    /* texto ativo   #a8dbe6 */
+  --sidebar-active-bg:    200 20% 15%;    /* fundo ativo (teal-tint) */
+
+  /* Acento Petróleo */
+  --primary:              191 84% 35%;    /* #0e8aa6 */
+  --primary-foreground:   0 0% 100%;
+  --primary-subtle:       191 55% 94%;    /* hero-bg #e6f5f9 */
+
+  --secondary:            48 14% 92%;
+  --secondary-foreground: 45 10% 23%;
+  --muted:                48 14% 92%;
+  --muted-foreground:     45 7% 40%;       /* #6c6a62 */
+  --accent:               48 14% 92%;
+  --accent-foreground:    45 12% 8%;
+  --border:               45 19% 88%;      /* hairline #e6e3da */
+  --input:                45 19% 88%;
+  --ring:                 191 84% 35%;
+
+  --success:              158 77% 30%;     /* up  #12895e */
+  --warning:              38 92% 45%;
+  --danger:               9 65% 47%;        /* down #c8412a */
+  --success-subtle:       150 45% 93%;
+  --warning-subtle:       42 90% 92%;
+  --danger-subtle:        20 73% 93%;       /* coral-bg #fbeae1 */
+
+  /* Heros (KPI destaque) */
+  --hero1-bg:             191 55% 94%;
+  --hero2-bg:             191 45% 95%;
+  --hero1-bar:            191 84% 35%;
+  --hero2-bar:            191 50% 57%;
+
+  --radius:               0.625rem;          /* 10px — variant B */
+  --radius-sm:            0.4rem;
+
+  --shadow-sm:  0 1px 2px 0 hsl(45 10% 18% / 0.06);
+  --shadow:     0 1px 3px 0 hsl(45 10% 18% / 0.08), 0 1px 2px -1px hsl(45 10% 18% / 0.08);
+  --shadow-md:  0 4px 6px -1px hsl(45 10% 18% / 0.09), 0 2px 4px -2px hsl(45 10% 18% / 0.08);
+  --shadow-card: 0 8px 8px hsl(45 10% 18% / 0.045), 0 3px 4px hsl(45 10% 18% / 0.05), 0 1px 2px hsl(45 10% 18% / 0.05), 0 0 0 1px hsl(45 10% 18% / 0.05);
+  --shadow-pop:  0 24px 48px -12px hsl(45 10% 18% / 0.28), 0 0 0 1px hsl(45 10% 18% / 0.06);
+
+  /* Tipografia "Executivo" */
+  --title-size:   26px;
+  --eyebrow-ls:   0.14em;
+  --accent-strip-display: block;   /* faixa de acento nos KPI cards */
+
+  /* Density scale — default (confortável) */
   --pad-card:     20px;
   --pad-card-y:   18px;
   --gap-grid:     16px;
   --gap-row:      20px;
   --kpi-pad:      18px;
-  --kpi-val-size: 24px;
+  --kpi-val-size: 26px;
   --row-pad-y:    11px;
 }
 
 /* ─────────────────────────────────────────────
-   Dark mode
+   Modo escuro
    ───────────────────────────────────────────── */
 html.dark {
-  --background:           222 47% 5%;
-  --foreground:           210 40% 98%;
-  --card:                 222 40% 8%;
-  --card-foreground:      210 40% 98%;
-  --popover:              222 40% 8%;
-  --popover-foreground:   210 40% 98%;
-  --sidebar:              222 50% 4%;
-  --sidebar-foreground:   210 40% 96%;
-  --sidebar-muted:        217 33% 15%;
-  --sidebar-active:       243 75% 65%;
-  --sidebar-active-bg:    222 50% 9%;
-  --primary:              243 75% 65%;
+  --background:           222 14% 9%;      /* #13151a */
+  --foreground:           220 17% 94%;     /* #edeff3 */
+  --card:                 222 14% 12%;     /* #1b1e24 */
+  --card-foreground:      220 17% 94%;
+  --popover:              222 14% 12%;
+  --popover-foreground:   220 17% 94%;
+
+  --sidebar:              220 16% 7%;       /* #101216 */
+  --sidebar-foreground:   220 17% 94%;
+  --sidebar-muted:        220 10% 28%;
+  --sidebar-active:       191 55% 70%;
+  --sidebar-active-bg:    200 30% 16%;
+
+  --primary:              191 60% 48%;
   --primary-foreground:   0 0% 100%;
-  --primary-subtle:       243 50% 18%;
-  --secondary:            215 25% 18%;
-  --secondary-foreground: 210 40% 96%;
-  --muted:                215 25% 14%;
-  --muted-foreground:     215 16% 60%;
-  --accent:               215 25% 18%;
-  --accent-foreground:    210 40% 98%;
-  --border:               215 25% 16%;
-  --input:                215 25% 16%;
-  --ring:                 243 75% 65%;
-  --success-subtle:       142 30% 14%;
-  --warning-subtle:       38 60% 14%;
-  --danger-subtle:        0 50% 16%;
-  /* success / warning / danger mantidos do light */
+  --primary-subtle:       191 40% 18%;
+
+  --secondary:            222 12% 18%;
+  --secondary-foreground: 220 17% 94%;
+  --muted:                222 12% 16%;
+  --muted-foreground:     220 7% 56%;       /* #888d97 */
+  --accent:               222 12% 18%;
+  --accent-foreground:    220 17% 94%;
+  --border:               222 13% 18%;      /* #282c33 */
+  --input:                222 13% 18%;
+  --ring:                 191 60% 48%;
+
+  --success-subtle:       158 30% 14%;
+  --warning-subtle:       38 40% 14%;
+  --danger-subtle:        9 40% 16%;
+
+  --hero1-bg:             191 40% 16%;
+  --hero2-bg:             191 30% 13%;
+
+  --shadow-sm:  0 1px 2px 0 hsl(0 0% 0% / 0.4);
+  --shadow:     0 1px 3px 0 hsl(0 0% 0% / 0.5), 0 1px 2px -1px hsl(0 0% 0% / 0.4);
+  --shadow-md:  0 4px 6px -1px hsl(0 0% 0% / 0.5), 0 2px 4px -2px hsl(0 0% 0% / 0.4);
+  --shadow-card: 0 0 0 1px hsl(0 0% 100% / 0.05), 0 6px 16px hsl(0 0% 0% / 0.42);
+  --shadow-pop:  0 24px 48px -12px hsl(0 0% 0% / 0.62), 0 0 0 1px hsl(0 0% 100% / 0.07);
 }
 
 /* ─────────────────────────────────────────────
-   Compact mode
+   Densidade compacta
    ───────────────────────────────────────────── */
 html.compact {
   --pad-card:     14px;
   --pad-card-y:   12px;
   --gap-grid:     12px;
   --gap-row:      14px;
-  --kpi-pad:      12px;
-  --kpi-val-size: 20px;
+  --kpi-pad:      13px;
+  --kpi-val-size: 22px;
   --row-pad-y:    8px;
+  --title-size:   23px;
 }
 
 /* ─────────────────────────────────────────────
@@ -147,7 +183,7 @@ html, body {
 }
 
 body {
-  font-family: 'Geist', system-ui, -apple-system, sans-serif;
+  font-family: 'Schibsted Grotesk', system-ui, -apple-system, sans-serif;
   background: hsl(var(--background));
   color: hsl(var(--foreground));
   font-size: 14px;
@@ -155,7 +191,7 @@ body {
   display: flex;
   overflow: hidden;
   -webkit-font-smoothing: antialiased;
-  font-feature-settings: 'cv11', 'ss01';
+  -moz-osx-font-smoothing: grayscale;
 }
 
 #root {
@@ -166,8 +202,9 @@ body {
    Utilitários globais
    ───────────────────────────────────────────── */
 .mono {
-  font-family: 'Geist Mono', 'JetBrains Mono', monospace;
-  font-feature-settings: 'tnum' 1;
+  font-family: 'Schibsted Grotesk', system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
 }
 
 .tnum {
@@ -178,8 +215,8 @@ body {
    Scrollbar
    ───────────────────────────────────────────── */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
@@ -200,13 +237,13 @@ body {
 }
 
 /* ─────────────────────────────────────────────
-   Responsive — Row grids collapse below 1180px
+   Responsive — Row grids colapsam abaixo de 1180px
    ───────────────────────────────────────────── */
 @media (max-width: 1180px) {
   .row-responsive { grid-template-columns: 1fr !important; }
 }
 
-/* Sidebar collapses on very small screens */
+/* Sidebar colapsa em telas muito pequenas */
 @media (max-width: 800px) {
   body { flex-direction: column; }
 }

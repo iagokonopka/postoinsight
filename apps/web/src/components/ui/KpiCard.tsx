@@ -38,15 +38,25 @@ export function KpiCard({ label, value, deltaMonth, deltaYear, deltaPP, sparkDat
     <div style={{
       position: 'relative',
       background: 'hsl(var(--card))',
-      border: '1px solid hsl(var(--border))',
       borderRadius: 'var(--radius)',
       padding: 'var(--kpi-pad)',
-      boxShadow: 'var(--shadow-sm)',
+      paddingLeft: 'calc(var(--kpi-pad) + 3px)',
+      boxShadow: 'var(--shadow-card)',
       overflow: 'hidden',
       display: 'flex',
       flexDirection: 'column',
       minHeight: '116px',
     }}>
+      {/* Faixa de acento — identidade "Executivo" (ADR-017) */}
+      <span style={{
+        display: 'var(--accent-strip-display, none)' as 'block' | 'none',
+        position: 'absolute',
+        left: 0,
+        top: 0,
+        bottom: 0,
+        width: '3px',
+        background: 'hsl(var(--primary))',
+      }} />
       {/* Label */}
       <div style={{
         fontSize: '11px',

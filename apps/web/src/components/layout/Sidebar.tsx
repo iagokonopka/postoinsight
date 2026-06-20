@@ -63,10 +63,10 @@ export function Sidebar() {
       }}>
         <LogoSvg />
         <div>
-          <div style={{ fontSize: '14px', fontWeight: 600, letterSpacing: '-0.2px', color: 'hsl(var(--sidebar-foreground))' }}>
-            PostoInsight
+          <div style={{ fontSize: '17px', fontWeight: 400, letterSpacing: '-0.02em', color: 'hsl(var(--sidebar-foreground))', lineHeight: 1 }}>
+            <b style={{ fontWeight: 700, color: 'hsl(var(--primary))' }}>posto</b><span style={{ opacity: 0.62 }}>insight</span>
           </div>
-          <span style={{ display: 'block', fontSize: '10px', fontWeight: 500, color: 'hsl(var(--sidebar-foreground) / 0.5)', letterSpacing: '0.4px', marginTop: '1px' }}>
+          <span style={{ display: 'block', fontSize: '10px', fontWeight: 600, color: 'hsl(var(--sidebar-foreground) / 0.5)', letterSpacing: '0.16em', textTransform: 'uppercase', marginTop: '4px' }}>
             {tenantName ? `BI · ${tenantName}` : 'BI'}
           </span>
         </div>
@@ -103,7 +103,7 @@ export function Sidebar() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '6px 8px', borderRadius: '6px' }}>
           <div style={{
             width: '28px', height: '28px', borderRadius: '6px',
-            background: 'linear-gradient(135deg, #0073BB, #6B40C4)',
+            background: 'linear-gradient(135deg, #0e8aa6, #0a6a80)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: '11px', fontWeight: 700, color: 'white',
             flexShrink: 0,
@@ -210,8 +210,8 @@ function LogoSvg() {
     <svg width="30" height="30" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
       <defs>
         <linearGradient id="g1" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#0073BB" />
-          <stop offset="100%" stopColor="#005f99" />
+          <stop offset="0%" stopColor="#0e8aa6" />
+          <stop offset="100%" stopColor="#0a6a80" />
         </linearGradient>
       </defs>
       <rect width="32" height="32" rx="8" fill="url(#g1)" />

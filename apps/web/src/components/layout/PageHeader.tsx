@@ -12,7 +12,7 @@ export function PageHeader({ title, subtitle, actions }: PageHeaderProps) {
   return (
     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px' }}>
       <div>
-        <h1 style={{ fontSize: '18px', fontWeight: 700, letterSpacing: '-0.3px', color: 'hsl(var(--foreground))', lineHeight: 1.2 }}>
+        <h1 style={{ fontSize: 'var(--title-size)', fontWeight: 600, letterSpacing: '-0.02em', color: 'hsl(var(--foreground))', lineHeight: 1.12 }}>
           {title}
         </h1>
         {subtitle && (

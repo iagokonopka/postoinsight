@@ -13,9 +13,8 @@ export function Card({ children, style }: CardProps) {
     <div style={{
       background: 'hsl(var(--card))',
       color: 'hsl(var(--card-foreground))',
-      border: '1px solid hsl(var(--border))',
       borderRadius: 'var(--radius)',
-      boxShadow: 'var(--shadow-sm)',
+      boxShadow: 'var(--shadow-card)',
       ...style,
     }}>
       {children}

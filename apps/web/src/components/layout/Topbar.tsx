@@ -208,7 +208,7 @@ export function Topbar() {
           width: '32px',
           height: '32px',
           borderRadius: '999px',
-          background: 'linear-gradient(135deg, #0073BB, #6B40C4)',
+          background: 'linear-gradient(135deg, #0e8aa6, #0a6a80)',
           color: 'white',
           fontSize: '11px',
           fontWeight: 700,

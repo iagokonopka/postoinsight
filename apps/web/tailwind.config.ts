@@ -49,8 +49,8 @@ const config: Config = {
         },
       },
       fontFamily: {
-        sans: ['Geist', 'system-ui', '-apple-system', 'sans-serif'],
-        mono: ['Geist Mono', 'JetBrains Mono', 'monospace'],
+        sans: ['Schibsted Grotesk', 'system-ui', '-apple-system', 'sans-serif'],
+        mono: ['Schibsted Grotesk', 'system-ui', 'sans-serif'],
       },
       borderRadius: {
         DEFAULT: 'var(--radius)',
