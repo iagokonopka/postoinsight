@@ -28,12 +28,12 @@ const SEG_CONFIG: Record<string, { label: string; color: string }> = {
 }
 const segLabel = (s: string) => SEG_CONFIG[s]?.label ?? s
 
-type SortKey = 'name' | 'receita' | 'margem' | 'volume'
-type DrawerKpi = 'receita' | 'margem'
+type SortKey = 'name' | 'revenue' | 'margin' | 'volume'
+type DrawerKpi = 'revenue' | 'margin'
 
 export default function VisaoGeralPage() {
   const { locationId, setLocationId } = useApp()
-  const [sortKey, setSortKey] = useState<SortKey>('receita')
+  const [sortKey, setSortKey] = useState<SortKey>('revenue')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
   const [drawerKpi, setDrawerKpi] = useState<DrawerKpi | null>(null)
 
@@ -54,21 +54,21 @@ export default function VisaoGeralPage() {
   for (const l of combByLocation?.locations ?? []) volByLoc.set(l.location_id, l.volume_litros)
 
   // ── Postos (ranking) ──
-  type PostoRow = { id: string; nome: string; receita: number; margem: number; volume: number; qtd: number }
-  const postosRaw: PostoRow[] = (byLocation?.locations ?? []).map(l => ({
+  type LocationRow = { id: string; name: string; revenue: number; margin: number; volume: number; qty: number }
+  const locationsRaw: LocationRow[] = (byLocation?.locations ?? []).map(l => ({
     id: l.location_id,
-    nome: l.location_nome,
-    receita: l.receita_bruta,
-    margem: l.margem_pct,
+    name: l.location_nome,
+    revenue: l.receita_bruta,
+    margin: l.margem_pct,
     volume: volByLoc.get(l.location_id) ?? 0,
-    qtd: l.qtd_venda,
+    qty: l.qtd_venda,
   }))
-  const margens = postosRaw.map(p => p.margem)
-  const maxMargem = margens.length ? Math.max(...margens) : 0
-  const minMargem = margens.length ? Math.min(...margens) : 0
-  const avgMargem = margens.length ? margens.reduce((s, m) => s + m, 0) / margens.length : 0
+  const margins = locationsRaw.map(p => p.margin)
+  const maxMargin = margins.length ? Math.max(...margins) : 0
+  const minMargin = margins.length ? Math.min(...margins) : 0
+  const avgMargin = margins.length ? margins.reduce((s, m) => s + m, 0) / margins.length : 0
 
-  const postos = [...postosRaw].sort((a, b) => {
+  const locations = [...locationsRaw].sort((a, b) => {
     const av = a[sortKey], bv = b[sortKey]
     const cmp = typeof av === 'string' ? av.localeCompare(bv as string) : (av as number) - (bv as number)
     return sortDir === 'desc' ? -cmp : cmp
@@ -92,19 +92,19 @@ export default function VisaoGeralPage() {
     .sort((a, b) => b.value - a.value)
 
   // ── Insights ──
-  const insights = deriveInsights(resumo?.por_segmento ?? [], postosRaw, t?.margem_pct ?? 0, avgMargem)
+  const insights = deriveInsights(resumo?.por_segmento ?? [], locationsRaw, t?.margem_pct ?? 0, avgMargin)
 
   // ── Drawer ──
   const drawerBars: HBarRow[] = drawerKpi
-    ? [...postosRaw]
+    ? [...locationsRaw]
         .map(p => {
-          const v = drawerKpi === 'receita' ? p.receita : p.receita * (p.margem / 100)
-          return { name: p.nome, value: v, label: fCompact(v) }
+          const v = drawerKpi === 'revenue' ? p.revenue : p.revenue * (p.margin / 100)
+          return { name: p.name, value: v, label: fCompact(v) }
         })
         .sort((a, b) => b.value - a.value)
     : []
-  const drawerSpark = (evolucao?.serie ?? []).map(p => (drawerKpi === 'receita' ? p.receita_bruta : p.margem_bruta))
-  const drawerValue = drawerKpi === 'receita' ? t?.receita_liquida : t?.margem_bruta
+  const drawerSpark = (evolucao?.serie ?? []).map(p => (drawerKpi === 'revenue' ? p.receita_bruta : p.margem_bruta))
+  const drawerValue = drawerKpi === 'revenue' ? t?.receita_liquida : t?.margem_bruta
 
   return (
     <Page>
@@ -112,8 +112,8 @@ export default function VisaoGeralPage() {
 
       {/* KPIs — uniformes; 2 primeiros abrem drawer (hint "ABRIR") */}
       <KpiGrid cols={5}>
-        <KpiCard label="Receita líquida" value={t ? fCompact(t.receita_liquida) : '—'} valueTitle={t ? fCurrency(t.receita_liquida) : undefined} delta={pctChange(t?.receita_liquida, tp?.receita_liquida)} onClick={() => setDrawerKpi('receita')} />
-        <KpiCard label="Margem bruta" value={t ? fCompact(t.margem_bruta) : '—'} valueTitle={t ? fCurrency(t.margem_bruta) : undefined} delta={pctChange(t?.margem_bruta, tp?.margem_bruta)} onClick={() => setDrawerKpi('margem')} />
+        <KpiCard label="Receita líquida" value={t ? fCompact(t.receita_liquida) : '—'} valueTitle={t ? fCurrency(t.receita_liquida) : undefined} delta={pctChange(t?.receita_liquida, tp?.receita_liquida)} onClick={() => setDrawerKpi('revenue')} />
+        <KpiCard label="Margem bruta" value={t ? fCompact(t.margem_bruta) : '—'} valueTitle={t ? fCurrency(t.margem_bruta) : undefined} delta={pctChange(t?.margem_bruta, tp?.margem_bruta)} onClick={() => setDrawerKpi('margin')} />
         <KpiCard label="Margem bruta %" value={t ? fPct(t.margem_pct, 1) : '—'} delta={t && tp ? t.margem_pct - tp.margem_pct : undefined} deltaPP />
         <KpiCard label="Volume de combustível" value={combResumo ? fLiters(combResumo.totais.volume_litros) : '—'} valueTitle={combResumo ? fInt(combResumo.totais.volume_litros) + ' L' : undefined} delta={pctChange(combResumo?.totais.volume_litros, combPrev?.totais.volume_litros)} />
         <KpiCard label="Ticket médio" value="—" />
@@ -150,31 +150,31 @@ export default function VisaoGeralPage() {
       {/* Postos da rede */}
       <Card>
         <CardHeader eyebrow="Ranking" title="Postos da rede" />
-        {postosRaw.length === 0 ? (
+        {locationsRaw.length === 0 ? (
           <div style={{ padding: '0 var(--pad-card) var(--pad-card-y)' }}><EmptyState title="Sem dados" description="Nenhum posto no período." /></div>
         ) : (
           <TableWrap>
             <Table>
               <Thead>
                 <SortableTh first label="Posto" col="name" active={sortKey} dir={sortDir} onSort={toggleSort} />
-                <SortableTh right label="Receita líq." col="receita" active={sortKey} dir={sortDir} onSort={toggleSort} />
-                <SortableTh right label="Margem" col="margem" active={sortKey} dir={sortDir} onSort={toggleSort} />
+                <SortableTh right label="Receita líq." col="revenue" active={sortKey} dir={sortDir} onSort={toggleSort} />
+                <SortableTh right label="Margem" col="margin" active={sortKey} dir={sortDir} onSort={toggleSort} />
                 <SortableTh right label="Volume" col="volume" active={sortKey} dir={sortDir} onSort={toggleSort} />
                 <Th right last>Ticket médio</Th>
               </Thead>
               <Tbody>
-                {postos.map(p => {
-                  const flag = p.margem === maxMargem ? 'pos' : p.margem === minMargem ? 'neg' : ''
+                {locations.map(p => {
+                  const flag = p.margin === maxMargin ? 'pos' : p.margin === minMargin ? 'neg' : ''
                   return (
                     <Tr key={p.id} clickable onClick={() => setLocationId(p.id === locationId ? null : p.id)}>
                       <Td first>
                         <span style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
                           <span style={{ width: 3, height: 16, borderRadius: 3, flexShrink: 0, background: flag === 'pos' ? 'hsl(var(--success))' : flag === 'neg' ? 'hsl(var(--danger))' : 'transparent' }} />
-                          <b style={{ fontWeight: 550 }}>{p.nome}</b>
+                          <b style={{ fontWeight: 550 }}>{p.name}</b>
                         </span>
                       </Td>
-                      <Td right>{fCompact(p.receita)}</Td>
-                      <Td right><b style={{ color: p.margem >= 0 ? 'hsl(var(--success))' : 'hsl(var(--danger))' }}>{fPct(p.margem, 1)}</b></Td>
+                      <Td right>{fCompact(p.revenue)}</Td>
+                      <Td right><b style={{ color: p.margin >= 0 ? 'hsl(var(--success))' : 'hsl(var(--danger))' }}>{fPct(p.margin, 1)}</b></Td>
                       <Td right>{p.volume > 0 ? fLiters(p.volume) : <span style={{ color: 'hsl(var(--muted-foreground))' }}>—</span>}</Td>
                       <Td right last><span style={{ color: 'hsl(var(--muted-foreground))' }}>—</span></Td>
                     </Tr>
@@ -190,7 +190,7 @@ export default function VisaoGeralPage() {
       <Drawer
         open={drawerKpi !== null}
         onClose={() => setDrawerKpi(null)}
-        title={drawerKpi === 'receita' ? 'Receita líquida' : 'Margem bruta'}
+        title={drawerKpi === 'revenue' ? 'Receita líquida' : 'Margem bruta'}
       >
         <div style={{ fontVariantNumeric: 'tabular-nums', fontSize: 34, fontWeight: 600, letterSpacing: '-0.02em', color: 'hsl(var(--foreground))', marginBottom: 24 }} className="mono">
           {drawerValue != null ? fCurrency(drawerValue) : '—'}
@@ -206,7 +206,7 @@ export default function VisaoGeralPage() {
             : <div style={{ fontSize: 13, color: 'hsl(var(--muted-foreground))' }}>Sem série no período.</div>}
         </div>
         <p style={{ fontSize: 13.5, lineHeight: 1.55, color: 'hsl(var(--muted-foreground))' }}>
-          {drawerKpi === 'receita'
+          {drawerKpi === 'revenue'
             ? 'A receita líquida soma o que entrou em todos os segmentos, já descontados impostos e devoluções. Toque em um posto no ranking para isolar a leitura.'
             : 'A margem bruta é o que sobra depois do custo da mercadoria vendida — o termômetro de saúde antes das despesas fixas.'}
         </p>
@@ -251,25 +251,25 @@ const SEV_STYLE: Record<Severity, { dot: string; tagBg: string; tagColor: string
 }
 
 interface SegLike { segmento: string; receita_bruta: number; margem_pct: number; participacao_pct: number }
-interface PostoLike { nome: string; receita: number; margem: number }
+interface LocationLike { name: string; revenue: number; margin: number }
 
-function deriveInsights(segmentos: SegLike[], postos: PostoLike[], margemGeral: number, avgMargem: number): Insight[] {
+function deriveInsights(segments: SegLike[], locations: LocationLike[], overallMargin: number, avgMargin: number): Insight[] {
   const out: Insight[] = []
-  const comReceita = segmentos.filter(s => s.receita_bruta > 0)
+  const withRevenue = segments.filter(s => s.receita_bruta > 0)
 
-  const top = [...comReceita].sort((a, b) => b.participacao_pct - a.participacao_pct)[0]
+  const top = [...withRevenue].sort((a, b) => b.participacao_pct - a.participacao_pct)[0]
   if (top) out.push({ sev: 'positivo', tag: 'Mix', text: <><b>{segLabel(top.segmento)}</b> responde por <b>{fPct(top.participacao_pct, 0)}</b> da receita do período.</> })
 
-  if (postos.length > 1) {
-    const pior = [...postos].sort((a, b) => a.margem - b.margem)[0]
-    const melhor = [...postos].sort((a, b) => b.margem - a.margem)[0]
-    const gapPior = avgMargem - pior.margem
-    if (gapPior > 0.5) out.push({ sev: 'alerta', tag: 'Postos', text: <><b>{pior.nome}</b> está com margem de <b>{fPct(pior.margem, 1)}</b> — {fPct(gapPior, 1)} abaixo da média da rede ({fPct(avgMargem, 1)}).</> })
-    if (melhor.margem - avgMargem > 0.5) out.push({ sev: 'positivo', tag: 'Postos', text: <><b>{melhor.nome}</b> lidera a rede em rentabilidade: margem <b>{fPct(melhor.margem, 1)}</b>.</> })
+  if (locations.length > 1) {
+    const worst = [...locations].sort((a, b) => a.margin - b.margin)[0]
+    const best = [...locations].sort((a, b) => b.margin - a.margin)[0]
+    const worstGap = avgMargin - worst.margin
+    if (worstGap > 0.5) out.push({ sev: 'alerta', tag: 'Postos', text: <><b>{worst.name}</b> está com margem de <b>{fPct(worst.margin, 1)}</b> — {fPct(worstGap, 1)} abaixo da média da rede ({fPct(avgMargin, 1)}).</> })
+    if (best.margin - avgMargin > 0.5) out.push({ sev: 'positivo', tag: 'Postos', text: <><b>{best.name}</b> lidera a rede em rentabilidade: margem <b>{fPct(best.margin, 1)}</b>.</> })
   }
 
-  const piorSeg = [...comReceita].sort((a, b) => a.margem_pct - b.margem_pct)[0]
-  if (piorSeg && piorSeg.margem_pct < margemGeral) out.push({ sev: 'neutro', tag: 'Margem', text: <><b>{segLabel(piorSeg.segmento)}</b> opera com a menor margem entre os segmentos ({fPct(piorSeg.margem_pct, 1)}).</> })
+  const worstSeg = [...withRevenue].sort((a, b) => a.margem_pct - b.margem_pct)[0]
+  if (worstSeg && worstSeg.margem_pct < overallMargin) out.push({ sev: 'neutro', tag: 'Margem', text: <><b>{segLabel(worstSeg.segmento)}</b> opera com a menor margem entre os segmentos ({fPct(worstSeg.margem_pct, 1)}).</> })
 
   return out
 }
