@@ -27,20 +27,26 @@ export function Card({ children, style }: CardProps) {
 interface CardHeaderProps {
   title: string
   description?: string
-  action?: ReactNode  // right-side slot (buttons, selects)
+  eyebrow?: string    // sobretítulo uppercase (cabeçalho dos chart cards do design)
+  action?: ReactNode  // right-side slot (buttons, selects, legenda)
 }
 
-export function CardHeader({ title, description, action }: CardHeaderProps) {
+export function CardHeader({ title, description, eyebrow, action }: CardHeaderProps) {
   return (
     <div style={{
-      padding: 'var(--pad-card-y) var(--pad-card) 8px',
+      padding: 'var(--pad-card-y) var(--pad-card) 14px',
       display: 'flex',
       alignItems: 'flex-start',
       justifyContent: 'space-between',
       gap: '12px',
     }}>
-      <div>
-        <div style={{ fontSize: '13px', fontWeight: 600, color: 'hsl(var(--foreground))', letterSpacing: '-0.1px' }}>
+      <div style={{ minWidth: 0 }}>
+        {eyebrow && (
+          <div className="mono" style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'hsl(var(--muted-foreground))', marginBottom: '5px' }}>
+            {eyebrow}
+          </div>
+        )}
+        <div style={{ fontSize: eyebrow ? '16px' : '14px', fontWeight: 600, color: 'hsl(var(--foreground))', letterSpacing: '-0.01em' }}>
           {title}
         </div>
         {description && (
@@ -50,6 +56,21 @@ export function CardHeader({ title, description, action }: CardHeaderProps) {
         )}
       </div>
       {action && <div style={{ flexShrink: 0 }}>{action}</div>}
+    </div>
+  )
+}
+
+// ─── Legenda discreta (canto sup-direito dos chart cards) ─────────────────────
+
+export function ChartLegend({ items }: { items: { label: string; color: string }[] }) {
+  return (
+    <div style={{ display: 'flex', gap: 14, flexShrink: 0 }}>
+      {items.map(it => (
+        <span key={it.label} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: 'hsl(var(--muted-foreground))' }}>
+          <span style={{ width: 8, height: 8, borderRadius: 8, background: it.color }} />
+          {it.label}
+        </span>
+      ))}
     </div>
   )
 }
@@ -103,16 +124,20 @@ const GRID_MIN: Record<KpiGridCols, string> = {
 
 interface KpiGridProps {
   cols?: KpiGridCols
+  template?: string   // override do grid-template-columns (ex.: heros mais largos)
   children: ReactNode
 }
 
-export function KpiGrid({ cols = 4, children }: KpiGridProps) {
+export function KpiGrid({ cols = 4, template, children }: KpiGridProps) {
   return (
-    <div style={{
-      display: 'grid',
-      gap: 'var(--gap-grid)',
-      gridTemplateColumns: `repeat(auto-fit, minmax(${GRID_MIN[cols]}, 1fr))`,
-    }}>
+    <div
+      className="kpi-grid-responsive"
+      style={{
+        display: 'grid',
+        gap: 'var(--gap-grid)',
+        gridTemplateColumns: template ?? `repeat(auto-fit, minmax(${GRID_MIN[cols]}, 1fr))`,
+      }}
+    >
       {children}
     </div>
   )

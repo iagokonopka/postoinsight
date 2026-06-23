@@ -32,6 +32,17 @@ export function periodToRange(period: Period): { data_inicio: string; data_fim: 
   return { data_inicio: fmt(first), data_fim: fmt(last) }
 }
 
+/** Range imediatamente anterior, com a mesma quantidade de dias (para comparação de KPIs). */
+export function previousRange(period: Period): { data_inicio: string; data_fim: string } {
+  const { data_inicio, data_fim } = periodToRange(period)
+  const start = new Date(data_inicio + 'T00:00:00')
+  const end   = new Date(data_fim + 'T00:00:00')
+  const days  = Math.round((end.getTime() - start.getTime()) / 86_400_000) + 1
+  const prevEnd   = new Date(start); prevEnd.setDate(start.getDate() - 1)
+  const prevStart = new Date(prevEnd); prevStart.setDate(prevEnd.getDate() - (days - 1))
+  return { data_inicio: fmt(prevStart), data_fim: fmt(prevEnd) }
+}
+
 export function periodLabel(period: Period): string {
   const labels: Record<Period, string> = {
     hoje:    'Hoje',

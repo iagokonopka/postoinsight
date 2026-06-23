@@ -1,7 +1,7 @@
 // TanStack Query hooks for /api/v1/vendas/*
 import { useQuery } from '@tanstack/react-query'
 import { useApp } from '@/context/AppContext'
-import { periodToRange, buildQS } from '@/lib/periods'
+import { periodToRange, previousRange, buildQS } from '@/lib/periods'
 import { apiUrl } from '@/lib/api'
 
 async function get<T>(url: string): Promise<T> {
@@ -45,6 +45,18 @@ export function useVendasResumo() {
   const qs = buildQS(params)
   return useQuery<VendasResumo>({
     queryKey: ['vendas', 'resumo', params],
+    queryFn: () => get(`/api/v1/vendas/resumo${qs}`),
+  })
+}
+
+/** Resumo do período anterior — para deltas dos KPIs. */
+export function useVendasResumoPrev() {
+  const { period, locationId } = useApp()
+  const { data_inicio, data_fim } = previousRange(period)
+  const params = { data_inicio, data_fim, location_id: locationId ?? undefined }
+  const qs = buildQS(params)
+  return useQuery<VendasResumo>({
+    queryKey: ['vendas', 'resumo', 'prev', params],
     queryFn: () => get(`/api/v1/vendas/resumo${qs}`),
   })
 }

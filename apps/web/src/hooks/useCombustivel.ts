@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { useApp } from '@/context/AppContext'
-import { periodToRange, buildQS } from '@/lib/periods'
+import { periodToRange, previousRange, buildQS } from '@/lib/periods'
 import { apiUrl } from '@/lib/api'
 
 async function get<T>(url: string): Promise<T> {
@@ -53,6 +53,18 @@ export function useCombustivelResumo() {
   })
 }
 
+/** Resumo do período anterior — para deltas dos KPIs. */
+export function useCombustivelResumoPrev() {
+  const { period, locationId } = useApp()
+  const { data_inicio, data_fim } = previousRange(period)
+  const params = { data_inicio, data_fim, location_id: locationId ?? undefined }
+  const qs = buildQS(params)
+  return useQuery<CombustivelResumo>({
+    queryKey: ['combustivel', 'resumo', 'prev', params],
+    queryFn: () => get(`/api/v1/combustivel/resumo${qs}`),
+  })
+}
+
 // ─── /api/v1/combustivel/evolucao?por_produto=true ────────────────────────────
 
 export interface CombEvolucaoProduto {
@@ -72,6 +84,34 @@ export function useCombustivelEvolucaoPorProduto(granularidade: 'dia' | 'semana'
   return useQuery<{ granularidade: string; por_produto: true; produtos: CombEvolucaoProduto[] }>({
     queryKey: ['combustivel', 'evolucao', 'por_produto', params, granularidade],
     queryFn: () => get(`/api/v1/combustivel/evolucao${qs}`),
+  })
+}
+
+// ─── /api/v1/combustivel/subgrupos ───────────────────────────────────────────
+// Nível subgrupo = produtos reais (Gasolina Comum, Diesel S10, Etanol, …).
+// Inclui CB e ARL; o frontend filtra Arla (descrição ~ /arla/i) na aba Combustível.
+
+export interface CombustivelSubgrupo {
+  subgrupo_id: number
+  subgrupo_descricao: string
+  volume_litros: number
+  receita_bruta: number
+  receita_liquida: number
+  cmv: number
+  margem_bruta: number
+  margem_pct: number
+  preco_medio_litro: number | null
+  custo_medio_litro: number | null
+  participacao_volume_pct: number
+  participacao_receita_pct: number
+}
+
+export function useCombustivelSubgrupos() {
+  const params = useBaseParams()
+  const qs = buildQS(params)
+  return useQuery<{ subgrupos: CombustivelSubgrupo[] }>({
+    queryKey: ['combustivel', 'subgrupos', params],
+    queryFn: () => get(`/api/v1/combustivel/subgrupos${qs}`),
   })
 }
 

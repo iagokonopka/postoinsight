@@ -1,6 +1,6 @@
-// KpiCard — spec: FRONTEND_TODO Bloco 5
-import type { ReactNode } from 'react'
-import { Sparkline } from './Sparkline'
+// KpiCard — identidade "Executivo" (ADR-017). Cards uniformes e compactos.
+// Clicável: hover revela o hint "ABRIR" (sem azul) + leve elevação.
+import { useState, type ReactNode } from 'react'
 
 interface DeltaTagProps {
   value: number
@@ -24,121 +24,86 @@ export function DeltaTag({ value, isPP }: DeltaTagProps) {
 
 interface KpiCardProps {
   label: string
-  value: string           // formatted value — caller does the formatting
-  deltaMonth?: number     // % vs mês ant. (undefined = hide)
-  deltaYear?: number      // % vs ano ant. (undefined = hide)
-  deltaPP?: boolean       // if true, unit is "p.p." instead of "%"
-  sparkData?: number[]    // series for sparkline
-  sparkColor?: string     // sparkline stroke/fill color
-  icon?: ReactNode        // 12×12 icon (optional)
+  value: string           // valor formatado — caller formata
+  valueTitle?: string     // tooltip com o valor cheio
+  delta?: number          // variação vs. período anterior (% ou p.p.)
+  deltaPP?: boolean        // se true, unidade é "p.p."
+  deltaLabel?: string      // legenda do delta (default "vs. período anterior")
+  icon?: ReactNode
+  onClick?: () => void     // torna o card clicável (abre drawer) + mostra hint
+  hint?: string            // rótulo no hover de card clicável (default "ABRIR")
+  // compat (ignorados no visual compacto):
+  sparkData?: number[]
+  sparkColor?: string
+  deltaMonth?: number
+  deltaYear?: number
 }
 
-export function KpiCard({ label, value, deltaMonth, deltaYear, deltaPP, sparkData, sparkColor = '#0073BB', icon }: KpiCardProps) {
+export function KpiCard({ label, value, valueTitle, delta, deltaPP, deltaLabel = 'vs. período anterior', icon, onClick, hint = 'ABRIR' }: KpiCardProps) {
+  const [hover, setHover] = useState(false)
+  const clickable = !!onClick
+
   return (
-    <div style={{
-      position: 'relative',
-      background: 'hsl(var(--card))',
-      borderRadius: 'var(--radius)',
-      padding: 'var(--kpi-pad)',
-      paddingLeft: 'calc(var(--kpi-pad) + 3px)',
-      boxShadow: 'var(--shadow-card)',
-      overflow: 'hidden',
-      display: 'flex',
-      flexDirection: 'column',
-      minHeight: '116px',
-    }}>
-      {/* Faixa de acento — identidade "Executivo" (ADR-017) */}
-      <span style={{
-        display: 'var(--accent-strip-display, none)' as 'block' | 'none',
-        position: 'absolute',
-        left: 0,
-        top: 0,
-        bottom: 0,
-        width: '3px',
-        background: 'hsl(var(--primary))',
-      }} />
-      {/* Label */}
-      <div style={{
-        fontSize: '11px',
-        fontWeight: 500,
-        color: 'hsl(var(--muted-foreground))',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '6px',
-        whiteSpace: 'nowrap',
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
+    <div
+      onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
         position: 'relative',
-        zIndex: 1,
+        background: 'hsl(var(--card))',
+        borderRadius: 'var(--radius)',
+        padding: '14px 16px',
+        boxShadow: clickable && hover ? 'var(--shadow-pop)' : 'var(--shadow-card)',
+        overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '6px',
+        minHeight: '90px',
+        cursor: clickable ? 'pointer' : 'default',
+        transform: clickable && hover ? 'translateY(-1px)' : 'none',
+        transition: 'box-shadow 0.16s, transform 0.16s',
+      }}
+    >
+      {/* Label + hint "ABRIR" */}
+      <div style={{
+        fontSize: '12px', fontWeight: 500, color: 'hsl(var(--muted-foreground))',
+        display: 'flex', alignItems: 'center', gap: '7px',
+        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
       }}>
         {icon && <span style={{ width: '12px', height: '12px', opacity: 0.7, flexShrink: 0 }}>{icon}</span>}
         {label}
+        {clickable && (
+          <span className="mono" style={{
+            marginLeft: 'auto', fontSize: '9.5px', letterSpacing: '0.1em', textTransform: 'uppercase',
+            color: 'hsl(var(--muted-foreground))', opacity: hover ? 1 : 0, transition: 'opacity 0.16s', flexShrink: 0,
+          }}>
+            {hint}
+          </span>
+        )}
       </div>
 
-      {/* Value */}
-      <div style={{
-        fontSize: 'var(--kpi-val-size)',
-        fontWeight: 600,
-        letterSpacing: '-0.6px',
-        color: 'hsl(var(--foreground))',
-        margin: '6px 0 8px',
-        lineHeight: 1.1,
-        fontVariantNumeric: 'tabular-nums',
-        whiteSpace: 'nowrap',
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        position: 'relative',
-        zIndex: 1,
+      {/* Valor */}
+      <div className="mono" title={valueTitle} style={{
+        fontSize: 'var(--kpi-val-size)', fontWeight: 600, letterSpacing: '-0.02em',
+        color: 'hsl(var(--foreground))', lineHeight: 1.05,
+        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
       }}>
         {value}
       </div>
 
-      {/* Deltas */}
-      {(deltaMonth !== undefined || deltaYear !== undefined) && (
-        <div style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '2px',
-          fontSize: '11px',
-          color: 'hsl(var(--muted-foreground))',
-          marginTop: 'auto',
-          position: 'relative',
-          zIndex: 1,
-        }}>
-          {deltaMonth !== undefined && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <DeltaTag value={deltaMonth} isPP={deltaPP} />
-              <span style={{ fontSize: '11px', color: 'hsl(var(--muted-foreground))', whiteSpace: 'nowrap' }}>
-                vs mês ant.
-              </span>
-            </div>
-          )}
-          {deltaYear !== undefined && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <DeltaTag value={deltaYear} isPP={deltaPP} />
-              <span style={{ fontSize: '11px', color: 'hsl(var(--muted-foreground))', whiteSpace: 'nowrap' }}>
-                vs ano ant.
-              </span>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Sparkline — absolute background */}
-      {sparkData && sparkData.length >= 2 && (
-        <div style={{
-          position: 'absolute',
-          left: '-2px',
-          right: '-2px',
-          top: 0,
-          bottom: '-1px',
-          opacity: 0.28,
-          pointerEvents: 'none',
-          zIndex: 0,
-        }}>
-          <Sparkline data={sparkData} color={sparkColor} width="100%" height="100%" />
-        </div>
-      )}
+      {/* Delta vs. período anterior — sinal +/− */}
+      {delta !== undefined && (() => {
+        const zero = Math.abs(delta) < 0.05
+        const sign = delta > 0 ? '+' : delta < 0 ? '−' : ''
+        const unit = deltaPP ? ' p.p.' : '%'
+        const color = zero ? 'hsl(var(--muted-foreground))' : delta > 0 ? 'hsl(var(--success))' : 'hsl(var(--danger))'
+        return (
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '7px', marginTop: 'auto' }}>
+            <span className="mono" style={{ fontWeight: 600, fontSize: '12px', color }}>{sign}{Math.abs(delta).toFixed(1).replace('.', ',')}{unit}</span>
+            <span style={{ color: 'hsl(var(--muted-foreground))', whiteSpace: 'nowrap', fontSize: '11px' }}>{deltaLabel}</span>
+          </div>
+        )
+      })()}
     </div>
   )
 }

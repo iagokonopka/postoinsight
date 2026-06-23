@@ -1,20 +1,25 @@
 // Chart color constants — matches design_example/postoinsight/charts.js
 
+// Paleta de segmentos — identidade "Executivo" (ADR-017), espelha o design (SEGS):
+// combustível = ink (foreground), conveniência = acento Petróleo, serviços/lubrificantes = neutros.
+// Usamos hsl(var(--token)) onde precisa ser theme-aware — o Recharts resolve var() em
+// atributos SVG (já usado no projeto, ex.: CartesianGrid stroke="hsl(var(--border))").
 export const CHART_COLORS = {
-  combustivel:   '#0073BB',
-  conveniencia:  '#EC7211',
-  lubrificantes: '#6B40C4',
-  arla:          '#1D8102',
-  servicos:      '#0891b2',
-  s1: '#0073BB',
-  s2: '#EC7211',
-  s3: '#6B40C4',
-  s4: '#1D8102',
-  s5: '#0891b2',
-  s6: '#db2777',
-  pos:     '#16a34a',
-  neg:     '#dc2626',
-  neutral: '#64748b',
+  combustivel:   'hsl(var(--foreground))',
+  conveniencia:  'hsl(var(--primary))',
+  lubrificantes: '#c7c4bb',
+  arla:          'hsl(var(--hero2-bar))',
+  servicos:      '#9bb0a6',
+  // séries genéricas (produtos de combustível etc.)
+  s1: 'hsl(var(--primary))',
+  s2: 'hsl(var(--hero2-bar))',
+  s3: '#e09f3e',
+  s4: 'hsl(var(--success))',
+  s5: '#7a6ff0',
+  s6: 'hsl(var(--danger))',
+  pos:     'hsl(var(--success))',
+  neg:     'hsl(var(--danger))',
+  neutral: 'hsl(var(--muted-foreground))',
 } as const
 
 export type ChartColorKey = keyof typeof CHART_COLORS

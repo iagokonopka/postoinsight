@@ -1,11 +1,13 @@
+import { useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '@/context/AuthContext'
 import { apiUrl } from '@/lib/api'
 import { Page, Card, CardBody } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
+import { SegControl } from '@/components/ui/SegControl'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Spinner } from '@/components/ui/Spinner'
-import type { ReactNode } from 'react'
+import { AdminMapeamentoPanel } from './AdminMapeamentoPage'
 
 // ─── Hook: locations ──────────────────────────────────────────────────────────
 
@@ -110,6 +112,12 @@ function CfgRow({ label, value, last }: { label: string; value: ReactNode; last?
 
 export default function ConfiguracoesPage() {
   const { user } = useAuth()
+  const isOwner = user?.role === 'owner' || !!user?.platformRole
+  const [tab, setTab] = useState<'geral' | 'classificacao'>('geral')
+  const tabOptions = [
+    { value: 'geral' as const, label: 'Geral' },
+    ...(isOwner ? [{ value: 'classificacao' as const, label: 'Classificação' }] : []),
+  ]
   const { data: locData,       isLoading: loadingLocs }        = useConfigLocations()
   const { data: usersData,     isLoading: loadingUsers }       = useConfigUsers()
   const { data: connectorsData, isLoading: loadingConnectors } = useConfigConnectors()
@@ -133,6 +141,13 @@ export default function ConfiguracoesPage() {
         subtitle="Tenant, locations, usuários e integrações."
       />
 
+      {isOwner && (
+        <div><SegControl options={tabOptions} value={tab} onChange={setTab} /></div>
+      )}
+
+      {tab === 'classificacao' && isOwner && <AdminMapeamentoPanel />}
+
+      {tab === 'geral' && (<>
       {/* Tenant + Integração */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--gap-grid)' }}>
         {/* Tenant */}
@@ -287,6 +302,7 @@ export default function ConfiguracoesPage() {
             </div>
         }
       </Card>
+      </>)}
     </Page>
   )
 }

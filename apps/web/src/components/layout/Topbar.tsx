@@ -10,7 +10,7 @@ import { useLocations } from '@/hooks/useLocations'
 import { applyTheme, applyDensity, getStoredTheme, getStoredDensity, type Theme, type Density } from '@/lib/theme'
 
 // Pages that hide period tabs and location select
-const PAGES_NO_FILTER = ['/dre', '/sincronizacao', '/configuracoes']
+const PAGES_NO_FILTER = ['/dre', '/sincronizacao', '/configuracoes', '/assistente']
 // Pages that hide ONLY location select (but show period tabs)
 const PAGES_NO_LOCATION: string[] = []
 
@@ -21,6 +21,7 @@ const PAGE_LABELS: Record<string, string> = {
   '/lubrificantes': 'Lubrificantes',
   '/conveniencia':  'Conveniência',
   '/dre':           'DRE Mensal',
+  '/assistente':    'Assistente',
   '/sincronizacao': 'Sincronização',
   '/configuracoes': 'Configurações',
 }
@@ -30,9 +31,9 @@ const PAGES_EXTRA_NO_FILTER = ['/arla', '/lubrificantes']
 
 const PERIOD_OPTIONS: { value: Period; label: string }[] = [
   { value: 'hoje',    label: 'Hoje' },
-  { value: 'semana',  label: 'Semana' },
-  { value: 'mes',     label: 'Mês' },
-  { value: 'mes-ant', label: 'Mês ant.' },
+  { value: 'semana',  label: '7 dias' },
+  { value: 'mes',     label: '30 dias' },
+  { value: 'mes-ant', label: 'Mês anterior' },
 ]
 
 const MONTHS = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']

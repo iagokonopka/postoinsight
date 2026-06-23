@@ -14,8 +14,8 @@ import ConvenienciaPage from '@/pages/ConvenienciaPage'
 import DrePage from '@/pages/DrePage'
 import SincronizacaoPage from '@/pages/SincronizacaoPage'
 import ConfiguracoesPage from '@/pages/ConfiguracoesPage'
-import AdminMapeamentoPage from '@/pages/AdminMapeamentoPage'
 import ProdutoPage from '@/pages/ProdutoPage'
+import AssistentePage from '@/pages/AssistentePage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -43,9 +43,9 @@ export default function App() {
                   <Route path="/lubrificantes" element={<LubrificantesPage />} />
                   <Route path="/conveniencia" element={<ConvenienciaPage />} />
                   <Route path="/dre" element={<DrePage />} />
+                  <Route path="/assistente" element={<AssistentePage />} />
                   <Route path="/sincronizacao" element={<SincronizacaoPage />} />
                   <Route path="/configuracoes" element={<ConfiguracoesPage />} />
-                  <Route path="/configuracoes/mapeamento" element={<AdminMapeamentoPage />} />
                   <Route path="/produto/:id" element={<ProdutoPage />} />
                 </Route>
                 <Route path="*" element={<Navigate to="/" replace />} />

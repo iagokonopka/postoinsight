@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { useApp } from '@/context/AppContext'
-import { periodToRange, buildQS } from '@/lib/periods'
+import { periodToRange, previousRange, buildQS } from '@/lib/periods'
 import { apiUrl } from '@/lib/api'
 
 async function get<T>(url: string): Promise<T> {
@@ -47,6 +47,18 @@ export function useArlaResumo() {
   const qs = buildQS(params)
   return useQuery<ArlaResumo>({
     queryKey: ['arla', 'resumo', params],
+    queryFn: () => get(`/api/v1/arla/resumo${qs}`),
+  })
+}
+
+/** Resumo Arla do período anterior — para descontar dos deltas CB-only. */
+export function useArlaResumoPrev() {
+  const { period, locationId } = useApp()
+  const { data_inicio, data_fim } = previousRange(period)
+  const params = { data_inicio, data_fim, location_id: locationId ?? undefined }
+  const qs = buildQS(params)
+  return useQuery<ArlaResumo>({
+    queryKey: ['arla', 'resumo', 'prev', params],
     queryFn: () => get(`/api/v1/arla/resumo${qs}`),
   })
 }

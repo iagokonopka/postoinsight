@@ -39,15 +39,17 @@ export function Th({ right, sortable, first, last, children, style, ...props }: 
     <th
       {...props}
       style={{
-        padding: '10px 14px',
+        padding: '9px 14px',
         paddingLeft:  first ? '20px' : '14px',
         paddingRight: last  ? '20px' : '14px',
         textAlign: right ? 'right' : 'left',
-        fontSize: '11px',
+        fontFamily: 'var(--font-mono)',
+        fontSize: '10.5px',
         fontWeight: 500,
+        textTransform: 'uppercase',
         color: 'hsl(var(--muted-foreground))',
         whiteSpace: 'nowrap',
-        letterSpacing: '0.1px',
+        letterSpacing: '0.09em',
         cursor: sortable ? 'pointer' : undefined,
         userSelect: sortable ? 'none' : undefined,
         ...style,

@@ -105,8 +105,8 @@
   --pad-card-y:   18px;
   --gap-grid:     16px;
   --gap-row:      20px;
-  --kpi-pad:      18px;
-  --kpi-val-size: 26px;
+  --kpi-pad:      16px;
+  --kpi-val-size: 23px;
   --row-pad-y:    11px;
 }
 
@@ -241,6 +241,14 @@ body {
    ───────────────────────────────────────────── */
 @media (max-width: 1180px) {
   .row-responsive { grid-template-columns: 1fr !important; }
+}
+
+/* KPI grid com template fixo (heros) colapsa em telas menores */
+@media (max-width: 1000px) {
+  .kpi-grid-responsive { grid-template-columns: repeat(3, 1fr) !important; }
+}
+@media (max-width: 640px) {
+  .kpi-grid-responsive { grid-template-columns: repeat(2, 1fr) !important; }
 }
 
 /* Sidebar colapsa em telas muito pequenas */

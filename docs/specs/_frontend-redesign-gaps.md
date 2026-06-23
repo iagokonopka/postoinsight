@@ -16,12 +16,17 @@
 
 ## Combustível
 
-- **Spread por período** — não há série temporal de spread (R$/L) ao longo do tempo.
-  - Necessário endpoint/agregação de spread médio por dia/semana.
-- **Por turno** — não há agregação por turno (madrugada/manhã/tarde/noite); depende de
-  granularidade horária do ERP, hoje não disponível no pipeline.
+- **Spread por período** — RESOLVIDO no client: derivado de `margem_bruta ÷ volume_litros`
+  por período (a partir de `combustivel/evolucao?por_produto=true`). Não é mais gap.
+- **Por turno** — GAP: não há agregação por turno (madrugada/manhã/tarde/noite); depende de
+  granularidade horária do ERP, hoje não disponível no pipeline. Tela mostra "em breve".
 - **Spread por produto** — OK, derivável de `combustivel/resumo.por_produto`
   (`preco_medio_litro` − `custo_medio_litro`). Não é gap.
+
+## Deltas dos KPIs
+
+- RESOLVIDO no client: comparação com o período anterior via `previousRange()` +
+  `useVendasResumoPrev` / `useCombustivelResumoPrev`. Variação real por KPI (% ou p.p.).
 
 ## Observações
 

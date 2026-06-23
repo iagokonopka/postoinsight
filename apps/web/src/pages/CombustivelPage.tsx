@@ -1,501 +1,243 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useQueryClient } from '@tanstack/react-query'
 import { Clock } from 'lucide-react'
 
-import { useCombustivelResumo, useCombustivelEvolucaoPorProduto, useCombustivelByLocation } from '@/hooks/useCombustivel'
-import type { CombustivelProduto } from '@/hooks/useCombustivel'
-import type { DrillSubgrupo, DrillProduto } from '@/hooks/useVendas'
-import { useApp } from '@/context/AppContext'
-import { periodLabel, periodToRange, buildQS } from '@/lib/periods'
-import { apiUrl } from '@/lib/api'
+import { useCombustivelResumo, useCombustivelResumoPrev, useCombustivelEvolucaoPorProduto, useCombustivelByLocation, useCombustivelSubgrupos } from '@/hooks/useCombustivel'
+import { useArlaResumo, useArlaResumoPrev, useArlaByLocation } from '@/hooks/useArla'
 
-import { Page, Card, CardHeader, CardBody, ChartBox, KpiGrid, Row } from '@/components/ui/Card'
+import { Page, Card, CardHeader, KpiGrid, Row } from '@/components/ui/Card'
 import { KpiCard } from '@/components/ui/KpiCard'
+import { SegControl } from '@/components/ui/SegControl'
 import { Spinner } from '@/components/ui/Spinner'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { PageHeader } from '@/components/layout/PageHeader'
-import { LocationBarChart } from '@/components/charts/LocationBarChart'
-import { useLocations } from '@/hooks/useLocations'
-import { DonutChart, type DonutSlice } from '@/components/charts/DonutChart'
-import { Tfoot, TfootTd } from '@/components/ui/Table'
-import { ExpandableTable, type ExpandableColumn, BarCell } from '@/components/ui/ExpandableTable'
-import { fCurrency, fInt, fPct } from '@/lib/format'
-import { Sparkline } from '@/components/ui/Sparkline'
+import { FuelLineChart, type FuelLinePoint } from '@/components/charts/FuelLineChart'
+import { HBars, type HBarRow } from '@/components/charts/HBars'
+import { TableWrap, Table, Thead, Th, Tbody, Tr, Td } from '@/components/ui/Table'
+import { fCurrency, fCompact, fLiters, fInt, fPct, fDayMonth, fMonthShort } from '@/lib/format'
 
-// Recharts inline for multi-series area chart
-import {
-  ResponsiveContainer, AreaChart, Area,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-} from 'recharts'
-import { ChartTooltip } from '@/components/charts/ChartTooltip'
-import { fDayMonth, fMonthShort } from '@/lib/format'
+// ─── Métricas ─────────────────────────────────────────────────────────────────
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+type Metric = 'volume' | 'receita' | 'cmv' | 'margem'
 
-const PROD_COLORS = ['#0073BB', '#EC7211', '#6B40C4', '#1D8102', '#0891b2', '#db2777']
+const METRIC_OPTS: { value: Metric; label: string }[] = [
+  { value: 'volume',  label: 'Volume' },
+  { value: 'receita', label: 'Receita' },
+  { value: 'cmv',     label: 'CMV' },
+  { value: 'margem',  label: 'Margem bruta' },
+]
 
-type CombMode = 'volume' | 'receita'
-
-// ─── Segment control ─────────────────────────────────────────────────────────
-
-function SegControl<T extends string>({
-  options,
-  value,
-  onChange,
-}: {
-  options: { value: T; label: string }[]
-  value: T
-  onChange: (v: T) => void
-}) {
-  return (
-    <div style={{
-      display: 'inline-flex', padding: '3px',
-      background: 'hsl(var(--muted))', borderRadius: '7px', gap: '2px',
-    }}>
-      {options.map(opt => (
-        <button
-          key={opt.value}
-          onClick={() => onChange(opt.value)}
-          style={{
-            height: '28px', padding: '0 12px', border: 'none',
-            background: value === opt.value ? 'hsl(var(--card))' : 'transparent',
-            fontFamily: 'inherit', fontSize: '12px', fontWeight: 500,
-            color: value === opt.value ? 'hsl(var(--foreground))' : 'hsl(var(--muted-foreground))',
-            borderRadius: '5px', cursor: 'pointer',
-            boxShadow: value === opt.value ? 'var(--shadow-sm)' : 'none',
-            transition: 'background 0.12s, color 0.12s',
-          }}
-        >
-          {opt.label}
-        </button>
-      ))}
-    </div>
-  )
+// axis/valor por métrica
+function axisFmt(metric: Metric) {
+  if (metric === 'volume') return (v: number) => (v >= 1e6 ? (v / 1e6).toFixed(1).replace('.', ',') + ' mi L' : Math.round(v / 1e3) + 'k L')
+  return fCompact
+}
+function valueFmt(metric: Metric) {
+  return metric === 'volume' ? fLiters : fCompact
 }
 
-// ─── Main page ────────────────────────────────────────────────────────────────
-
 export default function CombustivelPage() {
-  const navigate = useNavigate()
-  const queryClient = useQueryClient()
-  const { period, locationId, setLocationId } = useApp()
-  const [mode, setMode]           = useState<CombMode>('volume')
-  const [includeArla, setArla]    = useState(false)
+  const [metric, setMetric] = useState<Metric>('volume')
 
-  const { data: allLocations } = useLocations()
-  const showComparison = locationId === null && (allLocations?.length ?? 0) > 1
+  const { data: resumo } = useCombustivelResumo()
+  const { data: evo, isLoading: loadingEvo } = useCombustivelEvolucaoPorProduto('dia')
+  const { data: byLocation } = useCombustivelByLocation()
+  const { data: resumoPrev } = useCombustivelResumoPrev()
+  const { data: subgrupos, isLoading: loadingSub } = useCombustivelSubgrupos()
+  const { data: arla } = useArlaResumo()
+  const { data: arlaPrev } = useArlaResumoPrev()
+  const { data: arlaByLocation } = useArlaByLocation()
 
-  const { data: resumo, isLoading: loadingResumo } = useCombustivelResumo()
-  const { data: evoData, isLoading: loadingEvo }   = useCombustivelEvolucaoPorProduto('dia')
-  const { data: byLocation, isLoading: loadingByLocation } = useCombustivelByLocation()
+  const pctChange = (cur?: number, prev?: number) => (cur != null && prev != null && prev !== 0) ? ((cur - prev) / prev) * 100 : undefined
+  const isArla = (s?: string | null) => /arla/i.test(s ?? '')
 
-  const t = resumo?.totais
+  // ── Totais CB-only (combustível menos Arla) ──
+  type CbTot = { volume_litros: number; receita_bruta: number; cmv: number; margem_bruta: number; margem_pct: number }
+  const cbOnly = (tot?: { volume_litros: number; receita_bruta: number; cmv: number; margem_bruta: number }, a?: { volume_litros: number; receita_bruta: number; cmv: number; margem_bruta: number }): CbTot | undefined => {
+    if (!tot) return undefined
+    const volume_litros = tot.volume_litros - (a?.volume_litros ?? 0)
+    const receita_bruta = tot.receita_bruta - (a?.receita_bruta ?? 0)
+    const cmv = tot.cmv - (a?.cmv ?? 0)
+    const margem_bruta = tot.margem_bruta - (a?.margem_bruta ?? 0)
+    return { volume_litros, receita_bruta, cmv, margem_bruta, margem_pct: receita_bruta > 0 ? (margem_bruta / receita_bruta) * 100 : 0 }
+  }
+  const t  = cbOnly(resumo?.totais, arla?.totais)
+  const tp = cbOnly(resumoPrev?.totais, arlaPrev?.totais)
 
-  // ── Produtos (sem/com Arla) ──
-  // Arla: grupo_descricao contém 'Arla' ou 'arla'
-  const produtos = (resumo?.por_produto ?? []).filter(p =>
-    includeArla ? true : !/arla/i.test(p.grupo_descricao ?? '')
-  )
+  const fmtV = valueFmt(metric)
+  const fmtA = axisFmt(metric)
 
-  const totVol = produtos.reduce((s, p) => s + p.volume_litros, 0)
-  const totRec = produtos.reduce((s, p) => s + p.receita_bruta, 0)
+  // ── Produtos reais de combustível (subgrupos), excluindo Arla ──
+  const produtos = (subgrupos?.subgrupos ?? []).filter(s => !isArla(s.subgrupo_descricao))
+  const prodVal = (p: { volume_litros: number; receita_bruta: number; cmv: number; margem_bruta: number }) =>
+    metric === 'volume' ? p.volume_litros : metric === 'receita' ? p.receita_bruta : metric === 'cmv' ? p.cmv : p.margem_bruta
 
-  // ── Evolution chart — pivot por produto ──
-  const evoMap = new Map<string, Record<string, number>>()
-  const produtoNames: string[] = []
-  const produtoIds: number[] = []
-
-  for (const prod of evoData?.produtos ?? []) {
-    const name = prod.grupo_descricao
-    if (!includeArla && /arla/i.test(name)) continue
-    if (!produtoNames.includes(name)) {
-      produtoNames.push(name)
-      produtoIds.push(prod.grupo_id)
-    }
-    for (const ponto of prod.serie) {
-      if (!evoMap.has(ponto.periodo)) evoMap.set(ponto.periodo, {})
-      const row = evoMap.get(ponto.periodo)!
-      row[name] = mode === 'volume' ? ponto.volume_litros : ponto.receita_bruta
+  // ── Evolução por período (CB-only: exclui série do grupo Arla) ──
+  const evoProdutos = (evo?.produtos ?? []).filter(p => !isArla(p.grupo_descricao))
+  const evoMap = new Map<string, number>()
+  for (const prod of evoProdutos) {
+    for (const pt of prod.serie) {
+      const val = metric === 'volume' ? pt.volume_litros
+        : metric === 'receita' ? pt.receita_bruta
+        : metric === 'cmv' ? (pt.receita_bruta - pt.margem_bruta)
+        : pt.margem_bruta
+      evoMap.set(pt.periodo, (evoMap.get(pt.periodo) ?? 0) + val)
     }
   }
-
-  const chartData = Array.from(evoMap.entries())
+  const evoData: FuelLinePoint[] = Array.from(evoMap.entries())
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([periodo, vals]) => ({
-      label: periodo.length === 10 ? fDayMonth(periodo) : fMonthShort(periodo),
-      ...vals,
-    }))
+    .map(([periodo, value]) => ({ label: periodo.length === 10 ? fDayMonth(periodo) : fMonthShort(periodo), value }))
 
-  const yFmt = mode === 'volume'
-    ? (v: number) => (v / 1000).toFixed(1) + 'k L'
-    : (v: number) => 'R$ ' + (v / 1000).toFixed(0) + 'k'
-
-  const ttFmt = mode === 'volume'
-    ? (v: number) => fInt(v) + ' L'
-    : fCurrency
-
-  // ── Donut ──
-  const donutData: DonutSlice[] = produtos.slice(0, 6).map((p, i) => ({
-    label: p.grupo_descricao ?? `Produto ${p.grupo_id}`,
-    value: mode === 'volume' ? p.volume_litros : p.receita_bruta,
-    color: PROD_COLORS[i % PROD_COLORS.length],
-  }))
-  const donutTotal = donutData.reduce((s, d) => s + d.value, 0)
-  const donutCenter = mode === 'volume'
-    ? fInt(donutTotal) + ' L'
-    : fCurrency(donutTotal)
-
-  // ── Spark series per product ──
-  function sparkSeries(grupoId: number): number[] {
-    const prod = evoData?.produtos.find(p => p.grupo_id === grupoId)
-    if (!prod) return []
-    return prod.serie.map(p => mode === 'volume' ? p.volume_litros : p.receita_bruta)
+  // ── Spread por período (real, CB-only: margem ÷ volume por período) ──
+  const spreadMap = new Map<string, { m: number; v: number }>()
+  for (const prod of evoProdutos) {
+    for (const pt of prod.serie) {
+      const agg = spreadMap.get(pt.periodo) ?? { m: 0, v: 0 }
+      agg.m += pt.margem_bruta
+      agg.v += pt.volume_litros
+      spreadMap.set(pt.periodo, agg)
+    }
   }
+  const spreadData: FuelLinePoint[] = Array.from(spreadMap.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([periodo, { m, v }]) => ({ label: periodo.length === 10 ? fDayMonth(periodo) : fMonthShort(periodo), value: v > 0 ? m / v : 0 }))
+  const spreadFmt = (v: number) => 'R$ ' + v.toFixed(2).replace('.', ',')
 
-  const evoDesc = `${mode === 'volume' ? 'Volume' : 'Receita'} por produto · ${periodLabel(period).toLowerCase()}`
+  // ── Por produto (barras) ──
+  const prodBars: HBarRow[] = produtos
+    .map(p => ({ name: p.subgrupo_descricao, value: prodVal(p), label: fmtV(prodVal(p)) }))
+    .sort((a, b) => b.value - a.value)
 
-  // ── Base params helper (imperative) ────────────────────────────────────────
-  function getBaseParams() {
-    const { data_inicio, data_fim } = periodToRange(period)
-    return { data_inicio, data_fim, location_id: locationId ?? undefined }
-  }
-
-  // ── Fetch subgrupos for a grupo (level 1) ──────────────────────────────────
-  const fetchSubgrupos = async (grupo: CombustivelProduto): Promise<DrillSubgrupo[]> => {
-    const params = getBaseParams()
-    const qs = buildQS({ ...params, grupo_id: String(grupo.grupo_id), segmento: 'combustivel' })
-    const data = await queryClient.fetchQuery<{ segmento: string; grupo_id: number; subgrupos: DrillSubgrupo[] }>({
-      queryKey: ['vendas', 'drill', 'subgrupos', params, grupo.grupo_id, 'combustivel'],
-      queryFn: () =>
-        fetch(apiUrl(`/api/v1/vendas/drill/subgrupos${qs}`), { credentials: 'include' })
-          .then(r => { if (!r.ok) throw new Error(`API ${r.status}`); return r.json() }),
+  // ── Por posto (barras), CB-only: subtrai Arla por location ──
+  const arlaByLoc = new Map<string, { volume_litros: number; receita_bruta: number }>()
+  for (const l of arlaByLocation?.locations ?? []) arlaByLoc.set(l.location_id, { volume_litros: l.volume_litros, receita_bruta: l.receita_bruta })
+  const locBars: HBarRow[] = (byLocation?.locations ?? [])
+    .map(l => {
+      const a = arlaByLoc.get(l.location_id)
+      const v = metric === 'volume' ? l.volume_litros - (a?.volume_litros ?? 0) : l.receita_bruta - (a?.receita_bruta ?? 0)
+      return { name: l.location_nome, value: v, label: metric === 'volume' ? fLiters(v) : fCompact(v) }
     })
-    return data.subgrupos
-  }
+    .sort((a, b) => b.value - a.value)
 
-  // ── Fetch produtos for a subgrupo (level 2 — leaves) ─────────────────────
-  const fetchProdutos = async (sub: DrillSubgrupo): Promise<DrillProduto[]> => {
-    const params = getBaseParams()
-    const qs = buildQS({ ...params, subgrupo_id: String(sub.subgrupo_id) })
-    const data = await queryClient.fetchQuery<{ subgrupo_id: number; produtos: DrillProduto[] }>({
-      queryKey: ['vendas', 'drill', 'produtos', params, sub.subgrupo_id],
-      queryFn: () =>
-        fetch(apiUrl(`/api/v1/vendas/drill/produtos${qs}`), { credentials: 'include' })
-          .then(r => { if (!r.ok) throw new Error(`API ${r.status}`); return r.json() }),
-    })
-    return data.produtos
-  }
-
-  // ── Column definitions ────────────────────────────────────────────────────
-
-  const recMax = produtos[0]?.receita_bruta ?? 1
-
-  // L0 — combustível grupo columns
-  const grupoColumns: ExpandableColumn<CombustivelProduto>[] = [
-    {
-      key: 'grupo_descricao',
-      header: 'Produto',
-      first: true,
-      render: (p) => p.grupo_descricao ?? `Produto ${p.grupo_id}`,
-    },
-    { key: 'volume_litros',       header: 'Volume (L)', right: true, render: (p) => fInt(p.volume_litros) },
-    { key: 'participacao_volume', header: 'Part.%',     right: true, render: (p) => fPct(p.participacao_volume_pct, 1) },
-    { key: 'receita_bruta',       header: 'Receita',    right: true, render: (p) => fCurrency(p.receita_bruta) },
-    {
-      key: 'margem_pct',
-      header: 'Margem %',
-      right: true,
-      render: (p) => (
-        <b style={{ color: p.margem_pct >= 0 ? 'hsl(var(--success))' : 'hsl(var(--danger))' }}>
-          {fPct(p.margem_pct, 1)}
-        </b>
-      ),
-    },
-    {
-      key: 'preco_medio_litro',
-      header: 'Preço/L',
-      right: true,
-      render: (p) => (
-        <span style={{ fontVariantNumeric: 'tabular-nums' }}>
-          {p.preco_medio_litro != null ? p.preco_medio_litro.toFixed(2).replace('.', ',') : '—'}
-        </span>
-      ),
-    },
-    {
-      key: 'custo_medio_litro',
-      header: 'Custo/L',
-      right: true,
-      render: (p) => (
-        <span style={{ fontVariantNumeric: 'tabular-nums' }}>
-          {p.custo_medio_litro != null ? p.custo_medio_litro.toFixed(2).replace('.', ',') : '—'}
-        </span>
-      ),
-    },
-    {
-      key: 'tendencia',
-      header: 'Tendência',
-      right: true,
-      last: true,
-      render: (p) => {
-        const spark = sparkSeries(p.grupo_id)
-        const trend = spark.length >= 2
-          ? (spark[spark.length - 1] - spark[0]) / Math.max(spark[0], 1)
-          : 0
-        const trendColor = trend > 0.02 ? '#16a34a' : trend < -0.02 ? '#dc2626' : '#64748b'
-        const trendArrow = trend > 0.02 ? '↑' : trend < -0.02 ? '↓' : '→'
-        const trendPct   = (Math.abs(trend) * 100).toFixed(1).replace('.', ',') + '%'
-        return (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end' }}>
-            {spark.length >= 2 && (
-              <div style={{ width: '72px', height: '22px', flexShrink: 0 }}>
-                <Sparkline data={spark} color={trendColor} width="100%" height="100%" />
-              </div>
-            )}
-            <span style={{ fontSize: '11px', fontWeight: 600, color: trendColor, minWidth: '42px', textAlign: 'right' }}>
-              {trendArrow} {trendPct}
-            </span>
-          </div>
-        )
-      },
-    },
-  ]
-
-  // L1 — subgrupo columns
-  const subgrupoColumns: ExpandableColumn<DrillSubgrupo>[] = [
-    {
-      key: 'subgrupo_descricao',
-      header: 'Subgrupo',
-      first: true,
-      render: (row) => row.subgrupo_descricao,
-    },
-    {
-      key: 'peso',
-      header: 'Peso',
-      render: (row) => (
-        <BarCell
-          value={row.receita_bruta}
-          max={recMax}
-          label={fPct(row.participacao_pct, 1)}
-        />
-      ),
-    },
-    { key: 'qtd_itens',     header: 'Qtd',         right: true, render: (row) => fInt(row.qtd_itens) },
-    { key: 'receita_bruta', header: 'Receita',      right: true, render: (row) => fCurrency(row.receita_bruta) },
-    { key: 'cmv',           header: 'CMV',          right: true, render: (row) => fCurrency(row.cmv) },
-    { key: 'margem_bruta',  header: 'Margem Bruta', right: true, render: (row) => fCurrency(row.margem_bruta) },
-    {
-      key: 'margem_pct',
-      header: 'Margem %',
-      right: true,
-      last: true,
-      render: (row) => (
-        <b style={{ color: row.margem_pct >= 0 ? 'hsl(var(--success))' : 'hsl(var(--danger))' }}>
-          {fPct(row.margem_pct, 1)}
-        </b>
-      ),
-    },
-  ]
-
-  // L2 — produto columns (leaves)
-  const produtoColumns: ExpandableColumn<DrillProduto>[] = [
-    {
-      key: 'descricao_produto',
-      header: 'Produto',
-      first: true,
-      render: (row) => row.descricao_produto,
-    },
-    {
-      key: 'peso',
-      header: 'Peso',
-      render: (row) => (
-        <BarCell
-          value={row.receita_bruta}
-          max={recMax}
-          label={fPct(row.participacao_pct, 1)}
-        />
-      ),
-    },
-    { key: 'qtd_venda',     header: 'Qtd',         right: true, render: (row) => fInt(row.qtd_venda) },
-    { key: 'receita_bruta', header: 'Receita',      right: true, render: (row) => fCurrency(row.receita_bruta) },
-    { key: 'cmv',           header: 'CMV',          right: true, render: (row) => fCurrency(row.cmv) },
-    { key: 'margem_bruta',  header: 'Margem Bruta', right: true, render: (row) => fCurrency(row.margem_bruta) },
-    {
-      key: 'margem_pct',
-      header: 'Margem %',
-      right: true,
-      last: true,
-      render: (row) => (
-        <b style={{ color: row.margem_pct >= 0 ? 'hsl(var(--success))' : 'hsl(var(--danger))' }}>
-          {fPct(row.margem_pct, 1)}
-        </b>
-      ),
-    },
-  ]
+  // ── Tabela por produto ──
+  const prodTable = [...produtos].sort((a, b) => b.volume_litros - a.volume_litros)
+  const metricLabel = METRIC_OPTS.find(m => m.value === metric)!.label
 
   return (
     <Page>
-      <PageHeader
-        title="Combustível"
-        subtitle="Volumes, receitas e margens por produto."
-        actions={
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <SegControl
-              options={[{ value: 'volume', label: 'Volume' }, { value: 'receita', label: 'Receita' }]}
-              value={mode}
-              onChange={setMode}
-            />
-            <SegControl
-              options={[{ value: 'false', label: 'Sem Arla 32' }, { value: 'true', label: 'Com Arla 32' }]}
-              value={String(includeArla)}
-              onChange={v => setArla(v === 'true')}
-            />
-          </div>
-        }
-      />
+      <PageHeader eyebrow="Combustível" title="O combustível está saudável?" />
 
-      {/* KPIs */}
+      {/* KPIs — uniformes (CB-only, sem Arla) */}
       <KpiGrid cols={5}>
-        <KpiCard
-          label="Volume Total"
-          value={t ? fInt(t.volume_litros) + ' L' : '—'}
-          sparkColor="#0073BB"
-        />
-        <KpiCard
-          label="Receita"
-          value={t ? fCurrency(t.receita_bruta) : '—'}
-          sparkColor="#0073BB"
-        />
-        <KpiCard
-          label="CMV"
-          value={t ? fCurrency(t.cmv) : '—'}
-          sparkColor="#dc2626"
-        />
-        <KpiCard
-          label="Margem Bruta"
-          value={t ? fCurrency(t.margem_bruta) : '—'}
-          sparkColor="#16a34a"
-        />
-        <KpiCard
-          label="Margem %"
-          value={t ? fPct(t.margem_pct, 2) : '—'}
-          deltaPP
-          sparkColor="#0073BB"
-        />
+        <KpiCard label="Volume" value={t ? fLiters(t.volume_litros) : '—'} valueTitle={t ? fInt(t.volume_litros) + ' L' : undefined} delta={pctChange(t?.volume_litros, tp?.volume_litros)} />
+        <KpiCard label="Receita" value={t ? fCompact(t.receita_bruta) : '—'} valueTitle={t ? fCurrency(t.receita_bruta) : undefined} delta={pctChange(t?.receita_bruta, tp?.receita_bruta)} />
+        <KpiCard label="CMV" value={t ? fCompact(t.cmv) : '—'} valueTitle={t ? fCurrency(t.cmv) : undefined} delta={pctChange(t?.cmv, tp?.cmv)} />
+        <KpiCard label="Margem bruta" value={t ? fCompact(t.margem_bruta) : '—'} valueTitle={t ? fCurrency(t.margem_bruta) : undefined} delta={pctChange(t?.margem_bruta, tp?.margem_bruta)} />
+        <KpiCard label="Margem" value={t ? fPct(t.margem_pct, 1) : '—'} delta={t && tp ? t.margem_pct - tp.margem_pct : undefined} deltaPP />
       </KpiGrid>
 
-      {/* Evolução + Donut [+ Por Unidade quando multi-location] */}
-      <Row style={{ gridTemplateColumns: showComparison ? '3fr 2fr 2fr' : '3fr 2fr' }}>
-        <Card>
-          <CardHeader title="Evolução por produto" description={evoDesc} />
-          <CardBody>
-            <ChartBox size="tall">
-              {loadingEvo
-                ? <LoadingBox />
-                : chartData.length === 0
-                  ? <EmptyState title="Sem dados" description="Nenhum registro no período." />
-                  : <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={chartData} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
-                        <defs>
-                          {produtoNames.map((_, i) => (
-                            <linearGradient key={i} id={`cg${i}`} x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="0%"   stopColor={PROD_COLORS[i % PROD_COLORS.length]} stopOpacity={0.5} />
-                              <stop offset="100%" stopColor={PROD_COLORS[i % PROD_COLORS.length]} stopOpacity={0.05} />
-                            </linearGradient>
-                          ))}
-                        </defs>
-                        <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="0" vertical={false} />
-                        <XAxis dataKey="label" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} axisLine={false} tickLine={false} dy={8} />
-                        <YAxis tickFormatter={yFmt} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} axisLine={false} tickLine={false} width={68} />
-                        <Tooltip content={<ChartTooltip formatter={ttFmt} />} />
-                        <Legend wrapperStyle={{ paddingTop: '12px', fontSize: '12px' }} iconType="circle" iconSize={8} />
-                        {produtoNames.map((name, i) => (
-                          <Area
-                            key={name}
-                            type="monotone"
-                            dataKey={name}
-                            stroke={PROD_COLORS[i % PROD_COLORS.length]}
-                            fill={`url(#cg${i})`}
-                            strokeWidth={2}
-                            dot={false}
-                            activeDot={{ r: 4 }}
-                          />
-                        ))}
-                      </AreaChart>
-                    </ResponsiveContainer>
-              }
-            </ChartBox>
-          </CardBody>
-        </Card>
+      {/* Controles */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span className="mono" style={{ fontSize: 10.5, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'hsl(var(--muted-foreground))', fontWeight: 600 }}>Métrica</span>
+          <SegControl options={METRIC_OPTS} value={metric} onChange={setMetric} />
+        </div>
+        <div style={{ flex: 1 }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span className="mono" style={{ fontSize: 10.5, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'hsl(var(--muted-foreground))', fontWeight: 600 }}>Comparar com</span>
+          <select
+            disabled
+            title="Comparação entre períodos — em breve"
+            style={{
+              height: 34, padding: '0 30px 0 13px', borderRadius: 9,
+              border: '1px solid hsl(var(--border))', background: 'hsl(var(--card))',
+              color: 'hsl(var(--muted-foreground))', fontFamily: 'inherit', fontSize: 13,
+              cursor: 'not-allowed', appearance: 'none', opacity: 0.7,
+            }}
+          >
+            <option>Sem comparação</option>
+          </select>
+        </div>
+      </div>
 
+      {/* Evolução + Por produto */}
+      <Row style={{ gridTemplateColumns: '1.55fr 1fr' }}>
         <Card>
-          <CardHeader title="Mix de Combustível" />
-          <CardBody>
-            {loadingResumo
-              ? <LoadingBox />
-              : <DonutChart
-                  data={donutData}
-                  centerLabel="Total"
-                  centerValue={donutCenter}
-                  tooltipFormatter={mode === 'volume' ? v => fInt(v) + ' L' : fCurrency}
-                />
-            }
-          </CardBody>
+          <CardHeader eyebrow="Evolução no período" title={`${metricLabel} por período`} />
+          <div style={{ padding: '0 var(--pad-card) var(--pad-card-y)' }}>
+            {loadingEvo ? <LoadingBox /> : evoData.length === 0
+              ? <EmptyState title="Sem dados" description="Nenhum registro no período." />
+              : <FuelLineChart data={evoData} yFormatter={fmtA} tooltipFormatter={metric === 'volume' ? (v) => fInt(v) + ' L' : fCurrency} />}
+          </div>
         </Card>
-
-        {showComparison && (
-          <LocationBarChart
-            locations={byLocation?.locations}
-            loading={loadingByLocation}
-            onLocationClick={(id) => setLocationId(id === locationId ? null : id)}
-            selectedLocationId={locationId}
-          />
-        )}
+        <Card>
+          <CardHeader eyebrow={metricLabel} title="Por produto" />
+          <div style={{ padding: '0 var(--pad-card) var(--pad-card-y)' }}>
+            {loadingSub ? <LoadingBox /> : prodBars.length === 0
+              ? <EmptyState title="Sem dados" description="Sem produtos no período." />
+              : <HBars data={prodBars} />}
+          </div>
+        </Card>
       </Row>
 
-      {/* Breakdown + Ranking bicos */}
-      <Row variant="2-1">
+      {/* Spread (real) + Por turno (gap horário) */}
+      <Row style={{ gridTemplateColumns: '1.55fr 1fr' }}>
         <Card>
-          <CardHeader title="Breakdown por produto" />
-          {loadingResumo
-            ? <CardBody><LoadingBox /></CardBody>
-            : <ExpandableTable<CombustivelProduto, DrillSubgrupo, DrillProduto>
-                columns={grupoColumns}
-                rows={produtos}
-                rowKey="grupo_id"
-                rowColor={(_row, i) => PROD_COLORS[i % PROD_COLORS.length]}
-                getChildren={fetchSubgrupos}
-                childColumns={subgrupoColumns}
-                childRowKey="subgrupo_id"
-                getGrandchildren={fetchProdutos}
-                grandchildColumns={produtoColumns}
-                grandchildRowKey="source_produto_id"
-                onGrandchildClick={(gc) => navigate(`/produto/${encodeURIComponent(gc.source_produto_id)}`)}
-                footer={
-                  <Tfoot>
-                    <TfootTd first>TOTAL</TfootTd>
-                    <TfootTd right>{fInt(totVol)}</TfootTd>
-                    <TfootTd right>100%</TfootTd>
-                    <TfootTd right>{fCurrency(totRec)}</TfootTd>
-                    <TfootTd right>
-                      <b>{t ? fPct(t.margem_pct, 1) : '—'}</b>
-                    </TfootTd>
-                    <TfootTd right last colSpan={3} />
-                  </Tfoot>
-                }
-              />
-          }
+          <CardHeader eyebrow="Spread médio (R$/L)" title="Spread por período" />
+          <div style={{ padding: '0 var(--pad-card) var(--pad-card-y)' }}>
+            {loadingEvo ? <LoadingBox /> : spreadData.length === 0
+              ? <EmptyState title="Sem dados" description="Nenhum registro no período." />
+              : <FuelLineChart data={spreadData} yFormatter={spreadFmt} tooltipFormatter={spreadFmt} />}
+          </div>
         </Card>
-
         <Card>
-          <CardHeader title="Ranking de Bicos" />
-          <CardBody>
-            <EmptyState
-              icon={<Clock size={20} />}
-              title="Disponível em breve"
-              description="Vai destacar bombistas com performance acima e abaixo da média da rede."
-            />
-          </CardBody>
+          <CardHeader eyebrow={metricLabel} title="Por turno" />
+          <div style={{ padding: '0 var(--pad-card) var(--pad-card-y)' }}>
+            <EmptyState icon={<Clock size={20} />} title="Disponível em breve" description="Requer granularidade horária do ERP — ainda não disponível." />
+          </div>
+        </Card>
+      </Row>
+
+      {/* Tabela por produto + Por posto */}
+      <Row style={{ gridTemplateColumns: '1.55fr 1fr' }}>
+        <Card>
+          <CardHeader eyebrow="Breakdown" title="Por produto" />
+          {prodTable.length === 0 ? (
+            <div style={{ padding: '0 var(--pad-card) var(--pad-card-y)' }}><EmptyState title="Sem dados" description="Sem produtos no período." /></div>
+          ) : (
+            <TableWrap>
+              <Table>
+                <Thead>
+                  <Th first>Produto</Th>
+                  <Th right>Volume</Th>
+                  <Th right>Receita</Th>
+                  <Th right>Margem</Th>
+                  <Th right last>Spread</Th>
+                </Thead>
+                <Tbody>
+                  {prodTable.map(p => {
+                    const spread = p.preco_medio_litro != null && p.custo_medio_litro != null ? p.preco_medio_litro - p.custo_medio_litro : null
+                    return (
+                      <Tr key={p.subgrupo_id}>
+                        <Td first><b style={{ fontWeight: 550 }}>{p.subgrupo_descricao}</b></Td>
+                        <Td right>{fLiters(p.volume_litros)}</Td>
+                        <Td right>{fCompact(p.receita_bruta)}</Td>
+                        <Td right><b style={{ color: p.margem_pct >= 0 ? 'hsl(var(--success))' : 'hsl(var(--danger))' }}>{fPct(p.margem_pct, 1)}</b></Td>
+                        <Td right last>{spread != null ? 'R$ ' + spread.toFixed(2).replace('.', ',') : '—'}</Td>
+                      </Tr>
+                    )
+                  })}
+                </Tbody>
+              </Table>
+            </TableWrap>
+          )}
+        </Card>
+        <Card>
+          <CardHeader eyebrow={metric === 'volume' ? 'Volume' : 'Receita'} title="Por posto" />
+          <div style={{ padding: '0 var(--pad-card) var(--pad-card-y)' }}>
+            {locBars.length === 0
+              ? <EmptyState title="Sem dados" description="Sem postos no período." />
+              : <HBars data={locBars} />}
+          </div>
         </Card>
       </Row>
     </Page>
@@ -503,9 +245,5 @@ export default function CombustivelPage() {
 }
 
 function LoadingBox() {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '120px' }}>
-      <Spinner size="lg" />
-    </div>
-  )
+  return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 260 }}><Spinner size="lg" /></div>
 }

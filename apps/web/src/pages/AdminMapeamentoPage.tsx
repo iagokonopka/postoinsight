@@ -26,17 +26,30 @@ interface EditState {
 
 const TD: React.CSSProperties = { padding: '10px 14px', fontVariantNumeric: 'tabular-nums', verticalAlign: 'middle' }
 
+// Página standalone (com guard) — mantida por compatibilidade; a navegação agora usa a aba
+// "Classificação" dentro de Configurações (ver ConfiguracoesPage).
 export default function AdminMapeamentoPage() {
   const { user } = useAuth()
+  const isOwner = user?.role === 'owner' || !!user?.platformRole
+  if (user && !isOwner) return <Navigate to="/configuracoes" replace />
+  return (
+    <Page>
+      <PageHeader
+        title="Classificação de despesas"
+        subtitle="Defina o tipo contábil de cada grupo financeiro. Só despesa operacional entra no Resultado Operacional."
+      />
+      <AdminMapeamentoPanel />
+    </Page>
+  )
+}
+
+// Conteúdo reutilizável (sem Page/PageHeader/guard) — embutido como aba em Configurações.
+export function AdminMapeamentoPanel() {
   const toast = useToast()
   const { data, isLoading } = useDespesaGrupos()
   const mutation = useDespesaClassificacaoMutation()
 
   const [edits, setEdits] = useState<Record<string, EditState>>({})
-
-  // Guard: somente owner (platform users também passam no backend, mas a tela é de gestão do dono)
-  const isOwner = user?.role === 'owner' || !!user?.platformRole
-  if (user && !isOwner) return <Navigate to="/configuracoes" replace />
 
   function current(codigo: string, fallback: EditState): EditState {
     return edits[codigo] ?? fallback
@@ -80,12 +93,7 @@ export default function AdminMapeamentoPage() {
   }
 
   return (
-    <Page>
-      <PageHeader
-        title="Classificação de despesas"
-        subtitle="Defina o tipo contábil de cada grupo financeiro. Só despesa operacional entra no Resultado Operacional."
-      />
-
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--gap-row)' }}>
       {/* Resumo / progresso por valor */}
       <Card>
         <CardBody style={{ padding: 'var(--pad-card)', display: 'flex', alignItems: 'center', gap: '24px', flexWrap: 'wrap' }}>
@@ -183,6 +191,6 @@ export default function AdminMapeamentoPage() {
           )
         }
       </Card>
-    </Page>
+    </div>
   )
 }
