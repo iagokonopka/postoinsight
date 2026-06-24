@@ -14,12 +14,12 @@ import { db } from '../db.js'
  */
 
 const MVS = [
-  'analytics.mv_vendas_diario',
-  'analytics.mv_combustivel_diario',
-  'analytics.mv_conveniencia_diario',
-  'analytics.mv_dre_mensal',
-  'analytics.mv_despesa_mensal',
-  'analytics.mv_despesa_grupo_mensal',
+  'analytics.mv_sales_daily',
+  'analytics.mv_fuel_daily',
+  'analytics.mv_convenience_daily',
+  'analytics.mv_income_statement_monthly',
+  'analytics.mv_expense_monthly',
+  'analytics.mv_expense_group_monthly',
 ] as const
 
 export async function refreshAnalyticsMvs(): Promise<void> {

@@ -1,32 +1,32 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { and, eq, gte, lte, inArray, sql, sum, desc } from 'drizzle-orm'
 import { db } from '../db.js'
-import { mvConvenienciaDiario as mv, fatoVenda, locations } from '@postoinsight/db'
+import { mvConvenienceDaily as mv, factSale, locations } from '@postoinsight/db'
 import { requireTenantSession } from '../lib/auth.js'
 import {
   BadQueryError, parseDateRange, parseUuidArray, parseEnum, n, pct, round2,
 } from '../lib/queryParsers.js'
 
-const SEGMENTOS_LOJA = ['conveniencia', 'lubrificantes', 'servicos'] as const
-const GRANULARIDADES = ['dia', 'semana', 'mes'] as const
+const STORE_SEGMENTS = ['conveniencia', 'lubrificantes', 'servicos'] as const
+const GRANULARITIES = ['day', 'week', 'month'] as const
 
 /**
- * Endpoints do Dashboard de Conveniência (loja) — `analytics.mv_conveniencia_diario`.
+ * Endpoints do Dashboard de Conveniência (loja) — `analytics.mv_convenience_daily`.
  * Specs: docs/specs/dashboard-conveniencia.md
  *
  * Cobre os 3 segmentos não-combustível: conveniencia, lubrificantes, servicos.
  */
-export const convenienciaRoutes: FastifyPluginAsync = async (app) => {
+export const convenienceRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('preHandler', requireTenantSession)
 
   // ---------------------------------------------------------------------
-  // GET /api/v1/conveniencia/resumo
+  // GET /api/v1/convenience/summary
   // ---------------------------------------------------------------------
-  app.get('/resumo', async (req, reply) => {
+  app.get('/summary', async (req, reply) => {
     const tenantId = req.tenantId!
-    let dataInicio: string, dataFim: string, locationIds: string[] | undefined
+    let startDate: string, endDate: string, locationIds: string[] | undefined
     try {
-      ({ dataInicio, dataFim } = parseDateRange(req.query as Record<string, unknown>))
+      ({ startDate, endDate } = parseDateRange(req.query as Record<string, unknown>))
       locationIds = parseUuidArray((req.query as any).location_id, 'location_id')
     } catch (err) {
       if (err instanceof BadQueryError) return reply.status(400).send({ error: err.message })
@@ -36,127 +36,127 @@ export const convenienciaRoutes: FastifyPluginAsync = async (app) => {
     // Filtra apenas conveniência — lubrificantes e serviços têm páginas próprias
     const rows = await db
       .select({
-        receita_bruta:   sum(mv.receitaBruta).mapWith(Number),
-        descontos:       sum(mv.descontos).mapWith(Number),
-        receita_liquida: sum(mv.receitaLiquida).mapWith(Number),
-        cmv:             sum(mv.cmv).mapWith(Number),
-        margem_bruta:    sum(mv.margemBruta).mapWith(Number),
-        qtd_itens:       sql<number>`COALESCE(SUM(${mv.qtdItens}), 0)`.mapWith(Number),
+        gross_revenue: sum(mv.grossRevenue).mapWith(Number),
+        discounts:     sum(mv.discounts).mapWith(Number),
+        net_revenue:   sum(mv.netRevenue).mapWith(Number),
+        cogs:          sum(mv.cogs).mapWith(Number),
+        gross_margin:  sum(mv.grossMargin).mapWith(Number),
+        item_count:    sql<number>`COALESCE(SUM(${mv.itemCount}), 0)`.mapWith(Number),
       })
       .from(mv)
       .where(and(
         eq(mv.tenantId, tenantId),
-        eq(mv.segmento, 'conveniencia'),
-        gte(mv.dataVenda, dataInicio),
-        lte(mv.dataVenda, dataFim),
+        eq(mv.segment, 'conveniencia'),
+        gte(mv.saleDate, startDate),
+        lte(mv.saleDate, endDate),
         locationIds ? inArray(mv.locationId, locationIds) : undefined,
       ))
 
     const r = rows[0]
-    const receita_bruta   = n(r?.receita_bruta)
-    const descontos       = n(r?.descontos)
-    const receita_liquida = n(r?.receita_liquida)
-    const cmv             = n(r?.cmv)
-    const margem_bruta    = n(r?.margem_bruta)
-    const qtd_itens       = n(r?.qtd_itens)
+    const gross_revenue = n(r?.gross_revenue)
+    const discounts     = n(r?.discounts)
+    const net_revenue   = n(r?.net_revenue)
+    const cogs          = n(r?.cogs)
+    const gross_margin  = n(r?.gross_margin)
+    const item_count    = n(r?.item_count)
 
-    // Ticket médio: conta NFs distintas em fato_venda para o segmento conveniencia
-    const nfRows = await db
-      .select({ nf_count: sql<number>`COUNT(DISTINCT ${fatoVenda.nrNota})`.mapWith(Number) })
-      .from(fatoVenda)
+    // Ticket médio: conta NFs distintas em fact_sale para o segmento conveniencia
+    const invoiceRows = await db
+      .select({ invoice_count: sql<number>`COUNT(DISTINCT ${factSale.invoiceNumber})`.mapWith(Number) })
+      .from(factSale)
       .where(and(
-        eq(fatoVenda.tenantId, tenantId),
-        eq(fatoVenda.segmento, 'conveniencia'),
-        gte(fatoVenda.dataVenda, dataInicio),
-        lte(fatoVenda.dataVenda, dataFim),
-        locationIds ? inArray(fatoVenda.locationId, locationIds) : undefined,
+        eq(factSale.tenantId, tenantId),
+        eq(factSale.segment, 'conveniencia'),
+        gte(factSale.saleDate, startDate),
+        lte(factSale.saleDate, endDate),
+        locationIds ? inArray(factSale.locationId, locationIds) : undefined,
       ))
-    const nf_count    = n(nfRows[0]?.nf_count)
-    const ticket_medio = nf_count > 0 ? round2(receita_bruta / nf_count) : null
+    const invoice_count = n(invoiceRows[0]?.invoice_count)
+    const avg_ticket = invoice_count > 0 ? round2(gross_revenue / invoice_count) : null
 
     return reply.send({
-      periodo: { inicio: dataInicio, fim: dataFim },
+      period: { start: startDate, end: endDate },
       locations: locationIds ?? 'all',
-      totais: {
-        receita_bruta:   round2(receita_bruta),
-        descontos:       round2(descontos),
-        receita_liquida: round2(receita_liquida),
-        cmv:             round2(cmv),
-        margem_bruta:    round2(margem_bruta),
-        margem_pct:      pct(margem_bruta, receita_liquida),
-        qtd_itens,
-        nf_count,
-        ticket_medio,
+      totals: {
+        gross_revenue: round2(gross_revenue),
+        discounts:     round2(discounts),
+        net_revenue:   round2(net_revenue),
+        cogs:          round2(cogs),
+        gross_margin:  round2(gross_margin),
+        margin_pct:    pct(gross_margin, net_revenue),
+        item_count,
+        invoice_count,
+        avg_ticket,
       },
     })
   })
 
   // ---------------------------------------------------------------------
-  // GET /api/v1/conveniencia/evolucao
+  // GET /api/v1/convenience/evolution
   // ---------------------------------------------------------------------
-  app.get('/evolucao', async (req, reply) => {
+  app.get('/evolution', async (req, reply) => {
     const tenantId = req.tenantId!
-    let dataInicio: string, dataFim: string
+    let startDate: string, endDate: string
     let locationIds: string[] | undefined
-    let segmento: typeof SEGMENTOS_LOJA[number] | undefined
-    let granularidade: typeof GRANULARIDADES[number]
+    let segment: typeof STORE_SEGMENTS[number] | undefined
+    let granularity: typeof GRANULARITIES[number]
     try {
-      ({ dataInicio, dataFim } = parseDateRange(req.query as Record<string, unknown>))
+      ({ startDate, endDate } = parseDateRange(req.query as Record<string, unknown>))
       locationIds = parseUuidArray((req.query as any).location_id, 'location_id')
-      segmento = parseEnum((req.query as any).segmento, SEGMENTOS_LOJA, 'segmento')
-      granularidade = parseEnum((req.query as any).granularidade, GRANULARIDADES, 'granularidade', 'dia')!
+      segment = parseEnum((req.query as any).segment, STORE_SEGMENTS, 'segment')
+      granularity = parseEnum((req.query as any).granularity, GRANULARITIES, 'granularity', 'day')!
     } catch (err) {
       if (err instanceof BadQueryError) return reply.status(400).send({ error: err.message })
       throw err
     }
 
-    const periodoExpr =
-      granularidade === 'dia'
-        ? sql<string>`to_char(${mv.dataVenda}, 'YYYY-MM-DD')`
-        : granularidade === 'mes'
-          ? sql<string>`${mv.anoMes}`
-          : sql<string>`${mv.anoMes} || '-W' || lpad(${mv.semanaAno}::text, 2, '0')`
+    const periodExpr =
+      granularity === 'day'
+        ? sql<string>`to_char(${mv.saleDate}, 'YYYY-MM-DD')`
+        : granularity === 'month'
+          ? sql<string>`${mv.yearMonth}`
+          : sql<string>`${mv.yearMonth} || '-W' || lpad(${mv.weekOfYear}::text, 2, '0')`
 
     const rows = await db
       .select({
-        periodo:       periodoExpr.as('periodo'),
-        receita_bruta: sum(mv.receitaBruta).mapWith(Number),
-        margem_bruta:  sum(mv.margemBruta).mapWith(Number),
+        period:        periodExpr.as('period'),
+        gross_revenue: sum(mv.grossRevenue).mapWith(Number),
+        gross_margin:  sum(mv.grossMargin).mapWith(Number),
       })
       .from(mv)
       .where(and(
         eq(mv.tenantId, tenantId),
-        gte(mv.dataVenda, dataInicio),
-        lte(mv.dataVenda, dataFim),
+        gte(mv.saleDate, startDate),
+        lte(mv.saleDate, endDate),
         locationIds ? inArray(mv.locationId, locationIds) : undefined,
         // default para 'conveniencia' — lubrificantes/serviços têm rotas próprias
-        eq(mv.segmento, segmento ?? 'conveniencia'),
+        eq(mv.segment, segment ?? 'conveniencia'),
       ))
-      .groupBy(periodoExpr)
-      .orderBy(periodoExpr)
+      .groupBy(periodExpr)
+      .orderBy(periodExpr)
 
     return reply.send({
-      granularidade,
-      serie: rows.map(r => ({
-        periodo:       r.periodo,
-        receita_bruta: round2(n(r.receita_bruta)),
-        margem_bruta:  round2(n(r.margem_bruta)),
+      granularity,
+      series: rows.map(r => ({
+        period:        r.period,
+        gross_revenue: round2(n(r.gross_revenue)),
+        gross_margin:  round2(n(r.gross_margin)),
       })),
     })
   })
 
   // ---------------------------------------------------------------------
-  // GET /api/v1/conveniencia/categorias
+  // GET /api/v1/convenience/categories
   // ---------------------------------------------------------------------
-  app.get('/categorias', async (req, reply) => {
+  app.get('/categories', async (req, reply) => {
     const tenantId = req.tenantId!
-    let dataInicio: string, dataFim: string, locationIds: string[] | undefined
-    let segmento: typeof SEGMENTOS_LOJA[number] | undefined
+    let startDate: string, endDate: string, locationIds: string[] | undefined
+    let segment: typeof STORE_SEGMENTS[number] | undefined
     try {
-      ({ dataInicio, dataFim } = parseDateRange(req.query as Record<string, unknown>))
+      ({ startDate, endDate } = parseDateRange(req.query as Record<string, unknown>))
       locationIds = parseUuidArray((req.query as any).location_id, 'location_id')
-      // segmento é opcional — default 'conveniencia'. Permite uso como scatter-data sem filtro obrigatório.
-      segmento = parseEnum((req.query as any).segmento, SEGMENTOS_LOJA, 'segmento') ?? 'conveniencia'
+      // segment é opcional — default 'conveniencia'. Permite uso como scatter-data sem filtro obrigatório.
+      segment = parseEnum((req.query as any).segment, STORE_SEGMENTS, 'segment') ?? 'conveniencia'
     } catch (err) {
       if (err instanceof BadQueryError) return reply.status(400).send({ error: err.message })
       throw err
@@ -164,63 +164,63 @@ export const convenienciaRoutes: FastifyPluginAsync = async (app) => {
 
     const rows = await db
       .select({
-        categoria_codigo:    mv.categoriaCodigo,
-        categoria_descricao: sql<string | null>`MAX(${mv.categoriaDescricao})`,
-        receita_bruta:       sum(mv.receitaBruta).mapWith(Number),
-        receita_liquida:     sum(mv.receitaLiquida).mapWith(Number),
-        cmv:                 sum(mv.cmv).mapWith(Number),
-        margem_bruta:        sum(mv.margemBruta).mapWith(Number),
-        qtd_total:           sql<number>`COALESCE(SUM(${mv.qtdItens}), 0)`.mapWith(Number),
+        category_code: mv.categoryCode,
+        category_name: sql<string | null>`MAX(${mv.categoryName})`,
+        gross_revenue: sum(mv.grossRevenue).mapWith(Number),
+        net_revenue:   sum(mv.netRevenue).mapWith(Number),
+        cogs:          sum(mv.cogs).mapWith(Number),
+        gross_margin:  sum(mv.grossMargin).mapWith(Number),
+        total_quantity: sql<number>`COALESCE(SUM(${mv.itemCount}), 0)`.mapWith(Number),
       })
       .from(mv)
       .where(and(
         eq(mv.tenantId, tenantId),
-        eq(mv.segmento, segmento),
-        gte(mv.dataVenda, dataInicio),
-        lte(mv.dataVenda, dataFim),
+        eq(mv.segment, segment),
+        gte(mv.saleDate, startDate),
+        lte(mv.saleDate, endDate),
         locationIds ? inArray(mv.locationId, locationIds) : undefined,
       ))
-      .groupBy(mv.categoriaCodigo)
+      .groupBy(mv.categoryCode)
 
-    const total = rows.reduce((acc, r) => acc + n(r.receita_bruta), 0)
+    const total = rows.reduce((acc, r) => acc + n(r.gross_revenue), 0)
 
-    const categorias = rows
-      .filter(r => n(r.receita_bruta) !== 0)
+    const categories = rows
+      .filter(r => n(r.gross_revenue) !== 0)
       .map(r => {
-        const receita_bruta   = n(r.receita_bruta)
-        const receita_liquida = n(r.receita_liquida)
-        const margem_bruta    = n(r.margem_bruta)
+        const gross_revenue = n(r.gross_revenue)
+        const net_revenue   = n(r.net_revenue)
+        const gross_margin  = n(r.gross_margin)
         return {
-          categoria_codigo:    r.categoria_codigo,
-          categoria_descricao: r.categoria_descricao,
-          receita_bruta:       round2(receita_bruta),
-          cmv:                 round2(n(r.cmv)),
-          margem_bruta:        round2(margem_bruta),
-          margem_pct:          pct(margem_bruta, receita_liquida),
-          participacao_pct:    pct(receita_bruta, total),
-          qtd_total:           n(r.qtd_total),
+          category_code: r.category_code,
+          category_name: r.category_name,
+          gross_revenue: round2(gross_revenue),
+          cogs:          round2(n(r.cogs)),
+          gross_margin:  round2(gross_margin),
+          margin_pct:    pct(gross_margin, net_revenue),
+          share_pct:     pct(gross_revenue, total),
+          total_quantity: n(r.total_quantity),
         }
       })
-      .sort((a, b) => b.receita_bruta - a.receita_bruta)
+      .sort((a, b) => b.gross_revenue - a.gross_revenue)
 
-    return reply.send({ segmento, categorias })
+    return reply.send({ segment, categories })
   })
 
   // ---------------------------------------------------------------------
-  // GET /api/v1/conveniencia/grupos
+  // GET /api/v1/convenience/groups
   // ---------------------------------------------------------------------
-  app.get('/grupos', async (req, reply) => {
+  app.get('/groups', async (req, reply) => {
     const tenantId = req.tenantId!
-    let dataInicio: string, dataFim: string, locationIds: string[] | undefined
-    let categoriaCodigo: string
+    let startDate: string, endDate: string, locationIds: string[] | undefined
+    let categoryCode: string
     try {
-      ({ dataInicio, dataFim } = parseDateRange(req.query as Record<string, unknown>))
+      ({ startDate, endDate } = parseDateRange(req.query as Record<string, unknown>))
       locationIds = parseUuidArray((req.query as any).location_id, 'location_id')
-      const cat = (req.query as any).categoria_codigo
+      const cat = (req.query as any).category_code
       if (typeof cat !== 'string' || !cat.trim()) {
-        return reply.status(400).send({ error: 'Parâmetro "categoria_codigo" é obrigatório' })
+        return reply.status(400).send({ error: 'Parâmetro "category_code" é obrigatório' })
       }
-      categoriaCodigo = cat.trim()
+      categoryCode = cat.trim()
     } catch (err) {
       if (err instanceof BadQueryError) return reply.status(400).send({ error: err.message })
       throw err
@@ -228,55 +228,55 @@ export const convenienciaRoutes: FastifyPluginAsync = async (app) => {
 
     const rows = await db
       .select({
-        grupo_id:        mv.grupoId,
-        grupo_descricao: sql<string | null>`MAX(${mv.grupoDescricao})`,
-        receita_bruta:   sum(mv.receitaBruta).mapWith(Number),
-        receita_liquida: sum(mv.receitaLiquida).mapWith(Number),
-        cmv:             sum(mv.cmv).mapWith(Number),
-        margem_bruta:    sum(mv.margemBruta).mapWith(Number),
+        group_id:      mv.groupId,
+        group_name:    sql<string | null>`MAX(${mv.groupName})`,
+        gross_revenue: sum(mv.grossRevenue).mapWith(Number),
+        net_revenue:   sum(mv.netRevenue).mapWith(Number),
+        cogs:          sum(mv.cogs).mapWith(Number),
+        gross_margin:  sum(mv.grossMargin).mapWith(Number),
       })
       .from(mv)
       .where(and(
         eq(mv.tenantId, tenantId),
-        eq(mv.categoriaCodigo, categoriaCodigo),
-        gte(mv.dataVenda, dataInicio),
-        lte(mv.dataVenda, dataFim),
+        eq(mv.categoryCode, categoryCode),
+        gte(mv.saleDate, startDate),
+        lte(mv.saleDate, endDate),
         locationIds ? inArray(mv.locationId, locationIds) : undefined,
       ))
-      .groupBy(mv.grupoId)
+      .groupBy(mv.groupId)
 
-    const total = rows.reduce((acc, r) => acc + n(r.receita_bruta), 0)
+    const total = rows.reduce((acc, r) => acc + n(r.gross_revenue), 0)
 
-    const grupos = rows
+    const groups = rows
       .map(r => {
-        const receita_bruta   = n(r.receita_bruta)
-        const receita_liquida = n(r.receita_liquida)
-        const margem_bruta    = n(r.margem_bruta)
+        const gross_revenue = n(r.gross_revenue)
+        const net_revenue   = n(r.net_revenue)
+        const gross_margin  = n(r.gross_margin)
         return {
-          grupo_id:        r.grupo_id,
-          grupo_descricao: r.grupo_descricao,
-          receita_bruta:   round2(receita_bruta),
-          cmv:             round2(n(r.cmv)),
-          margem_bruta:    round2(margem_bruta),
-          margem_pct:      pct(margem_bruta, receita_liquida),
-          participacao_pct: pct(receita_bruta, total),
+          group_id:      r.group_id,
+          group_name:    r.group_name,
+          gross_revenue: round2(gross_revenue),
+          cogs:          round2(n(r.cogs)),
+          gross_margin:  round2(gross_margin),
+          margin_pct:    pct(gross_margin, net_revenue),
+          share_pct:     pct(gross_revenue, total),
         }
       })
-      .sort((a, b) => b.receita_bruta - a.receita_bruta)
+      .sort((a, b) => b.gross_revenue - a.gross_revenue)
 
-    return reply.send({ categoria_codigo: categoriaCodigo, grupos })
+    return reply.send({ category_code: categoryCode, groups })
   })
 
   // ---------------------------------------------------------------------
-  // GET /api/v1/conveniencia/top-grupos
+  // GET /api/v1/convenience/top-groups
   // Top 10 grupos da conveniência por receita (excluindo lubrificantes/serviços)
   // ---------------------------------------------------------------------
-  app.get('/top-grupos', async (req, reply) => {
+  app.get('/top-groups', async (req, reply) => {
     const tenantId = req.tenantId!
-    let dataInicio: string, dataFim: string, locationIds: string[] | undefined
+    let startDate: string, endDate: string, locationIds: string[] | undefined
     let limit = 10
     try {
-      ({ dataInicio, dataFim } = parseDateRange(req.query as Record<string, unknown>))
+      ({ startDate, endDate } = parseDateRange(req.query as Record<string, unknown>))
       locationIds = parseUuidArray((req.query as any).location_id, 'location_id')
       const lim = parseInt((req.query as any).limit)
       if (!isNaN(lim) && lim > 0 && lim <= 50) limit = lim
@@ -287,110 +287,110 @@ export const convenienciaRoutes: FastifyPluginAsync = async (app) => {
 
     const rows = await db
       .select({
-        grupo_id:        mv.grupoId,
-        grupo_descricao: sql<string | null>`MAX(${mv.grupoDescricao})`,
-        segmento:        sql<string>`MAX(${mv.segmento})`,
-        receita_bruta:   sum(mv.receitaBruta).mapWith(Number),
-        receita_liquida: sum(mv.receitaLiquida).mapWith(Number),
-        cmv:             sum(mv.cmv).mapWith(Number),
-        margem_bruta:    sum(mv.margemBruta).mapWith(Number),
-        qtd_itens:       sql<number>`COALESCE(SUM(${mv.qtdItens}), 0)`.mapWith(Number),
+        group_id:      mv.groupId,
+        group_name:    sql<string | null>`MAX(${mv.groupName})`,
+        segment:       sql<string>`MAX(${mv.segment})`,
+        gross_revenue: sum(mv.grossRevenue).mapWith(Number),
+        net_revenue:   sum(mv.netRevenue).mapWith(Number),
+        cogs:          sum(mv.cogs).mapWith(Number),
+        gross_margin:  sum(mv.grossMargin).mapWith(Number),
+        item_count:    sql<number>`COALESCE(SUM(${mv.itemCount}), 0)`.mapWith(Number),
       })
       .from(mv)
       .where(and(
         eq(mv.tenantId, tenantId),
-        eq(mv.segmento, 'conveniencia'),
-        gte(mv.dataVenda, dataInicio),
-        lte(mv.dataVenda, dataFim),
+        eq(mv.segment, 'conveniencia'),
+        gte(mv.saleDate, startDate),
+        lte(mv.saleDate, endDate),
         locationIds ? inArray(mv.locationId, locationIds) : undefined,
       ))
-      .groupBy(mv.grupoId)
-      .orderBy(desc(sum(mv.receitaBruta)))
+      .groupBy(mv.groupId)
+      .orderBy(desc(sum(mv.grossRevenue)))
       .limit(limit)
 
-    const total = rows.reduce((acc, r) => acc + n(r.receita_bruta), 0)
-    const grupoIds = rows.map(r => r.grupo_id).filter((id): id is number => id !== null)
+    const total = rows.reduce((acc, r) => acc + n(r.gross_revenue), 0)
+    const groupIds = rows.map(r => r.group_id).filter((id): id is number => id !== null)
 
     // Busca categorias de cada grupo para o Accordion aninhado
-    const catRows = grupoIds.length > 0
+    const catRows = groupIds.length > 0
       ? await db
           .select({
-            grupo_id:            mv.grupoId,
-            categoria_codigo:    mv.categoriaCodigo,
-            categoria_descricao: sql<string | null>`MAX(${mv.categoriaDescricao})`,
-            receita_bruta:       sum(mv.receitaBruta).mapWith(Number),
-            receita_liquida:     sum(mv.receitaLiquida).mapWith(Number),
-            cmv:                 sum(mv.cmv).mapWith(Number),
-            margem_bruta:        sum(mv.margemBruta).mapWith(Number),
-            qtd_itens:           sql<number>`COALESCE(SUM(${mv.qtdItens}), 0)`.mapWith(Number),
+            group_id:      mv.groupId,
+            category_code: mv.categoryCode,
+            category_name: sql<string | null>`MAX(${mv.categoryName})`,
+            gross_revenue: sum(mv.grossRevenue).mapWith(Number),
+            net_revenue:   sum(mv.netRevenue).mapWith(Number),
+            cogs:          sum(mv.cogs).mapWith(Number),
+            gross_margin:  sum(mv.grossMargin).mapWith(Number),
+            item_count:    sql<number>`COALESCE(SUM(${mv.itemCount}), 0)`.mapWith(Number),
           })
           .from(mv)
           .where(and(
             eq(mv.tenantId, tenantId),
-            eq(mv.segmento, 'conveniencia'),
-            inArray(mv.grupoId, grupoIds),
-            gte(mv.dataVenda, dataInicio),
-            lte(mv.dataVenda, dataFim),
+            eq(mv.segment, 'conveniencia'),
+            inArray(mv.groupId, groupIds),
+            gte(mv.saleDate, startDate),
+            lte(mv.saleDate, endDate),
             locationIds ? inArray(mv.locationId, locationIds) : undefined,
           ))
-          .groupBy(mv.grupoId, mv.categoriaCodigo)
-          .orderBy(mv.grupoId, desc(sum(mv.receitaBruta)))
+          .groupBy(mv.groupId, mv.categoryCode)
+          .orderBy(mv.groupId, desc(sum(mv.grossRevenue)))
       : []
 
-    // Indexa categorias por grupo_id
-    const catByGrupo = new Map<number, object[]>()
+    // Indexa categorias por group_id
+    const catByGroup = new Map<number, object[]>()
     for (const c of catRows) {
-      if (c.grupo_id === null) continue
-      if (!catByGrupo.has(c.grupo_id)) catByGrupo.set(c.grupo_id, [])
-      const rec = n(c.receita_bruta)
-      const liq = n(c.receita_liquida)
-      const mb  = n(c.margem_bruta)
-      catByGrupo.get(c.grupo_id)!.push({
-        categoria_codigo:    c.categoria_codigo,
-        categoria_descricao: c.categoria_descricao,
-        receita_bruta:       round2(rec),
-        cmv:                 round2(n(c.cmv)),
-        margem_bruta:        round2(mb),
-        margem_pct:          pct(mb, liq),
-        qtd_itens:           n(c.qtd_itens),
+      if (c.group_id === null) continue
+      if (!catByGroup.has(c.group_id)) catByGroup.set(c.group_id, [])
+      const rec = n(c.gross_revenue)
+      const liq = n(c.net_revenue)
+      const mb  = n(c.gross_margin)
+      catByGroup.get(c.group_id)!.push({
+        category_code: c.category_code,
+        category_name: c.category_name,
+        gross_revenue: round2(rec),
+        cogs:          round2(n(c.cogs)),
+        gross_margin:  round2(mb),
+        margin_pct:    pct(mb, liq),
+        item_count:    n(c.item_count),
       })
     }
 
     return reply.send({
-      grupos: rows.map((r, i) => {
-        const receita_bruta   = n(r.receita_bruta)
-        const receita_liquida = n(r.receita_liquida)
-        const margem_bruta    = n(r.margem_bruta)
+      groups: rows.map((r, i) => {
+        const gross_revenue = n(r.gross_revenue)
+        const net_revenue   = n(r.net_revenue)
+        const gross_margin  = n(r.gross_margin)
         return {
-          rank:             i + 1,
-          grupo_id:         r.grupo_id,
-          grupo_descricao:  r.grupo_descricao ?? r.grupo_id,
-          segmento:         r.segmento,
-          receita_bruta:    round2(receita_bruta),
-          cmv:              round2(n(r.cmv)),
-          margem_bruta:     round2(margem_bruta),
-          margem_pct:       pct(margem_bruta, receita_liquida),
-          qtd_itens:        n(r.qtd_itens),
-          participacao_pct: pct(receita_bruta, total),
-          categorias:       catByGrupo.get(r.grupo_id ?? -1) ?? [],
+          rank:          i + 1,
+          group_id:      r.group_id,
+          group_name:    r.group_name ?? r.group_id,
+          segment:       r.segment,
+          gross_revenue: round2(gross_revenue),
+          cogs:          round2(n(r.cogs)),
+          gross_margin:  round2(gross_margin),
+          margin_pct:    pct(gross_margin, net_revenue),
+          item_count:    n(r.item_count),
+          share_pct:     pct(gross_revenue, total),
+          categories:    catByGroup.get(r.group_id ?? -1) ?? [],
         }
       }),
     })
   })
 
   // ---------------------------------------------------------------------
-  // GET /api/v1/conveniencia/by-location
+  // GET /api/v1/convenience/by-location
   // Receita, margem e participação por unidade no período selecionado.
-  // Query params: data_inicio, data_fim, segmento? (conveniencia|lubrificantes|servicos)
+  // Query params: start_date, end_date, segment? (conveniencia|lubrificantes|servicos)
   // Retorno: { locations: [...] }
   // ---------------------------------------------------------------------
   app.get('/by-location', async (req, reply) => {
     const tenantId = req.tenantId!
-    let dataInicio: string, dataFim: string, segmento: string | undefined
+    let startDate: string, endDate: string, segment: string | undefined
     try {
-      ({ dataInicio, dataFim } = parseDateRange(req.query as Record<string, unknown>))
-      const seg = (req.query as any).segmento
-      segmento = seg ? parseEnum(seg, SEGMENTOS_LOJA as unknown as string[], 'segmento') : undefined
+      ({ startDate, endDate } = parseDateRange(req.query as Record<string, unknown>))
+      const seg = (req.query as any).segment
+      segment = seg ? parseEnum(seg, STORE_SEGMENTS as unknown as string[], 'segment') : undefined
     } catch (err) {
       if (err instanceof BadQueryError) return reply.status(400).send({ error: err.message })
       throw err
@@ -398,12 +398,12 @@ export const convenienciaRoutes: FastifyPluginAsync = async (app) => {
 
     const rows = await db
       .select({
-        location_id:     mv.locationId,
-        location_nome:   locations.name,
-        receita_bruta:   sum(mv.receitaBruta).mapWith(Number),
-        receita_liquida: sum(mv.receitaLiquida).mapWith(Number),
-        cmv:             sum(mv.cmv).mapWith(Number),
-        margem_bruta:    sum(mv.margemBruta).mapWith(Number),
+        location_id:   mv.locationId,
+        location_name: locations.name,
+        gross_revenue: sum(mv.grossRevenue).mapWith(Number),
+        net_revenue:   sum(mv.netRevenue).mapWith(Number),
+        cogs:          sum(mv.cogs).mapWith(Number),
+        gross_margin:  sum(mv.grossMargin).mapWith(Number),
       })
       .from(mv)
       .innerJoin(locations, and(
@@ -412,28 +412,28 @@ export const convenienciaRoutes: FastifyPluginAsync = async (app) => {
       ))
       .where(and(
         eq(mv.tenantId, tenantId),
-        gte(mv.dataVenda, dataInicio),
-        lte(mv.dataVenda, dataFim),
-        segmento ? eq(mv.segmento, segmento) : undefined,
+        gte(mv.saleDate, startDate),
+        lte(mv.saleDate, endDate),
+        segment ? eq(mv.segment, segment) : undefined,
       ))
       .groupBy(mv.locationId, locations.name)
-      .orderBy(desc(sum(mv.receitaBruta)))
+      .orderBy(desc(sum(mv.grossRevenue)))
 
-    const totalReceita = rows.reduce((acc, r) => acc + n(r.receita_bruta), 0)
+    const totalRevenue = rows.reduce((acc, r) => acc + n(r.gross_revenue), 0)
 
     return reply.send({
       locations: rows.map(r => {
-        const receita_bruta = n(r.receita_bruta)
-        const cmv           = n(r.cmv)
-        const receita_liq   = n(r.receita_liquida)
-        const margem_bruta  = receita_liq - cmv
+        const gross_revenue = n(r.gross_revenue)
+        const cogs          = n(r.cogs)
+        const net_revenue   = n(r.net_revenue)
+        const gross_margin  = net_revenue - cogs
         return {
-          location_id:      r.location_id,
-          location_nome:    r.location_nome,
-          receita_bruta:    round2(receita_bruta),
-          margem_bruta:     round2(margem_bruta),
-          margem_pct:       pct(margem_bruta, receita_liq),
-          participacao_pct: pct(receita_bruta, totalReceita),
+          location_id:   r.location_id,
+          location_name: r.location_name,
+          gross_revenue: round2(gross_revenue),
+          gross_margin:  round2(gross_margin),
+          margin_pct:    pct(gross_margin, net_revenue),
+          share_pct:     pct(gross_revenue, totalRevenue),
         }
       }),
     })

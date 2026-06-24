@@ -11,72 +11,71 @@ async function get<T>(url: string): Promise<T> {
 
 function useBaseParams() {
   const { period, locationId } = useApp()
-  const { data_inicio, data_fim } = periodToRange(period)
-  return { data_inicio, data_fim, location_id: locationId ?? undefined }
+  const { start_date, end_date } = periodToRange(period)
+  return { start_date, end_date, location_id: locationId ?? undefined }
 }
 
 export interface ArlaProduto {
-  grupo_id: number
-  grupo_descricao: string | null
-  volume_litros: number
-  receita_bruta: number
-  receita_liquida: number
-  cmv: number
-  margem_bruta: number
-  margem_pct: number
-  preco_medio_litro: number | null
-  custo_medio_litro: number | null
-  participacao_volume_pct: number
-  participacao_receita_pct: number
+  group_id: number
+  group_name: string | null
+  volume_liters: number
+  gross_revenue: number
+  net_revenue: number
+  cogs: number
+  gross_margin: number
+  margin_pct: number
+  avg_price_liter: number | null
+  avg_cost_liter: number | null
+  volume_share_pct: number
+  revenue_share_pct: number
 }
 
 export interface ArlaResumo {
-  totais: {
-    volume_litros: number
-    receita_bruta: number
-    receita_liquida: number
-    cmv: number
-    margem_bruta: number
-    margem_pct: number
+  totals: {
+    volume_liters: number
+    gross_revenue: number
+    net_revenue: number
+    cogs: number
+    gross_margin: number
+    margin_pct: number
   }
-  por_produto: ArlaProduto[]
+  by_product: ArlaProduto[]
 }
 
 export function useArlaResumo() {
   const params = useBaseParams()
   const qs = buildQS(params)
   return useQuery<ArlaResumo>({
-    queryKey: ['arla', 'resumo', params],
-    queryFn: () => get(`/api/v1/arla/resumo${qs}`),
+    queryKey: ['arla', 'summary', params],
+    queryFn: () => get(`/api/v1/arla/summary${qs}`),
   })
 }
 
 /** Resumo Arla do período anterior — para descontar dos deltas CB-only. */
 export function useArlaResumoPrev() {
   const { period, locationId } = useApp()
-  const { data_inicio, data_fim } = previousRange(period)
-  const params = { data_inicio, data_fim, location_id: locationId ?? undefined }
+  const { start_date, end_date } = previousRange(period)
+  const params = { start_date, end_date, location_id: locationId ?? undefined }
   const qs = buildQS(params)
   return useQuery<ArlaResumo>({
-    queryKey: ['arla', 'resumo', 'prev', params],
-    queryFn: () => get(`/api/v1/arla/resumo${qs}`),
+    queryKey: ['arla', 'summary', 'prev', params],
+    queryFn: () => get(`/api/v1/arla/summary${qs}`),
   })
 }
 
 export interface ArlaEvolucaoPonto {
-  periodo: string
-  volume_litros: number
-  receita_bruta: number
-  margem_bruta: number
-  margem_pct: number
+  period: string
+  volume_liters: number
+  gross_revenue: number
+  gross_margin: number
 }
 
-export function useArlaEvolucao(granularidade: 'dia' | 'semana' | 'mes' = 'dia') {
+export function useArlaEvolucao(granularity: 'day' | 'week' | 'month' = 'day') {
   const params = useBaseParams()
-  const qs = buildQS({ ...params, granularidade })
-  return useQuery<{ serie: ArlaEvolucaoPonto[] }>({
-    queryKey: ['arla', 'evolucao', params, granularidade],
-    queryFn: () => get(`/api/v1/arla/evolucao${qs}`),
+  const qs = buildQS({ ...params, granularity })
+  return useQuery<{ series: ArlaEvolucaoPonto[] }>({
+    queryKey: ['arla', 'evolution', params, granularity],
+    queryFn: () => get(`/api/v1/arla/evolution${qs}`),
   })
 }
 
@@ -84,18 +83,18 @@ export function useArlaEvolucao(granularidade: 'dia' | 'semana' | 'mes' = 'dia')
 
 export interface ArlaByLocation {
   location_id: string
-  location_nome: string
-  receita_bruta: number
-  volume_litros: number
-  participacao_pct: number
-  participacao_volume_pct: number
+  location_name: string
+  gross_revenue: number
+  volume_liters: number
+  share_pct: number
+  volume_share_pct: number
   [key: string]: unknown
 }
 
 export function useArlaByLocation() {
   const { period } = useApp()
-  const { data_inicio, data_fim } = periodToRange(period)
-  const params = { data_inicio, data_fim }
+  const { start_date, end_date } = periodToRange(period)
+  const params = { start_date, end_date }
   const qs = buildQS(params)
   return useQuery<{ locations: ArlaByLocation[] }>({
     queryKey: ['arla', 'by-location', params],

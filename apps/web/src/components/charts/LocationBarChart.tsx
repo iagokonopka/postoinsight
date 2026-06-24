@@ -20,10 +20,10 @@ import { fCurrency, fPct } from '@/lib/format'
 
 export interface LocationBarItem {
   location_id: string
-  location_nome: string
-  receita_bruta: number
-  margem_pct?: number
-  participacao_pct: number
+  location_name: string
+  gross_revenue: number
+  margin_pct?: number
+  share_pct: number
 }
 
 interface LocationBarChartProps {
@@ -33,7 +33,7 @@ interface LocationBarChartProps {
   selectedLocationId?: string | null
 }
 
-type Metric = 'receita_bruta' | 'margem_pct'
+type Metric = 'gross_revenue' | 'margin_pct'
 
 // ─── Tooltip customizado ──────────────────────────────────────────────────────
 
@@ -52,21 +52,21 @@ function CustomTooltip({ active, payload }: any) {
       minWidth: '160px',
     }}>
       <div style={{ fontWeight: 600, color: 'hsl(var(--foreground))', marginBottom: '8px' }}>
-        {d.location_nome}
+        {d.location_name}
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px', marginBottom: '3px' }}>
         <span style={{ color: 'hsl(var(--muted-foreground))' }}>Receita</span>
-        <span style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{fCurrency(d.receita_bruta)}</span>
+        <span style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{fCurrency(d.gross_revenue)}</span>
       </div>
-      {d.margem_pct !== undefined && (
+      {d.margin_pct !== undefined && (
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px', marginBottom: '3px' }}>
           <span style={{ color: 'hsl(var(--muted-foreground))' }}>Margem</span>
-          <span style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{fPct(d.margem_pct, 1)}</span>
+          <span style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{fPct(d.margin_pct, 1)}</span>
         </div>
       )}
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px' }}>
         <span style={{ color: 'hsl(var(--muted-foreground))' }}>Participação</span>
-        <span style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{fPct(d.participacao_pct, 1)}</span>
+        <span style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{fPct(d.share_pct, 1)}</span>
       </div>
     </div>
   )
@@ -76,8 +76,8 @@ function CustomTooltip({ active, payload }: any) {
 
 function MetricToggle({ value, onChange }: { value: Metric; onChange: (m: Metric) => void }) {
   const opts: { value: Metric; label: string }[] = [
-    { value: 'receita_bruta', label: 'Receita' },
-    { value: 'margem_pct',    label: 'Margem %' },
+    { value: 'gross_revenue', label: 'Receita' },
+    { value: 'margin_pct',    label: 'Margem %' },
   ]
   return (
     <div style={{ display: 'inline-flex', padding: '2px', background: 'hsl(var(--muted))', borderRadius: '6px', gap: '2px' }}>
@@ -115,7 +115,7 @@ export function LocationBarChart({
   onLocationClick,
   selectedLocationId,
 }: LocationBarChartProps) {
-  const [metric, setMetric] = useState<Metric>('receita_bruta')
+  const [metric, setMetric] = useState<Metric>('gross_revenue')
 
   const hasSelection = !!selectedLocationId
 
@@ -132,7 +132,7 @@ export function LocationBarChart({
     <Card>
       <CardHeader
         title="Por Unidade"
-        description={metric === 'receita_bruta' ? 'Receita no período' : 'Margem bruta no período'}
+        description={metric === 'gross_revenue' ? 'Receita no período' : 'Margem bruta no período'}
         action={<MetricToggle value={metric} onChange={setMetric} />}
       />
       <CardBody>
@@ -158,7 +158,7 @@ export function LocationBarChart({
               />
               <YAxis
                 type="category"
-                dataKey="location_nome"
+                dataKey="location_name"
                 width={96}
                 tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))', fontFamily: 'inherit' }}
                 axisLine={false}

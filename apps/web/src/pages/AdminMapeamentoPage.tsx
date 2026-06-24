@@ -59,20 +59,20 @@ export function AdminMapeamentoPanel() {
     setEdits(prev => ({ ...prev, [codigo]: { ...base, ...(prev[codigo] ?? {}), ...patch } }))
   }
 
-  const grupos = data?.grupos ?? []
-  const resumo = data?.resumo
+  const grupos = data?.groups ?? []
+  const resumo = data?.summary
 
   // Itens alterados que têm um tipo definido (PUT só aceita accounting_type não-nulo)
   const dirtyItems: ClassificacaoItem[] = useMemo(() => {
     const out: ClassificacaoItem[] = []
     for (const g of grupos) {
-      const e = edits[g.grupo_financeiro_codigo]
+      const e = edits[g.financial_group_code]
       if (!e) continue
       const changedType  = e.accounting_type !== g.accounting_type
       const changedLabel = (e.custom_label || '') !== (g.custom_label || '')
       if ((changedType || changedLabel) && e.accounting_type) {
         out.push({
-          grupo_financeiro_codigo: g.grupo_financeiro_codigo,
+          financial_group_code: g.financial_group_code,
           accounting_type: e.accounting_type,
           custom_label: e.custom_label || null,
         })
@@ -100,13 +100,13 @@ export function AdminMapeamentoPanel() {
           <div>
             <div style={{ fontSize: '11px', color: 'hsl(var(--muted-foreground))' }}>Classificado (por valor)</div>
             <div style={{ fontSize: '20px', fontWeight: 700, color: 'hsl(var(--primary))' }}>
-              {resumo ? fPct(resumo.pct_classificado_valor, 1) : '—'}
+              {resumo ? fPct(resumo.classified_pct_value, 1) : '—'}
             </div>
           </div>
           <div>
             <div style={{ fontSize: '11px', color: 'hsl(var(--muted-foreground))' }}>Grupos classificados</div>
             <div style={{ fontSize: '20px', fontWeight: 700 }}>
-              {resumo ? `${resumo.classificados}/${resumo.classificados + resumo.nao_classificados}` : '—'}
+              {resumo ? `${resumo.classified}/${resumo.classified + resumo.unclassified}` : '—'}
             </div>
           </div>
           <div style={{ flex: 1 }} />
@@ -135,14 +135,14 @@ export function AdminMapeamentoPanel() {
                 <tbody>
                   {grupos.map(g => {
                     const base: EditState = { accounting_type: g.accounting_type, custom_label: g.custom_label ?? '' }
-                    const e = current(g.grupo_financeiro_codigo, base)
+                    const e = current(g.financial_group_code, base)
                     const naoClassificado = e.accounting_type == null
                     return (
-                      <tr key={g.grupo_financeiro_codigo} style={{ borderBottom: '1px solid hsl(var(--border))' }}>
+                      <tr key={g.financial_group_code} style={{ borderBottom: '1px solid hsl(var(--border))' }}>
                         <td style={{ ...TD, textAlign: 'left' }}>
-                          <div style={{ fontWeight: 500 }}>{g.grupo_financeiro_descricao ?? '(sem grupo)'}</div>
+                          <div style={{ fontWeight: 500 }}>{g.financial_group_name ?? '(sem grupo)'}</div>
                           <div style={{ fontSize: '11px', color: 'hsl(var(--muted-foreground))' }}>
-                            cód {g.grupo_financeiro_codigo || '—'} · {g.qtd_lancamentos} lanç.
+                            cód {g.financial_group_code || '—'} · {g.entry_count} lanç.
                           </div>
                         </td>
                         <td style={{ ...TD, textAlign: 'right' }}>{fCurrency(g.total)}</td>
@@ -150,7 +150,7 @@ export function AdminMapeamentoPanel() {
                         <td style={{ ...TD, textAlign: 'left' }}>
                           <select
                             value={e.accounting_type ?? ''}
-                            onChange={ev => setEdit(g.grupo_financeiro_codigo, {
+                            onChange={ev => setEdit(g.financial_group_code, {
                               accounting_type: (ev.target.value || null) as AccountingType | null,
                             }, base)}
                             style={{
@@ -172,8 +172,8 @@ export function AdminMapeamentoPanel() {
                         <td style={{ ...TD, textAlign: 'left' }}>
                           <input
                             value={e.custom_label}
-                            placeholder={g.grupo_financeiro_descricao ?? ''}
-                            onChange={ev => setEdit(g.grupo_financeiro_codigo, { custom_label: ev.target.value }, base)}
+                            placeholder={g.financial_group_name ?? ''}
+                            onChange={ev => setEdit(g.financial_group_code, { custom_label: ev.target.value }, base)}
                             style={{
                               height: '32px', padding: '0 8px', borderRadius: '6px',
                               border: '1px solid hsl(var(--border))', background: 'hsl(var(--card))',

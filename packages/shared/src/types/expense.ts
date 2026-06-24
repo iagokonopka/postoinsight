@@ -22,7 +22,7 @@ export const ACCOUNTING_TYPES = [
 export type AccountingType = (typeof ACCOUNTING_TYPES)[number]
 
 /** Default lógico para grupos sem classificação (não persistido no banco). */
-export const NAO_CLASSIFICADO = 'nao_classificado' as const
+export const UNCLASSIFIED = 'nao_classificado' as const
 
 /** Único tipo que entra no Resultado Operacional. */
 export const OPERATIONAL_TYPE: AccountingType = 'despesa_operacional'

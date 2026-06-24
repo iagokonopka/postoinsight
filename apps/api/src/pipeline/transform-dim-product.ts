@@ -1,4 +1,4 @@
-import { deriveSegmento } from '@postoinsight/shared'
+import { deriveSegment } from '@postoinsight/shared'
 
 export interface StatusTitemRow {
   Cd_Item: string
@@ -23,25 +23,25 @@ export interface DimProdutoPayload {
   tsgri: StatusTsgriRow[]
 }
 
-export interface DimProdutoInsert {
-  tenantId:           string
-  source:             'status'
-  sourceLocationId:   string
-  sourceProdutoId:    string
-  nome:               string
-  nomeResumido:       string | null
-  categoriaCodigo:    string
-  categoriaDescricao: string | null
-  grupoId:            number
-  grupoDescricao:     string | null
-  subgrupoId:         number | null
-  subgrupoDescricao:  string | null
-  tipoProduto:        string | null
-  unidadeVenda:       string | null
-  isCombustivel:      boolean
-  segmento:           string | null
-  ativo:              boolean
-  validFrom:          string
+export interface DimProductInsert {
+  tenantId:         string
+  source:           'status'
+  sourceLocationId: string
+  sourceProductId:  string
+  name:             string
+  shortName:        string | null
+  categoryCode:     string
+  categoryName:     string | null
+  groupId:          number
+  groupName:        string | null
+  subgroupId:       number | null
+  subgroupName:     string | null
+  productType:      string | null
+  saleUnit:         string | null
+  isFuel:           boolean
+  segment:          string | null
+  active:           boolean
+  validFrom:        string
 }
 
 export function transformDimProduto(
@@ -49,34 +49,34 @@ export function transformDimProduto(
   tenantId: string,
   sourceLocationId: string,
   today: string,
-): DimProdutoInsert[] {
+): DimProductInsert[] {
   const catMap = new Map(payload.tcati.map((r) => [r.Cd_CatItem.trim().toUpperCase(), r.Descricao.trim()]))
   const grpMap = new Map(payload.tgrpi.map((r) => [r.Cd_GrpItem, r.Descricao.trim()]))
   const sgrMap = new Map(payload.tsgri.map((r) => [r.Cd_SGrItem, r.Descricao.trim()]))
 
   return payload.titem.map((row) => {
-    const categoriaCodigo = row.Cd_CatItem.trim().toUpperCase()
-    const ativo = categoriaCodigo !== 'INA' && !row.Descricao.toUpperCase().includes('INATIVO')
+    const categoryCode = row.Cd_CatItem.trim().toUpperCase()
+    const active = categoryCode !== 'INA' && !row.Descricao.toUpperCase().includes('INATIVO')
 
     return {
       tenantId,
-      source:             'status',
+      source:           'status',
       sourceLocationId,
-      sourceProdutoId:    row.Cd_Item.trim().toUpperCase(),
-      nome:               row.Descricao.trim(),
-      nomeResumido:       row.DescrRes?.trim() || null,
-      categoriaCodigo,
-      categoriaDescricao: catMap.get(categoriaCodigo) ?? null,
-      grupoId:            row.Cd_GrpItem,
-      grupoDescricao:     grpMap.get(row.Cd_GrpItem) ?? null,
-      subgrupoId:         row.Cd_SGrItem || null,
-      subgrupoDescricao:  row.Cd_SGrItem ? (sgrMap.get(row.Cd_SGrItem) ?? null) : null,
-      tipoProduto:        row.Cd_TipItem != null ? String(row.Cd_TipItem) : null,
-      unidadeVenda:       row.Unidade?.trim() || null,
-      isCombustivel:      categoriaCodigo === 'CB' || categoriaCodigo === 'ARL',
-      segmento:           deriveSegmento(categoriaCodigo),
-      ativo,
-      validFrom:          row.DtCadastro ? row.DtCadastro.split('T')[0]! : today,
+      sourceProductId:  row.Cd_Item.trim().toUpperCase(),
+      name:             row.Descricao.trim(),
+      shortName:        row.DescrRes?.trim() || null,
+      categoryCode,
+      categoryName:     catMap.get(categoryCode) ?? null,
+      groupId:          row.Cd_GrpItem,
+      groupName:        grpMap.get(row.Cd_GrpItem) ?? null,
+      subgroupId:       row.Cd_SGrItem || null,
+      subgroupName:     row.Cd_SGrItem ? (sgrMap.get(row.Cd_SGrItem) ?? null) : null,
+      productType:      row.Cd_TipItem != null ? String(row.Cd_TipItem) : null,
+      saleUnit:         row.Unidade?.trim() || null,
+      isFuel:           categoryCode === 'CB' || categoryCode === 'ARL',
+      segment:          deriveSegment(categoryCode),
+      active,
+      validFrom:        row.DtCadastro ? row.DtCadastro.split('T')[0]! : today,
     }
   })
 }

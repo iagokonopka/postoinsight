@@ -18,11 +18,11 @@ import { CHART_COLORS } from '@/lib/chart-colors'
 
 // ─── Segment control de granularidade ────────────────────────────────────────
 
-type Gran = 'dia' | 'semana' | 'mes'
+type Gran = 'day' | 'week' | 'month'
 const GRAN_OPTIONS: { value: Gran; label: string }[] = [
-  { value: 'dia',    label: 'Dia' },
-  { value: 'semana', label: 'Semana' },
-  { value: 'mes',    label: 'Mês' },
+  { value: 'day',   label: 'Dia' },
+  { value: 'week',  label: 'Semana' },
+  { value: 'month', label: 'Mês' },
 ]
 
 function GranControl({ value, onChange }: { value: Gran; onChange: (v: Gran) => void }) {
@@ -54,41 +54,41 @@ function GranControl({ value, onChange }: { value: Gran; onChange: (v: Gran) => 
 export default function ProdutoPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const [gran, setGran] = useState<Gran>('dia')
+  const [gran, setGran] = useState<Gran>('day')
 
   const sourceProdutoId = id ? decodeURIComponent(id) : null
 
   const { data: evoData,  isLoading: loadingEvo  } = useProdutoEvolucao(sourceProdutoId, gran)
   const { data: locData,  isLoading: loadingLoc  } = useProdutoPorLocation(sourceProdutoId)
 
-  const produto = evoData?.produto ?? locData?.produto
-  const serie   = evoData?.serie ?? []
+  const produto = evoData?.product ?? locData?.product
+  const serie   = evoData?.series ?? []
 
   // ── KPIs totalizados da série ──
-  const totReceita   = serie.reduce((s, p) => s + p.receita_bruta, 0)
-  const totMargem    = serie.reduce((s, p) => s + p.margem_bruta, 0)
-  const totQtd       = serie.reduce((s, p) => s + p.qtd_venda, 0)
+  const totReceita   = serie.reduce((s, p) => s + p.gross_revenue, 0)
+  const totMargem    = serie.reduce((s, p) => s + p.gross_margin, 0)
+  const totQtd       = serie.reduce((s, p) => s + p.quantity, 0)
   const margemPct    = totReceita > 0 ? (totMargem / totReceita) * 100 : 0
   const ticketMedio  = totQtd > 0 ? totReceita / totQtd : 0
 
   // ── Dados do gráfico ──
   const chartData = serie.map(p => ({
-    label:       gran === 'mes'
-                   ? fMonthShort(p.periodo)
-                   : p.periodo.length === 10 ? fDayMonth(p.periodo) : p.periodo,
-    receita:     p.receita_bruta,
-    margemBruta: p.margem_bruta,
-    margemPct:   p.margem_pct,
+    label:       gran === 'month'
+                   ? fMonthShort(p.period)
+                   : p.period.length === 10 ? fDayMonth(p.period) : p.period,
+    receita:     p.gross_revenue,
+    margemBruta: p.gross_margin,
+    margemPct:   p.margin_pct,
   }))
 
   // ── Locations ──
   const locations = locData?.locations ?? []
-  const locMax    = locations[0]?.receita_bruta ?? 1
+  const locMax    = locations[0]?.gross_revenue ?? 1
 
   // ── Breadcrumb / título ──
-  const nomeGrupo    = evoData?.produto.grupo    ?? null
-  const nomeSubgrupo = evoData?.produto.subgrupo ?? null
-  const nomeProduto  = produto?.descricao ?? sourceProdutoId ?? '—'
+  const nomeGrupo    = evoData?.product.group    ?? null
+  const nomeSubgrupo = evoData?.product.subgroup ?? null
+  const nomeProduto  = produto?.name ?? sourceProdutoId ?? '—'
 
   const breadcrumb = [nomeGrupo, nomeSubgrupo, nomeProduto].filter(Boolean).join(' › ')
 
@@ -132,19 +132,19 @@ export default function ProdutoPage() {
         <KpiCard
           label="Receita Total"
           value={loadingEvo ? '—' : fCurrency(totReceita)}
-          sparkData={serie.map(p => p.receita_bruta)}
+          sparkData={serie.map(p => p.gross_revenue)}
           sparkColor={CHART_COLORS.conveniencia}
         />
         <KpiCard
           label="Margem %"
           value={loadingEvo ? '—' : fPct(margemPct, 1)}
-          sparkData={serie.map(p => p.margem_pct)}
+          sparkData={serie.map(p => p.margin_pct)}
           sparkColor={CHART_COLORS.pos}
         />
         <KpiCard
           label="Qtd Vendida"
           value={loadingEvo ? '—' : fInt(totQtd)}
-          sparkData={serie.map(p => p.qtd_venda)}
+          sparkData={serie.map(p => p.quantity)}
           sparkColor={CHART_COLORS.combustivel}
         />
         <KpiCard
@@ -199,18 +199,18 @@ export default function ProdutoPage() {
                     <Tbody>
                       {locations.map(loc => (
                         <Tr key={loc.location_id}>
-                          <Td first style={{ fontWeight: 500 }}>{loc.location_nome}</Td>
+                          <Td first style={{ fontWeight: 500 }}>{loc.location_name}</Td>
                           <Td style={{ minWidth: '120px' }}>
                             <BarCell
-                              value={loc.receita_bruta}
+                              value={loc.gross_revenue}
                               max={locMax}
-                              label={fPct(loc.participacao_pct, 1)}
+                              label={fPct(loc.share_pct, 1)}
                             />
                           </Td>
-                          <Td right>{fCurrency(loc.receita_bruta)}</Td>
+                          <Td right>{fCurrency(loc.gross_revenue)}</Td>
                           <Td right last>
-                            <b style={{ color: loc.margem_pct >= 0 ? 'hsl(var(--success))' : 'hsl(var(--danger))' }}>
-                              {fPct(loc.margem_pct, 1)}
+                            <b style={{ color: loc.margin_pct >= 0 ? 'hsl(var(--success))' : 'hsl(var(--danger))' }}>
+                              {fPct(loc.margin_pct, 1)}
                             </b>
                           </Td>
                         </Tr>

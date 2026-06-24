@@ -29,55 +29,55 @@ export default function ArlaPage() {
 
   const { data: resumo, isLoading: loadingR } = useArlaResumo()
   const { data: byLocation, isLoading: loadingByLocation } = useArlaByLocation()
-  const { data: evo,    isLoading: loadingE } = useArlaEvolucao('dia')
+  const { data: evo,    isLoading: loadingE } = useArlaEvolucao('day')
 
-  const t = resumo?.totais
-  const produtos = resumo?.por_produto ?? []
-  const recMax = produtos[0]?.receita_bruta ?? 1
+  const t = resumo?.totals
+  const produtos = resumo?.by_product ?? []
+  const recMax = produtos[0]?.gross_revenue ?? 1
 
   // Chart data
-  const chartData = (evo?.serie ?? []).map(p => ({
-    label:       p.periodo.length === 10 ? fDayMonth(p.periodo) : p.periodo,
-    volume:      p.volume_litros,
-    receita:     p.receita_bruta,
-    margemBruta: p.margem_bruta,
+  const chartData = (evo?.series ?? []).map(p => ({
+    label:       p.period.length === 10 ? fDayMonth(p.period) : p.period,
+    volume:      p.volume_liters,
+    receita:     p.gross_revenue,
+    margemBruta: p.gross_margin,
   }))
 
   // Spark from evolução
-  const sparkVol = evo?.serie.map(p => p.volume_litros) ?? []
-  const sparkRec = evo?.serie.map(p => p.receita_bruta) ?? []
-  const sparkMg  = evo?.serie.map(p => p.margem_bruta) ?? []
+  const sparkVol = evo?.series.map(p => p.volume_liters) ?? []
+  const sparkRec = evo?.series.map(p => p.gross_revenue) ?? []
+  const sparkMg  = evo?.series.map(p => p.gross_margin) ?? []
 
   // ── Base params helper (imperative) ────────────────────────────────────────
   function getBaseParams() {
-    const { data_inicio, data_fim } = periodToRange(period)
-    return { data_inicio, data_fim, location_id: locationId ?? undefined }
+    const { start_date, end_date } = periodToRange(period)
+    return { start_date, end_date, location_id: locationId ?? undefined }
   }
 
   // ── Fetch subgrupos for a grupo (level 1) ──────────────────────────────────
   const fetchSubgrupos = async (grupo: ArlaProduto): Promise<DrillSubgrupo[]> => {
     const params = getBaseParams()
-    const qs = buildQS({ ...params, grupo_id: String(grupo.grupo_id), segmento: 'combustivel' })
-    const data = await queryClient.fetchQuery<{ segmento: string; grupo_id: number; subgrupos: DrillSubgrupo[] }>({
-      queryKey: ['vendas', 'drill', 'subgrupos', params, grupo.grupo_id, 'combustivel'],
+    const qs = buildQS({ ...params, group_id: String(grupo.group_id), segment: 'combustivel' })
+    const data = await queryClient.fetchQuery<{ segment: string; group_id: number; subgroups: DrillSubgrupo[] }>({
+      queryKey: ['sales', 'drill', 'subgroups', params, grupo.group_id, 'combustivel'],
       queryFn: () =>
-        fetch(apiUrl(`/api/v1/vendas/drill/subgrupos${qs}`), { credentials: 'include' })
+        fetch(apiUrl(`/api/v1/sales/drill/subgroups${qs}`), { credentials: 'include' })
           .then(r => { if (!r.ok) throw new Error(`API ${r.status}`); return r.json() }),
     })
-    return data.subgrupos
+    return data.subgroups
   }
 
   // ── Fetch produtos for a subgrupo (level 2 — leaves) ─────────────────────
   const fetchProdutos = async (sub: DrillSubgrupo): Promise<DrillProduto[]> => {
     const params = getBaseParams()
-    const qs = buildQS({ ...params, subgrupo_id: String(sub.subgrupo_id) })
-    const data = await queryClient.fetchQuery<{ subgrupo_id: number; produtos: DrillProduto[] }>({
-      queryKey: ['vendas', 'drill', 'produtos', params, sub.subgrupo_id],
+    const qs = buildQS({ ...params, subgroup_id: String(sub.subgroup_id) })
+    const data = await queryClient.fetchQuery<{ subgroup_id: number; products: DrillProduto[] }>({
+      queryKey: ['sales', 'drill', 'products', params, sub.subgroup_id],
       queryFn: () =>
-        fetch(apiUrl(`/api/v1/vendas/drill/produtos${qs}`), { credentials: 'include' })
+        fetch(apiUrl(`/api/v1/sales/drill/products${qs}`), { credentials: 'include' })
           .then(r => { if (!r.ok) throw new Error(`API ${r.status}`); return r.json() }),
     })
-    return data.produtos
+    return data.products
   }
 
   // ── Column definitions ────────────────────────────────────────────────────
@@ -85,44 +85,44 @@ export default function ArlaPage() {
   // L0 — Arla-specific columns (keep volume, preco/L, custo/L)
   const arlaColumns: ExpandableColumn<ArlaProduto>[] = [
     {
-      key: 'grupo_descricao',
+      key: 'group_name',
       header: 'Produto',
       first: true,
-      render: (p) => p.grupo_descricao ?? `Produto ${p.grupo_id}`,
+      render: (p) => p.group_name ?? `Produto ${p.group_id}`,
     },
-    { key: 'volume_litros',           header: 'Volume (L)',    right: true, render: (p) => fInt(p.volume_litros) },
-    { key: 'participacao_volume_pct', header: 'Part.%',        right: true, render: (p) => fPct(p.participacao_volume_pct, 1) },
-    { key: 'receita_bruta',           header: 'Receita',       right: true, render: (p) => fCurrency(p.receita_bruta) },
-    { key: 'cmv',                     header: 'CMV',           right: true, render: (p) => fCurrency(p.cmv) },
-    { key: 'margem_bruta',            header: 'Margem Bruta',  right: true, render: (p) => fCurrency(p.margem_bruta) },
+    { key: 'volume_liters',     header: 'Volume (L)',    right: true, render: (p) => fInt(p.volume_liters) },
+    { key: 'volume_share_pct',  header: 'Part.%',        right: true, render: (p) => fPct(p.volume_share_pct, 1) },
+    { key: 'gross_revenue',     header: 'Receita',       right: true, render: (p) => fCurrency(p.gross_revenue) },
+    { key: 'cogs',              header: 'CMV',           right: true, render: (p) => fCurrency(p.cogs) },
+    { key: 'gross_margin',      header: 'Margem Bruta',  right: true, render: (p) => fCurrency(p.gross_margin) },
     {
-      key: 'margem_pct',
+      key: 'margin_pct',
       header: 'Margem %',
       right: true,
       render: (p) => (
-        <b style={{ color: p.margem_pct >= 0 ? 'hsl(var(--success))' : 'hsl(var(--danger))' }}>
-          {fPct(p.margem_pct, 1)}
+        <b style={{ color: p.margin_pct >= 0 ? 'hsl(var(--success))' : 'hsl(var(--danger))' }}>
+          {fPct(p.margin_pct, 1)}
         </b>
       ),
     },
     {
-      key: 'preco_medio_litro',
+      key: 'avg_price_liter',
       header: 'Preço/L',
       right: true,
       render: (p) => (
         <span style={{ fontVariantNumeric: 'tabular-nums' }}>
-          {p.preco_medio_litro != null ? p.preco_medio_litro.toFixed(2).replace('.', ',') : '—'}
+          {p.avg_price_liter != null ? p.avg_price_liter.toFixed(2).replace('.', ',') : '—'}
         </span>
       ),
     },
     {
-      key: 'custo_medio_litro',
+      key: 'avg_cost_liter',
       header: 'Custo/L',
       right: true,
       last: true,
       render: (p) => (
         <span style={{ fontVariantNumeric: 'tabular-nums' }}>
-          {p.custo_medio_litro != null ? p.custo_medio_litro.toFixed(2).replace('.', ',') : '—'}
+          {p.avg_cost_liter != null ? p.avg_cost_liter.toFixed(2).replace('.', ',') : '—'}
         </span>
       ),
     },
@@ -131,34 +131,34 @@ export default function ArlaPage() {
   // L1 — subgrupo columns
   const subgrupoColumns: ExpandableColumn<DrillSubgrupo>[] = [
     {
-      key: 'subgrupo_descricao',
+      key: 'subgroup_name',
       header: 'Subgrupo',
       first: true,
-      render: (row) => row.subgrupo_descricao,
+      render: (row) => row.subgroup_name,
     },
     {
       key: 'peso',
       header: 'Peso',
       render: (row) => (
         <BarCell
-          value={row.receita_bruta}
+          value={row.gross_revenue}
           max={recMax}
-          label={fPct(row.participacao_pct, 1)}
+          label={fPct(row.share_pct, 1)}
         />
       ),
     },
-    { key: 'qtd_itens',     header: 'Qtd',         right: true, render: (row) => fInt(row.qtd_itens) },
-    { key: 'receita_bruta', header: 'Receita',      right: true, render: (row) => fCurrency(row.receita_bruta) },
-    { key: 'cmv',           header: 'CMV',          right: true, render: (row) => fCurrency(row.cmv) },
-    { key: 'margem_bruta',  header: 'Margem Bruta', right: true, render: (row) => fCurrency(row.margem_bruta) },
+    { key: 'item_count',    header: 'Qtd',         right: true, render: (row) => fInt(row.item_count) },
+    { key: 'gross_revenue', header: 'Receita',      right: true, render: (row) => fCurrency(row.gross_revenue) },
+    { key: 'cogs',          header: 'CMV',          right: true, render: (row) => fCurrency(row.cogs) },
+    { key: 'gross_margin',  header: 'Margem Bruta', right: true, render: (row) => fCurrency(row.gross_margin) },
     {
-      key: 'margem_pct',
+      key: 'margin_pct',
       header: 'Margem %',
       right: true,
       last: true,
       render: (row) => (
-        <b style={{ color: row.margem_pct >= 0 ? 'hsl(var(--success))' : 'hsl(var(--danger))' }}>
-          {fPct(row.margem_pct, 1)}
+        <b style={{ color: row.margin_pct >= 0 ? 'hsl(var(--success))' : 'hsl(var(--danger))' }}>
+          {fPct(row.margin_pct, 1)}
         </b>
       ),
     },
@@ -167,32 +167,32 @@ export default function ArlaPage() {
   // L2 — produto columns (leaves)
   const produtoColumns: ExpandableColumn<DrillProduto>[] = [
     {
-      key: 'descricao_produto',
+      key: 'product_name',
       header: 'Produto',
       first: true,
-      render: (row) => row.descricao_produto,
+      render: (row) => row.product_name,
     },
     {
       key: 'peso',
       header: 'Peso',
       render: (row) => (
         <BarCell
-          value={row.receita_bruta}
+          value={row.gross_revenue}
           max={recMax}
-          label={fPct(row.participacao_pct, 1)}
+          label={fPct(row.share_pct, 1)}
         />
       ),
     },
-    { key: 'qtd_venda',     header: 'Qtd',         right: true, render: (row) => fInt(row.qtd_venda) },
-    { key: 'receita_bruta', header: 'Receita',      right: true, render: (row) => fCurrency(row.receita_bruta) },
+    { key: 'quantity',      header: 'Qtd',         right: true, render: (row) => fInt(row.quantity) },
+    { key: 'gross_revenue', header: 'Receita',      right: true, render: (row) => fCurrency(row.gross_revenue) },
     {
-      key: 'margem_pct',
+      key: 'margin_pct',
       header: 'Margem %',
       right: true,
       last: true,
       render: (row) => (
-        <b style={{ color: row.margem_pct >= 0 ? 'hsl(var(--success))' : 'hsl(var(--danger))' }}>
-          {fPct(row.margem_pct, 1)}
+        <b style={{ color: row.margin_pct >= 0 ? 'hsl(var(--success))' : 'hsl(var(--danger))' }}>
+          {fPct(row.margin_pct, 1)}
         </b>
       ),
     },
@@ -209,27 +209,27 @@ export default function ArlaPage() {
       <KpiGrid cols={4}>
         <KpiCard
           label="Volume Total"
-          value={t ? fLiters(t.volume_litros) : '—'}
+          value={t ? fLiters(t.volume_liters) : '—'}
           sparkData={sparkVol}
           sparkColor={CHART_COLORS.arla}
         />
         <KpiCard
           label="Receita"
-          value={t ? fCurrency(t.receita_bruta) : '—'}
+          value={t ? fCurrency(t.gross_revenue) : '—'}
           sparkData={sparkRec}
           sparkColor={CHART_COLORS.arla}
         />
         <KpiCard
           label="Margem Bruta"
-          value={t ? fCurrency(t.margem_bruta) : '—'}
+          value={t ? fCurrency(t.gross_margin) : '—'}
           sparkData={sparkMg}
           sparkColor={CHART_COLORS.pos}
         />
         <KpiCard
           label="Margem %"
-          value={t ? fPct(t.margem_pct, 2) : '—'}
+          value={t ? fPct(t.margin_pct, 2) : '—'}
           deltaPP
-          sparkData={evo?.serie.map(p => p.margem_pct) ?? []}
+          sparkData={evo?.series.map(p => (p.gross_revenue > 0 ? (p.gross_margin / p.gross_revenue) * 100 : 0)) ?? []}
           sparkColor={CHART_COLORS.arla}
         />
       </KpiGrid>
@@ -278,24 +278,24 @@ export default function ArlaPage() {
             : <ExpandableTable<ArlaProduto, DrillSubgrupo, DrillProduto>
                 columns={arlaColumns}
                 rows={produtos}
-                rowKey="grupo_id"
+                rowKey="group_id"
                 rowColor={() => CHART_COLORS.arla}
                 getChildren={fetchSubgrupos}
                 childColumns={subgrupoColumns}
-                childRowKey="subgrupo_id"
+                childRowKey="subgroup_id"
                 getGrandchildren={fetchProdutos}
                 grandchildColumns={produtoColumns}
-                grandchildRowKey="source_produto_id"
-                onGrandchildClick={(gc) => navigate('/produto/' + encodeURIComponent(gc.source_produto_id))}
+                grandchildRowKey="source_product_id"
+                onGrandchildClick={(gc) => navigate('/produto/' + encodeURIComponent(gc.source_product_id))}
                 footer={
                   <Tfoot>
                     <TfootTd first>TOTAL</TfootTd>
-                    <TfootTd right>{t ? fInt(t.volume_litros) : '—'}</TfootTd>
+                    <TfootTd right>{t ? fInt(t.volume_liters) : '—'}</TfootTd>
                     <TfootTd right>100%</TfootTd>
-                    <TfootTd right>{t ? fCurrency(t.receita_bruta) : '—'}</TfootTd>
-                    <TfootTd right>{t ? fCurrency(t.cmv) : '—'}</TfootTd>
-                    <TfootTd right>{t ? fCurrency(t.margem_bruta) : '—'}</TfootTd>
-                    <TfootTd right><b>{t ? fPct(t.margem_pct, 1) : '—'}</b></TfootTd>
+                    <TfootTd right>{t ? fCurrency(t.gross_revenue) : '—'}</TfootTd>
+                    <TfootTd right>{t ? fCurrency(t.cogs) : '—'}</TfootTd>
+                    <TfootTd right>{t ? fCurrency(t.gross_margin) : '—'}</TfootTd>
+                    <TfootTd right><b>{t ? fPct(t.margin_pct, 1) : '—'}</b></TfootTd>
                     <TfootTd right last colSpan={2} />
                   </Tfoot>
                 }

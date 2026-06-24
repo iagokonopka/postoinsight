@@ -99,91 +99,91 @@ export default function ConvenienciaPage() {
   const showComparison = locationId === null && (allLocations?.length ?? 0) > 1
 
   const { data: resumo } = useConvResumo()
-  const { data: evo,  isLoading: loadingE } = useConvEvolucao(view, 'dia')
+  const { data: evo,  isLoading: loadingE } = useConvEvolucao(view, 'day')
   const { data: cats, isLoading: loadingC } = useConvCategorias(view)
   const { data: byLocation, isLoading: loadingByLocation } = useConvenienciaByLocation(view)
 
-  const t = resumo?.totais
-  const categorias = cats?.categorias ?? []
-  const recMax = categorias[0]?.receita_bruta ?? 1
+  const t = resumo?.totals
+  const categorias = cats?.categories ?? []
+  const recMax = categorias[0]?.gross_revenue ?? 1
 
   // ── Base params helper (imperative — not a hook) ──────────────────────────
   function getBaseParams() {
-    const { data_inicio, data_fim } = periodToRange(period)
-    return { data_inicio, data_fim, location_id: locationId ?? undefined }
+    const { start_date, end_date } = periodToRange(period)
+    return { start_date, end_date, location_id: locationId ?? undefined }
   }
 
   // ── Imperative fetch for grupos (level 2) ─────────────────────────────────
   const fetchGrupos = async (cat: ConvCategoria): Promise<ConvGrupo[]> => {
     const params = getBaseParams()
-    const qs = buildQS({ ...params, categoria_codigo: cat.categoria_codigo })
-    const data = await queryClient.fetchQuery<{ grupos: ConvGrupo[] }>({
-      queryKey: ['conv', 'grupos', params, cat.categoria_codigo],
+    const qs = buildQS({ ...params, category_code: cat.category_code })
+    const data = await queryClient.fetchQuery<{ groups: ConvGrupo[] }>({
+      queryKey: ['convenience', 'groups', params, cat.category_code],
       queryFn: () =>
-        fetch(apiUrl(`/api/v1/conveniencia/grupos${qs}`), { credentials: 'include' })
+        fetch(apiUrl(`/api/v1/convenience/groups${qs}`), { credentials: 'include' })
           .then(r => { if (!r.ok) throw new Error(`API ${r.status}`); return r.json() }),
     })
-    return data.grupos
+    return data.groups
   }
 
   // ── Imperative fetch for subgrupos (level 3) ──────────────────────────────
   const fetchSubgrupos = async (grupo: ConvGrupo): Promise<DrillSubgrupo[]> => {
     const params = getBaseParams()
-    const qs = buildQS({ ...params, grupo_id: String(grupo.grupo_id), segmento: view })
-    const data = await queryClient.fetchQuery<{ segmento: string; grupo_id: number; subgrupos: DrillSubgrupo[] }>({
-      queryKey: ['vendas', 'drill', 'subgrupos', params, grupo.grupo_id, view],
+    const qs = buildQS({ ...params, group_id: String(grupo.group_id), segment: view })
+    const data = await queryClient.fetchQuery<{ segment: string; group_id: number; subgroups: DrillSubgrupo[] }>({
+      queryKey: ['sales', 'drill', 'subgroups', params, grupo.group_id, view],
       queryFn: () =>
-        fetch(apiUrl(`/api/v1/vendas/drill/subgrupos${qs}`), { credentials: 'include' })
+        fetch(apiUrl(`/api/v1/sales/drill/subgroups${qs}`), { credentials: 'include' })
           .then(r => { if (!r.ok) throw new Error(`API ${r.status}`); return r.json() }),
     })
-    return data.subgrupos
+    return data.subgroups
   }
 
   // ── Imperative fetch for produtos (level 4 — leaves) ─────────────────────
   const fetchProdutos = async (sub: DrillSubgrupo): Promise<DrillProduto[]> => {
     const params = getBaseParams()
-    const qs = buildQS({ ...params, subgrupo_id: String(sub.subgrupo_id) })
-    const data = await queryClient.fetchQuery<{ subgrupo_id: number; produtos: DrillProduto[] }>({
-      queryKey: ['vendas', 'drill', 'produtos', params, sub.subgrupo_id],
+    const qs = buildQS({ ...params, subgroup_id: String(sub.subgroup_id) })
+    const data = await queryClient.fetchQuery<{ subgroup_id: number; products: DrillProduto[] }>({
+      queryKey: ['sales', 'drill', 'products', params, sub.subgroup_id],
       queryFn: () =>
-        fetch(apiUrl(`/api/v1/vendas/drill/produtos${qs}`), { credentials: 'include' })
+        fetch(apiUrl(`/api/v1/sales/drill/products${qs}`), { credentials: 'include' })
           .then(r => { if (!r.ok) throw new Error(`API ${r.status}`); return r.json() }),
     })
-    return data.produtos
+    return data.products
   }
 
   // ── Column definitions ────────────────────────────────────────────────────
 
   const catColumns: ExpandableColumn<ConvCategoria>[] = [
     {
-      key: 'categoria_descricao',
+      key: 'category_name',
       header: 'Categoria',
       first: true,
-      render: (row) => row.categoria_descricao ?? row.categoria_codigo,
+      render: (row) => row.category_name ?? row.category_code,
     },
     {
       key: 'peso',
       header: 'Peso',
       render: (row) => (
         <BarCell
-          value={row.receita_bruta}
+          value={row.gross_revenue}
           max={recMax}
-          label={fPct(row.participacao_pct, 1)}
+          label={fPct(row.share_pct, 1)}
         />
       ),
     },
-    { key: 'qtd_total',     header: 'Qtd',          right: true, render: (row) => fInt(row.qtd_total) },
-    { key: 'receita_bruta', header: 'Receita',       right: true, render: (row) => fCurrency(row.receita_bruta) },
-    { key: 'cmv',           header: 'CMV',           right: true, render: (row) => fCurrency(row.cmv) },
-    { key: 'margem_bruta',  header: 'Margem Bruta',  right: true, render: (row) => fCurrency(row.margem_bruta) },
+    { key: 'total_quantity', header: 'Qtd',          right: true, render: (row) => fInt(row.total_quantity) },
+    { key: 'gross_revenue',  header: 'Receita',       right: true, render: (row) => fCurrency(row.gross_revenue) },
+    { key: 'cogs',           header: 'CMV',           right: true, render: (row) => fCurrency(row.cogs) },
+    { key: 'gross_margin',   header: 'Margem Bruta',  right: true, render: (row) => fCurrency(row.gross_margin) },
     {
-      key: 'margem_pct',
+      key: 'margin_pct',
       header: 'Margem %',
       right: true,
       last: true,
       render: (row) => (
-        <b style={{ color: row.margem_pct >= 0 ? 'hsl(var(--success))' : 'hsl(var(--danger))' }}>
-          {fPct(row.margem_pct, 1)}
+        <b style={{ color: row.margin_pct >= 0 ? 'hsl(var(--success))' : 'hsl(var(--danger))' }}>
+          {fPct(row.margin_pct, 1)}
         </b>
       ),
     },
@@ -192,34 +192,34 @@ export default function ConvenienciaPage() {
   // Child columns (grupos): same shape minus the color dot — we reuse catColumns definition
   const grupoColumns: ExpandableColumn<ConvGrupo>[] = [
     {
-      key: 'grupo_descricao',
+      key: 'group_name',
       header: 'Grupo',
       first: true,
-      render: (row) => row.grupo_descricao ?? `Grupo ${row.grupo_id}`,
+      render: (row) => row.group_name ?? `Grupo ${row.group_id}`,
     },
     {
       key: 'peso',
       header: 'Peso',
       render: (row) => (
         <BarCell
-          value={row.receita_bruta}
+          value={row.gross_revenue}
           max={recMax}
-          label={fPct(row.participacao_pct, 1)}
+          label={fPct(row.share_pct, 1)}
         />
       ),
     },
     { key: 'qtd',           header: 'Qtd',         right: true, render: () => '—' },
-    { key: 'receita_bruta', header: 'Receita',      right: true, render: (row) => fCurrency(row.receita_bruta) },
-    { key: 'cmv',           header: 'CMV',          right: true, render: (row) => fCurrency(row.cmv) },
-    { key: 'margem_bruta',  header: 'Margem Bruta', right: true, render: (row) => fCurrency(row.margem_bruta) },
+    { key: 'gross_revenue', header: 'Receita',      right: true, render: (row) => fCurrency(row.gross_revenue) },
+    { key: 'cogs',          header: 'CMV',          right: true, render: (row) => fCurrency(row.cogs) },
+    { key: 'gross_margin',  header: 'Margem Bruta', right: true, render: (row) => fCurrency(row.gross_margin) },
     {
-      key: 'margem_pct',
+      key: 'margin_pct',
       header: 'Margem %',
       right: true,
       last: true,
       render: (row) => (
-        <b style={{ color: row.margem_pct >= 0 ? 'hsl(var(--success))' : 'hsl(var(--danger))' }}>
-          {fPct(row.margem_pct, 1)}
+        <b style={{ color: row.margin_pct >= 0 ? 'hsl(var(--success))' : 'hsl(var(--danger))' }}>
+          {fPct(row.margin_pct, 1)}
         </b>
       ),
     },
@@ -227,34 +227,34 @@ export default function ConvenienciaPage() {
 
   const subgrupoColumns: ExpandableColumn<DrillSubgrupo>[] = [
     {
-      key: 'subgrupo_descricao',
+      key: 'subgroup_name',
       header: 'Subgrupo',
       first: true,
-      render: (row) => row.subgrupo_descricao,
+      render: (row) => row.subgroup_name,
     },
     {
       key: 'peso',
       header: 'Peso',
       render: (row) => (
         <BarCell
-          value={row.receita_bruta}
+          value={row.gross_revenue}
           max={recMax}
-          label={fPct(row.participacao_pct, 1)}
+          label={fPct(row.share_pct, 1)}
         />
       ),
     },
-    { key: 'qtd_itens',     header: 'Qtd',         right: true, render: (row) => fInt(row.qtd_itens) },
-    { key: 'receita_bruta', header: 'Receita',      right: true, render: (row) => fCurrency(row.receita_bruta) },
-    { key: 'cmv',           header: 'CMV',          right: true, render: (row) => fCurrency(row.cmv) },
-    { key: 'margem_bruta',  header: 'Margem Bruta', right: true, render: (row) => fCurrency(row.margem_bruta) },
+    { key: 'item_count',    header: 'Qtd',         right: true, render: (row) => fInt(row.item_count) },
+    { key: 'gross_revenue', header: 'Receita',      right: true, render: (row) => fCurrency(row.gross_revenue) },
+    { key: 'cogs',          header: 'CMV',          right: true, render: (row) => fCurrency(row.cogs) },
+    { key: 'gross_margin',  header: 'Margem Bruta', right: true, render: (row) => fCurrency(row.gross_margin) },
     {
-      key: 'margem_pct',
+      key: 'margin_pct',
       header: 'Margem %',
       right: true,
       last: true,
       render: (row) => (
-        <b style={{ color: row.margem_pct >= 0 ? 'hsl(var(--success))' : 'hsl(var(--danger))' }}>
-          {fPct(row.margem_pct, 1)}
+        <b style={{ color: row.margin_pct >= 0 ? 'hsl(var(--success))' : 'hsl(var(--danger))' }}>
+          {fPct(row.margin_pct, 1)}
         </b>
       ),
     },
@@ -262,34 +262,34 @@ export default function ConvenienciaPage() {
 
   const produtoColumns: ExpandableColumn<DrillProduto>[] = [
     {
-      key: 'descricao_produto',
+      key: 'product_name',
       header: 'Produto',
       first: true,
-      render: (row) => row.descricao_produto,
+      render: (row) => row.product_name,
     },
     {
       key: 'peso',
       header: 'Peso',
       render: (row) => (
         <BarCell
-          value={row.receita_bruta}
+          value={row.gross_revenue}
           max={recMax}
-          label={fPct(row.participacao_pct, 1)}
+          label={fPct(row.share_pct, 1)}
         />
       ),
     },
-    { key: 'qtd_venda',     header: 'Qtd',         right: true, render: (row) => fInt(row.qtd_venda) },
-    { key: 'receita_bruta', header: 'Receita',      right: true, render: (row) => fCurrency(row.receita_bruta) },
-    { key: 'cmv',           header: 'CMV',          right: true, render: (row) => fCurrency(row.cmv) },
-    { key: 'margem_bruta',  header: 'Margem Bruta', right: true, render: (row) => fCurrency(row.margem_bruta) },
+    { key: 'quantity',      header: 'Qtd',         right: true, render: (row) => fInt(row.quantity) },
+    { key: 'gross_revenue', header: 'Receita',      right: true, render: (row) => fCurrency(row.gross_revenue) },
+    { key: 'cogs',          header: 'CMV',          right: true, render: (row) => fCurrency(row.cogs) },
+    { key: 'gross_margin',  header: 'Margem Bruta', right: true, render: (row) => fCurrency(row.gross_margin) },
     {
-      key: 'margem_pct',
+      key: 'margin_pct',
       header: 'Margem %',
       right: true,
       last: true,
       render: (row) => (
-        <b style={{ color: row.margem_pct >= 0 ? 'hsl(var(--success))' : 'hsl(var(--danger))' }}>
-          {fPct(row.margem_pct, 1)}
+        <b style={{ color: row.margin_pct >= 0 ? 'hsl(var(--success))' : 'hsl(var(--danger))' }}>
+          {fPct(row.margin_pct, 1)}
         </b>
       ),
     },
@@ -297,28 +297,28 @@ export default function ConvenienciaPage() {
 
   // ── Chart data ────────────────────────────────────────────────────────────
 
-  const chartData = (evo?.serie ?? []).map(p => ({
-    label:       p.periodo.length === 10 ? fDayMonth(p.periodo) : p.periodo,
-    receita:     p.receita_bruta,
-    margemBruta: p.margem_bruta,
+  const chartData = (evo?.series ?? []).map(p => ({
+    label:       p.period.length === 10 ? fDayMonth(p.period) : p.period,
+    receita:     p.gross_revenue,
+    margemBruta: p.gross_margin,
   }))
 
   const donutData: DonutSlice[] = categorias.slice(0, 8).map((c, i) => ({
-    label: c.categoria_descricao ?? c.categoria_codigo,
-    value: c.receita_bruta,
+    label: c.category_name ?? c.category_code,
+    value: c.gross_revenue,
     color: CAT_COLORS[i % CAT_COLORS.length],
   }))
 
   const scatterData: ScatterPoint[] = categorias.map((c, i) => ({
-    name:    c.categoria_descricao ?? c.categoria_codigo,
-    qtd:     c.qtd_total,
-    margem:  c.margem_pct,
-    receita: c.receita_bruta,
+    name:    c.category_name ?? c.category_code,
+    qtd:     c.total_quantity,
+    margem:  c.margin_pct,
+    receita: c.gross_revenue,
     color:   CAT_COLORS[i % CAT_COLORS.length],
   }))
 
-  const sparkRec = evo?.serie.map(p => p.receita_bruta) ?? []
-  const sparkMg  = evo?.serie.map(p => p.margem_bruta) ?? []
+  const sparkRec = evo?.series.map(p => p.gross_revenue) ?? []
+  const sparkMg  = evo?.series.map(p => p.gross_margin) ?? []
 
   return (
     <Page>
@@ -332,26 +332,26 @@ export default function ConvenienciaPage() {
       <KpiGrid cols={4}>
         <KpiCard
           label={VIEW_LABEL[view]}
-          value={t ? fCurrency(t.receita_bruta) : '—'}
+          value={t ? fCurrency(t.gross_revenue) : '—'}
           sparkData={sparkRec}
           sparkColor={accentColor}
         />
         <KpiCard
           label="Margem Bruta"
-          value={t ? fCurrency(t.margem_bruta) : '—'}
+          value={t ? fCurrency(t.gross_margin) : '—'}
           sparkData={sparkMg}
           sparkColor={CHART_COLORS.pos}
         />
         <KpiCard
           label="Margem %"
-          value={t ? fPct(t.margem_pct, 2) : '—'}
+          value={t ? fPct(t.margin_pct, 2) : '—'}
           deltaPP
           sparkData={[]}
           sparkColor={accentColor}
         />
         <KpiCard
           label="Ticket Médio"
-          value={t?.ticket_medio != null ? fCurrency(t.ticket_medio) : '—'}
+          value={t?.avg_ticket != null ? fCurrency(t.avg_ticket) : '—'}
           sparkColor={accentColor}
         />
       </KpiGrid>
@@ -434,27 +434,27 @@ export default function ConvenienciaPage() {
                 key={view}
                 columns={catColumns}
                 rows={categorias}
-                rowKey="categoria_codigo"
+                rowKey="category_code"
                 rowColor={(_row, i) => CAT_COLORS[i % CAT_COLORS.length]}
                 getChildren={fetchGrupos}
                 childColumns={grupoColumns}
-                childRowKey="grupo_id"
+                childRowKey="group_id"
                 getGrandchildren={fetchSubgrupos}
                 grandchildColumns={subgrupoColumns}
-                grandchildRowKey="subgrupo_id"
+                grandchildRowKey="subgroup_id"
                 getLeaves={fetchProdutos}
                 leafColumns={produtoColumns}
-                leafRowKey="source_produto_id"
-                onLeafClick={(leaf) => navigate(`/produto/${encodeURIComponent(leaf.source_produto_id)}`)}
+                leafRowKey="source_product_id"
+                onLeafClick={(leaf) => navigate(`/produto/${encodeURIComponent(leaf.source_product_id)}`)}
                 footer={
                   <Tfoot>
                     <TfootTd first>TOTAL</TfootTd>
                     <TfootTd />
-                    <TfootTd right>{t ? fInt(t.qtd_itens) : '—'}</TfootTd>
-                    <TfootTd right>{t ? fCurrency(t.receita_bruta) : '—'}</TfootTd>
-                    <TfootTd right>{t ? fCurrency(t.cmv) : '—'}</TfootTd>
-                    <TfootTd right>{t ? fCurrency(t.margem_bruta) : '—'}</TfootTd>
-                    <TfootTd right last><b>{t ? fPct(t.margem_pct, 1) : '—'}</b></TfootTd>
+                    <TfootTd right>{t ? fInt(t.item_count) : '—'}</TfootTd>
+                    <TfootTd right>{t ? fCurrency(t.gross_revenue) : '—'}</TfootTd>
+                    <TfootTd right>{t ? fCurrency(t.cogs) : '—'}</TfootTd>
+                    <TfootTd right>{t ? fCurrency(t.gross_margin) : '—'}</TfootTd>
+                    <TfootTd right last><b>{t ? fPct(t.margin_pct, 1) : '—'}</b></TfootTd>
                   </Tfoot>
                 }
               />

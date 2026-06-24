@@ -1,29 +1,29 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { and, eq, gte, lte, inArray, sql, sum, desc } from 'drizzle-orm'
 import { db } from '../db.js'
-import { mvCombustivelDiario as mv, fatoVenda, locations } from '@postoinsight/db'
+import { mvFuelDaily as mv, factSale, locations } from '@postoinsight/db'
 import { requireTenantSession } from '../lib/auth.js'
 import {
   BadQueryError, parseDateRange, parseUuidArray, parseIntArray, parseEnum, n, pct, round2,
 } from '../lib/queryParsers.js'
 
-const GRANULARIDADES = ['dia', 'semana', 'mes'] as const
+const GRANULARITIES = ['day', 'week', 'month'] as const
 
 /**
- * Endpoints do Dashboard de Combustível — `analytics.mv_combustivel_diario`.
+ * Endpoints do Dashboard de Combustível — `analytics.mv_fuel_daily`.
  * Specs: docs/specs/dashboard-combustivel.md
  */
-export const combustivelRoutes: FastifyPluginAsync = async (app) => {
+export const fuelRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('preHandler', requireTenantSession)
 
   // ---------------------------------------------------------------------
-  // GET /api/v1/combustivel/resumo
+  // GET /api/v1/fuel/summary
   // ---------------------------------------------------------------------
-  app.get('/resumo', async (req, reply) => {
+  app.get('/summary', async (req, reply) => {
     const tenantId = req.tenantId!
-    let dataInicio: string, dataFim: string, locationIds: string[] | undefined
+    let startDate: string, endDate: string, locationIds: string[] | undefined
     try {
-      ({ dataInicio, dataFim } = parseDateRange(req.query as Record<string, unknown>))
+      ({ startDate, endDate } = parseDateRange(req.query as Record<string, unknown>))
       locationIds = parseUuidArray((req.query as any).location_id, 'location_id')
     } catch (err) {
       if (err instanceof BadQueryError) return reply.status(400).send({ error: err.message })
@@ -32,191 +32,191 @@ export const combustivelRoutes: FastifyPluginAsync = async (app) => {
 
     const rows = await db
       .select({
-        grupo_id:        mv.grupoId,
-        grupo_descricao: sql<string | null>`MAX(${mv.grupoDescricao})`,
-        volume_litros:   sum(mv.volumeLitros).mapWith(Number),
-        receita_bruta:   sum(mv.receitaBruta).mapWith(Number),
-        receita_liquida: sum(mv.receitaLiquida).mapWith(Number),
-        cmv:             sum(mv.cmv).mapWith(Number),
-        margem_bruta:    sum(mv.margemBruta).mapWith(Number),
+        group_id:      mv.groupId,
+        group_name:    sql<string | null>`MAX(${mv.groupName})`,
+        volume_liters: sum(mv.volumeLiters).mapWith(Number),
+        gross_revenue: sum(mv.grossRevenue).mapWith(Number),
+        net_revenue:   sum(mv.netRevenue).mapWith(Number),
+        cogs:          sum(mv.cogs).mapWith(Number),
+        gross_margin:  sum(mv.grossMargin).mapWith(Number),
       })
       .from(mv)
       .where(and(
         eq(mv.tenantId, tenantId),
-        gte(mv.dataVenda, dataInicio),
-        lte(mv.dataVenda, dataFim),
+        gte(mv.saleDate, startDate),
+        lte(mv.saleDate, endDate),
         locationIds ? inArray(mv.locationId, locationIds) : undefined,
       ))
-      .groupBy(mv.grupoId)
+      .groupBy(mv.groupId)
 
-    const totais = rows.reduce((acc, r) => {
-      acc.volume_litros   += n(r.volume_litros)
-      acc.receita_bruta   += n(r.receita_bruta)
-      acc.receita_liquida += n(r.receita_liquida)
-      acc.cmv             += n(r.cmv)
-      acc.margem_bruta    += n(r.margem_bruta)
+    const totals = rows.reduce((acc, r) => {
+      acc.volume_liters += n(r.volume_liters)
+      acc.gross_revenue += n(r.gross_revenue)
+      acc.net_revenue   += n(r.net_revenue)
+      acc.cogs          += n(r.cogs)
+      acc.gross_margin  += n(r.gross_margin)
       return acc
-    }, { volume_litros: 0, receita_bruta: 0, receita_liquida: 0, cmv: 0, margem_bruta: 0 })
+    }, { volume_liters: 0, gross_revenue: 0, net_revenue: 0, cogs: 0, gross_margin: 0 })
 
-    const por_produto = rows
+    const by_product = rows
       .map(r => {
-        const volume_litros = n(r.volume_litros)
-        const receita_bruta = n(r.receita_bruta)
-        const cmv           = n(r.cmv)
-        const margem_bruta  = n(r.margem_bruta)
-        const receita_liq   = n(r.receita_liquida)
+        const volume_liters = n(r.volume_liters)
+        const gross_revenue = n(r.gross_revenue)
+        const cogs          = n(r.cogs)
+        const gross_margin  = n(r.gross_margin)
+        const net_revenue   = n(r.net_revenue)
         return {
-          grupo_id:               r.grupo_id,
-          grupo_descricao:        r.grupo_descricao,
-          volume_litros:          round2(volume_litros),
-          receita_bruta:          round2(receita_bruta),
-          receita_liquida:        round2(receita_liq),
-          cmv:                    round2(cmv),
-          margem_bruta:           round2(margem_bruta),
-          margem_pct:             pct(margem_bruta, receita_liq),
-          preco_medio_litro:      volume_litros > 0 ? round2(receita_bruta / volume_litros) : null,
-          custo_medio_litro:      volume_litros > 0 && cmv > 0 ? round2(cmv / volume_litros) : null,
-          participacao_volume_pct:  pct(volume_litros, totais.volume_litros),
-          participacao_receita_pct: pct(receita_bruta, totais.receita_bruta),
+          group_id:        r.group_id,
+          group_name:      r.group_name,
+          volume_liters:   round2(volume_liters),
+          gross_revenue:   round2(gross_revenue),
+          net_revenue:     round2(net_revenue),
+          cogs:            round2(cogs),
+          gross_margin:    round2(gross_margin),
+          margin_pct:      pct(gross_margin, net_revenue),
+          avg_price_liter: volume_liters > 0 ? round2(gross_revenue / volume_liters) : null,
+          avg_cost_liter:  volume_liters > 0 && cogs > 0 ? round2(cogs / volume_liters) : null,
+          volume_share_pct:  pct(volume_liters, totals.volume_liters),
+          revenue_share_pct: pct(gross_revenue, totals.gross_revenue),
         }
       })
-      .sort((a, b) => b.volume_litros - a.volume_litros)
+      .sort((a, b) => b.volume_liters - a.volume_liters)
 
     return reply.send({
-      periodo: { inicio: dataInicio, fim: dataFim },
+      period: { start: startDate, end: endDate },
       locations: locationIds ?? 'all',
-      totais: {
-        volume_litros:   round2(totais.volume_litros),
-        receita_bruta:   round2(totais.receita_bruta),
-        receita_liquida: round2(totais.receita_liquida),
-        cmv:             round2(totais.cmv),
-        margem_bruta:    round2(totais.margem_bruta),
-        margem_pct:      pct(totais.margem_bruta, totais.receita_liquida),
+      totals: {
+        volume_liters: round2(totals.volume_liters),
+        gross_revenue: round2(totals.gross_revenue),
+        net_revenue:   round2(totals.net_revenue),
+        cogs:          round2(totals.cogs),
+        gross_margin:  round2(totals.gross_margin),
+        margin_pct:    pct(totals.gross_margin, totals.net_revenue),
       },
-      por_produto,
+      by_product,
     })
   })
 
   // ---------------------------------------------------------------------
-  // GET /api/v1/combustivel/evolucao
+  // GET /api/v1/fuel/evolution
   // ---------------------------------------------------------------------
-  app.get('/evolucao', async (req, reply) => {
+  app.get('/evolution', async (req, reply) => {
     const tenantId = req.tenantId!
-    let dataInicio: string, dataFim: string
+    let startDate: string, endDate: string
     let locationIds: string[] | undefined
-    let grupoIds: number[] | undefined
-    let granularidade: typeof GRANULARIDADES[number]
-    const porProduto = (req.query as any).por_produto === 'true'
+    let groupIds: number[] | undefined
+    let granularity: typeof GRANULARITIES[number]
+    const byProduct = (req.query as any).by_product === 'true'
     try {
-      ({ dataInicio, dataFim } = parseDateRange(req.query as Record<string, unknown>))
+      ({ startDate, endDate } = parseDateRange(req.query as Record<string, unknown>))
       locationIds = parseUuidArray((req.query as any).location_id, 'location_id')
-      grupoIds    = parseIntArray((req.query as any).grupo_id, 'grupo_id')
-      granularidade = parseEnum((req.query as any).granularidade, GRANULARIDADES, 'granularidade', 'dia')!
+      groupIds    = parseIntArray((req.query as any).group_id, 'group_id')
+      granularity = parseEnum((req.query as any).granularity, GRANULARITIES, 'granularity', 'day')!
     } catch (err) {
       if (err instanceof BadQueryError) return reply.status(400).send({ error: err.message })
       throw err
     }
 
-    const periodoExpr =
-      granularidade === 'dia'
-        ? sql<string>`to_char(${mv.dataVenda}, 'YYYY-MM-DD')`
-        : granularidade === 'mes'
-          ? sql<string>`${mv.anoMes}`
-          : sql<string>`${mv.anoMes} || '-W' || lpad(${mv.semanaAno}::text, 2, '0')`
+    const periodExpr =
+      granularity === 'day'
+        ? sql<string>`to_char(${mv.saleDate}, 'YYYY-MM-DD')`
+        : granularity === 'month'
+          ? sql<string>`${mv.yearMonth}`
+          : sql<string>`${mv.yearMonth} || '-W' || lpad(${mv.weekOfYear}::text, 2, '0')`
 
-    if (porProduto) {
-      // Retorna uma série por grupo (produto combustível) — usado pelo gráfico multi-série da tela /combustivel
+    if (byProduct) {
+      // Retorna uma série por grupo (produto combustível) — usado pelo gráfico multi-série da tela /fuel
       const rows = await db
         .select({
-          periodo:         periodoExpr.as('periodo'),
-          grupo_id:        mv.grupoId,
-          grupo_descricao: sql<string | null>`MAX(${mv.grupoDescricao})`,
-          volume_litros:   sum(mv.volumeLitros).mapWith(Number),
-          receita_bruta:   sum(mv.receitaBruta).mapWith(Number),
-          margem_bruta:    sum(mv.margemBruta).mapWith(Number),
+          period:        periodExpr.as('period'),
+          group_id:      mv.groupId,
+          group_name:    sql<string | null>`MAX(${mv.groupName})`,
+          volume_liters: sum(mv.volumeLiters).mapWith(Number),
+          gross_revenue: sum(mv.grossRevenue).mapWith(Number),
+          gross_margin:  sum(mv.grossMargin).mapWith(Number),
         })
         .from(mv)
         .where(and(
           eq(mv.tenantId, tenantId),
-          gte(mv.dataVenda, dataInicio),
-          lte(mv.dataVenda, dataFim),
+          gte(mv.saleDate, startDate),
+          lte(mv.saleDate, endDate),
           locationIds ? inArray(mv.locationId, locationIds) : undefined,
-          grupoIds ? inArray(mv.grupoId, grupoIds) : undefined,
+          groupIds ? inArray(mv.groupId, groupIds) : undefined,
         ))
-        .groupBy(periodoExpr, mv.grupoId)
-        .orderBy(periodoExpr, mv.grupoId)
+        .groupBy(periodExpr, mv.groupId)
+        .orderBy(periodExpr, mv.groupId)
 
-      // Agrupar em { produto_id → { descricao, pontos[] } }
-      const produtosMap = new Map<number, { grupo_id: number; grupo_descricao: string; serie: object[] }>()
+      // Agrupar em { group_id → { group_name, series[] } }
+      const productsMap = new Map<number, { group_id: number; group_name: string; series: object[] }>()
       for (const r of rows) {
-        if (!produtosMap.has(r.grupo_id)) {
-          produtosMap.set(r.grupo_id, {
-            grupo_id: r.grupo_id,
-            grupo_descricao: r.grupo_descricao ?? String(r.grupo_id),
-            serie: [],
+        if (!productsMap.has(r.group_id)) {
+          productsMap.set(r.group_id, {
+            group_id: r.group_id,
+            group_name: r.group_name ?? String(r.group_id),
+            series: [],
           })
         }
-        produtosMap.get(r.grupo_id)!.serie.push({
-          periodo:       r.periodo,
-          volume_litros: round2(n(r.volume_litros)),
-          receita_bruta: round2(n(r.receita_bruta)),
-          margem_bruta:  round2(n(r.margem_bruta)),
+        productsMap.get(r.group_id)!.series.push({
+          period:        r.period,
+          volume_liters: round2(n(r.volume_liters)),
+          gross_revenue: round2(n(r.gross_revenue)),
+          gross_margin:  round2(n(r.gross_margin)),
         })
       }
 
       return reply.send({
-        granularidade,
-        por_produto: true,
-        produtos: Array.from(produtosMap.values()),
+        granularity,
+        by_product: true,
+        products: Array.from(productsMap.values()),
       })
     }
 
     // Série consolidada (comportamento original)
     const rows = await db
       .select({
-        periodo:         periodoExpr.as('periodo'),
-        volume_litros:   sum(mv.volumeLitros).mapWith(Number),
-        receita_bruta:   sum(mv.receitaBruta).mapWith(Number),
-        receita_liquida: sum(mv.receitaLiquida).mapWith(Number),
-        margem_bruta:    sum(mv.margemBruta).mapWith(Number),
+        period:        periodExpr.as('period'),
+        volume_liters: sum(mv.volumeLiters).mapWith(Number),
+        gross_revenue: sum(mv.grossRevenue).mapWith(Number),
+        net_revenue:   sum(mv.netRevenue).mapWith(Number),
+        gross_margin:  sum(mv.grossMargin).mapWith(Number),
       })
       .from(mv)
       .where(and(
         eq(mv.tenantId, tenantId),
-        gte(mv.dataVenda, dataInicio),
-        lte(mv.dataVenda, dataFim),
+        gte(mv.saleDate, startDate),
+        lte(mv.saleDate, endDate),
         locationIds ? inArray(mv.locationId, locationIds) : undefined,
-        grupoIds ? inArray(mv.grupoId, grupoIds) : undefined,
+        groupIds ? inArray(mv.groupId, groupIds) : undefined,
       ))
-      .groupBy(periodoExpr)
-      .orderBy(periodoExpr)
+      .groupBy(periodExpr)
+      .orderBy(periodExpr)
 
     return reply.send({
-      granularidade,
-      por_produto: false,
-      serie: rows.map(r => {
-        const margem_bruta    = n(r.margem_bruta)
-        const receita_liquida = n(r.receita_liquida)
+      granularity,
+      by_product: false,
+      series: rows.map(r => {
+        const gross_margin = n(r.gross_margin)
+        const net_revenue  = n(r.net_revenue)
         return {
-          periodo:       r.periodo,
-          volume_litros: round2(n(r.volume_litros)),
-          receita_bruta: round2(n(r.receita_bruta)),
-          margem_bruta:  round2(margem_bruta),
-          margem_pct:    pct(margem_bruta, receita_liquida),
+          period:        r.period,
+          volume_liters: round2(n(r.volume_liters)),
+          gross_revenue: round2(n(r.gross_revenue)),
+          gross_margin:  round2(gross_margin),
+          margin_pct:    pct(gross_margin, net_revenue),
         }
       }),
     })
   })
 
   // ---------------------------------------------------------------------
-  // GET /api/v1/combustivel/produtos
-  // Reaproveita o mesmo agrupamento do /resumo, mas retorna apenas o array.
+  // GET /api/v1/fuel/products
+  // Reaproveita o mesmo agrupamento do /summary, mas retorna apenas o array.
   // ---------------------------------------------------------------------
-  app.get('/produtos', async (req, reply) => {
+  app.get('/products', async (req, reply) => {
     const tenantId = req.tenantId!
-    let dataInicio: string, dataFim: string, locationIds: string[] | undefined
+    let startDate: string, endDate: string, locationIds: string[] | undefined
     try {
-      ({ dataInicio, dataFim } = parseDateRange(req.query as Record<string, unknown>))
+      ({ startDate, endDate } = parseDateRange(req.query as Record<string, unknown>))
       locationIds = parseUuidArray((req.query as any).location_id, 'location_id')
     } catch (err) {
       if (err instanceof BadQueryError) return reply.status(400).send({ error: err.message })
@@ -225,64 +225,64 @@ export const combustivelRoutes: FastifyPluginAsync = async (app) => {
 
     const rows = await db
       .select({
-        grupo_id:        mv.grupoId,
-        grupo_descricao: sql<string | null>`MAX(${mv.grupoDescricao})`,
-        volume_litros:   sum(mv.volumeLitros).mapWith(Number),
-        receita_bruta:   sum(mv.receitaBruta).mapWith(Number),
-        receita_liquida: sum(mv.receitaLiquida).mapWith(Number),
-        cmv:             sum(mv.cmv).mapWith(Number),
-        margem_bruta:    sum(mv.margemBruta).mapWith(Number),
+        group_id:      mv.groupId,
+        group_name:    sql<string | null>`MAX(${mv.groupName})`,
+        volume_liters: sum(mv.volumeLiters).mapWith(Number),
+        gross_revenue: sum(mv.grossRevenue).mapWith(Number),
+        net_revenue:   sum(mv.netRevenue).mapWith(Number),
+        cogs:          sum(mv.cogs).mapWith(Number),
+        gross_margin:  sum(mv.grossMargin).mapWith(Number),
       })
       .from(mv)
       .where(and(
         eq(mv.tenantId, tenantId),
-        gte(mv.dataVenda, dataInicio),
-        lte(mv.dataVenda, dataFim),
+        gte(mv.saleDate, startDate),
+        lte(mv.saleDate, endDate),
         locationIds ? inArray(mv.locationId, locationIds) : undefined,
       ))
-      .groupBy(mv.grupoId)
+      .groupBy(mv.groupId)
 
-    const totalVolume  = rows.reduce((a, r) => a + n(r.volume_litros), 0)
-    const totalReceita = rows.reduce((a, r) => a + n(r.receita_bruta), 0)
+    const totalVolume  = rows.reduce((a, r) => a + n(r.volume_liters), 0)
+    const totalRevenue = rows.reduce((a, r) => a + n(r.gross_revenue), 0)
 
-    const produtos = rows
+    const products = rows
       .map(r => {
-        const volume_litros = n(r.volume_litros)
-        const receita_bruta = n(r.receita_bruta)
-        const cmv           = n(r.cmv)
-        const margem_bruta  = n(r.margem_bruta)
-        const receita_liq   = n(r.receita_liquida)
+        const volume_liters = n(r.volume_liters)
+        const gross_revenue = n(r.gross_revenue)
+        const cogs          = n(r.cogs)
+        const gross_margin  = n(r.gross_margin)
+        const net_revenue   = n(r.net_revenue)
         return {
-          grupo_id:               r.grupo_id,
-          grupo_descricao:        r.grupo_descricao,
-          volume_litros:          round2(volume_litros),
-          receita_bruta:          round2(receita_bruta),
-          receita_liquida:        round2(receita_liq),
-          cmv:                    round2(cmv),
-          margem_bruta:           round2(margem_bruta),
-          margem_pct:             pct(margem_bruta, receita_liq),
-          preco_medio_litro:      volume_litros > 0 ? round2(receita_bruta / volume_litros) : null,
-          custo_medio_litro:      volume_litros > 0 && cmv > 0 ? round2(cmv / volume_litros) : null,
-          participacao_volume_pct:  pct(volume_litros, totalVolume),
-          participacao_receita_pct: pct(receita_bruta, totalReceita),
+          group_id:        r.group_id,
+          group_name:      r.group_name,
+          volume_liters:   round2(volume_liters),
+          gross_revenue:   round2(gross_revenue),
+          net_revenue:     round2(net_revenue),
+          cogs:            round2(cogs),
+          gross_margin:    round2(gross_margin),
+          margin_pct:      pct(gross_margin, net_revenue),
+          avg_price_liter: volume_liters > 0 ? round2(gross_revenue / volume_liters) : null,
+          avg_cost_liter:  volume_liters > 0 && cogs > 0 ? round2(cogs / volume_liters) : null,
+          volume_share_pct:  pct(volume_liters, totalVolume),
+          revenue_share_pct: pct(gross_revenue, totalRevenue),
         }
       })
-      .sort((a, b) => b.volume_litros - a.volume_litros)
+      .sort((a, b) => b.volume_liters - a.volume_liters)
 
-    return reply.send({ produtos })
+    return reply.send({ products })
   })
 
   // ---------------------------------------------------------------------
-  // GET /api/v1/combustivel/subgrupos
-  // Breakdown por subgrupo (Diesel / Gasolina etc.) via fato_venda.
-  // Mais granular que /produtos, que agrupa por grupo da MV (1 linha só).
-  // Query params: data_inicio, data_fim, location_id?
+  // GET /api/v1/fuel/subgroups
+  // Breakdown por subgrupo (Diesel / Gasolina etc.) via fact_sale.
+  // Mais granular que /products, que agrupa por grupo da MV (1 linha só).
+  // Query params: start_date, end_date, location_id?
   // ---------------------------------------------------------------------
-  app.get('/subgrupos', async (req, reply) => {
+  app.get('/subgroups', async (req, reply) => {
     const tenantId = req.tenantId!
-    let dataInicio: string, dataFim: string, locationIds: string[] | undefined
+    let startDate: string, endDate: string, locationIds: string[] | undefined
     try {
-      ({ dataInicio, dataFim } = parseDateRange(req.query as Record<string, unknown>))
+      ({ startDate, endDate } = parseDateRange(req.query as Record<string, unknown>))
       locationIds = parseUuidArray((req.query as any).location_id, 'location_id')
     } catch (err) {
       if (err instanceof BadQueryError) return reply.status(400).send({ error: err.message })
@@ -291,64 +291,64 @@ export const combustivelRoutes: FastifyPluginAsync = async (app) => {
 
     const rows = await db
       .select({
-        subgrupo_id:        fatoVenda.subgrupoId,
-        subgrupo_descricao: sql<string | null>`MAX(${fatoVenda.subgrupoDescricao})`,
-        receita_bruta:      sum(fatoVenda.vlrTotal).mapWith(Number),
-        cmv: sql<number>`COALESCE(SUM(${fatoVenda.custoUnitario} * ${fatoVenda.qtdVenda}), 0)`.mapWith(Number),
-        desconto:           sum(fatoVenda.descontoTotal).mapWith(Number),
-        qtd_venda:          sum(fatoVenda.qtdVenda).mapWith(Number),
+        subgroup_id:   factSale.subgroupId,
+        subgroup_name: sql<string | null>`MAX(${factSale.subgroupName})`,
+        gross_revenue: sum(factSale.totalValue).mapWith(Number),
+        cogs: sql<number>`COALESCE(SUM(${factSale.unitCost} * ${factSale.quantity}), 0)`.mapWith(Number),
+        discount:      sum(factSale.discountTotal).mapWith(Number),
+        quantity:      sum(factSale.quantity).mapWith(Number),
       })
-      .from(fatoVenda)
+      .from(factSale)
       .where(and(
-        eq(fatoVenda.tenantId, tenantId),
-        inArray(fatoVenda.categoriaCodigo, ['CB', 'ARL']),
-        gte(fatoVenda.dataVenda, dataInicio),
-        lte(fatoVenda.dataVenda, dataFim),
-        locationIds ? inArray(fatoVenda.locationId, locationIds) : undefined,
+        eq(factSale.tenantId, tenantId),
+        inArray(factSale.categoryCode, ['CB', 'ARL']),
+        gte(factSale.saleDate, startDate),
+        lte(factSale.saleDate, endDate),
+        locationIds ? inArray(factSale.locationId, locationIds) : undefined,
       ))
-      .groupBy(fatoVenda.subgrupoId)
-      .orderBy(desc(sum(fatoVenda.vlrTotal)))
+      .groupBy(factSale.subgroupId)
+      .orderBy(desc(sum(factSale.totalValue)))
 
-    const totalReceita = rows.reduce((acc, r) => acc + n(r.receita_bruta), 0)
-    const totalVolume  = rows.reduce((acc, r) => acc + n(r.qtd_venda), 0)
+    const totalRevenue = rows.reduce((acc, r) => acc + n(r.gross_revenue), 0)
+    const totalVolume  = rows.reduce((acc, r) => acc + n(r.quantity), 0)
 
     return reply.send({
-      subgrupos: rows.map(r => {
-        const receita_bruta = n(r.receita_bruta)
-        const cmv           = n(r.cmv)
-        const desconto      = n(r.desconto)
-        const receita_liq   = receita_bruta - desconto
-        const margem_bruta  = receita_liq - cmv
-        const qtd_venda     = n(r.qtd_venda)
+      subgroups: rows.map(r => {
+        const gross_revenue = n(r.gross_revenue)
+        const cogs          = n(r.cogs)
+        const discount      = n(r.discount)
+        const net_revenue   = gross_revenue - discount
+        const gross_margin  = net_revenue - cogs
+        const quantity      = n(r.quantity)
         return {
-          subgrupo_id:        r.subgrupo_id,
-          subgrupo_descricao: r.subgrupo_descricao ?? `Subgrupo ${r.subgrupo_id}`,
-          receita_bruta:      round2(receita_bruta),
-          receita_liquida:    round2(receita_liq),
-          cmv:                round2(cmv),
-          margem_bruta:       round2(margem_bruta),
-          margem_pct:         pct(margem_bruta, receita_liq),
-          volume_litros:      round2(qtd_venda),
-          preco_medio_litro:  qtd_venda > 0 ? round2(receita_bruta / qtd_venda) : null,
-          custo_medio_litro:  qtd_venda > 0 && cmv > 0 ? round2(cmv / qtd_venda) : null,
-          participacao_receita_pct: pct(receita_bruta, totalReceita),
-          participacao_volume_pct:  pct(qtd_venda, totalVolume),
+          subgroup_id:     r.subgroup_id,
+          subgroup_name:   r.subgroup_name ?? `Subgrupo ${r.subgroup_id}`,
+          gross_revenue:   round2(gross_revenue),
+          net_revenue:     round2(net_revenue),
+          cogs:            round2(cogs),
+          gross_margin:    round2(gross_margin),
+          margin_pct:      pct(gross_margin, net_revenue),
+          volume_liters:   round2(quantity),
+          avg_price_liter: quantity > 0 ? round2(gross_revenue / quantity) : null,
+          avg_cost_liter:  quantity > 0 && cogs > 0 ? round2(cogs / quantity) : null,
+          revenue_share_pct: pct(gross_revenue, totalRevenue),
+          volume_share_pct:  pct(quantity, totalVolume),
         }
       }),
     })
   })
 
   // ---------------------------------------------------------------------
-  // GET /api/v1/combustivel/by-location
+  // GET /api/v1/fuel/by-location
   // Receita, volume e participação por unidade no período selecionado.
-  // Query params: data_inicio, data_fim
+  // Query params: start_date, end_date
   // Retorno: { locations: [...] }
   // ---------------------------------------------------------------------
   app.get('/by-location', async (req, reply) => {
     const tenantId = req.tenantId!
-    let dataInicio: string, dataFim: string
+    let startDate: string, endDate: string
     try {
-      ({ dataInicio, dataFim } = parseDateRange(req.query as Record<string, unknown>))
+      ({ startDate, endDate } = parseDateRange(req.query as Record<string, unknown>))
     } catch (err) {
       if (err instanceof BadQueryError) return reply.status(400).send({ error: err.message })
       throw err
@@ -356,13 +356,13 @@ export const combustivelRoutes: FastifyPluginAsync = async (app) => {
 
     const rows = await db
       .select({
-        location_id:     mv.locationId,
-        location_nome:   locations.name,
-        receita_bruta:   sum(mv.receitaBruta).mapWith(Number),
-        receita_liquida: sum(mv.receitaLiquida).mapWith(Number),
-        cmv:             sum(mv.cmv).mapWith(Number),
-        margem_bruta:    sum(mv.margemBruta).mapWith(Number),
-        volume_litros:   sum(mv.volumeLitros).mapWith(Number),
+        location_id:   mv.locationId,
+        location_name: locations.name,
+        gross_revenue: sum(mv.grossRevenue).mapWith(Number),
+        net_revenue:   sum(mv.netRevenue).mapWith(Number),
+        cogs:          sum(mv.cogs).mapWith(Number),
+        gross_margin:  sum(mv.grossMargin).mapWith(Number),
+        volume_liters: sum(mv.volumeLiters).mapWith(Number),
       })
       .from(mv)
       .innerJoin(locations, and(
@@ -371,28 +371,28 @@ export const combustivelRoutes: FastifyPluginAsync = async (app) => {
       ))
       .where(and(
         eq(mv.tenantId, tenantId),
-        gte(mv.dataVenda, dataInicio),
-        lte(mv.dataVenda, dataFim),
+        gte(mv.saleDate, startDate),
+        lte(mv.saleDate, endDate),
       ))
       .groupBy(mv.locationId, locations.name)
-      .orderBy(desc(sum(mv.receitaBruta)))
+      .orderBy(desc(sum(mv.grossRevenue)))
 
-    const totalReceita = rows.reduce((acc, r) => acc + n(r.receita_bruta), 0)
-    const totalVolume  = rows.reduce((acc, r) => acc + n(r.volume_litros), 0)
+    const totalRevenue = rows.reduce((acc, r) => acc + n(r.gross_revenue), 0)
+    const totalVolume  = rows.reduce((acc, r) => acc + n(r.volume_liters), 0)
 
     return reply.send({
       locations: rows.map(r => {
-        const receita_bruta = n(r.receita_bruta)
-        const volume_litros = n(r.volume_litros)
-        const preco_medio   = volume_litros > 0 ? round2(receita_bruta / volume_litros) : null
+        const gross_revenue = n(r.gross_revenue)
+        const volume_liters = n(r.volume_liters)
+        const avg_price     = volume_liters > 0 ? round2(gross_revenue / volume_liters) : null
         return {
-          location_id:             r.location_id,
-          location_nome:           r.location_nome,
-          receita_bruta:           round2(receita_bruta),
-          volume_litros:           round2(volume_litros),
-          preco_medio:             preco_medio,
-          participacao_pct:        pct(receita_bruta, totalReceita),
-          participacao_volume_pct: pct(volume_litros, totalVolume),
+          location_id:       r.location_id,
+          location_name:     r.location_name,
+          gross_revenue:     round2(gross_revenue),
+          volume_liters:     round2(volume_liters),
+          avg_price:         avg_price,
+          share_pct:         pct(gross_revenue, totalRevenue),
+          volume_share_pct:  pct(volume_liters, totalVolume),
         }
       }),
     })

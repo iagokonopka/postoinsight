@@ -1,8 +1,8 @@
 export type ErpSource = 'status' | 'webposto'
 
-export type Segmento = 'combustivel' | 'lubrificantes' | 'servicos' | 'conveniencia'
+export type Segment = 'combustivel' | 'lubrificantes' | 'servicos' | 'conveniencia'
 
-const SEGMENTO_MAP: Record<string, Segmento> = {
+const SEGMENT_MAP: Record<string, Segment> = {
   CB:  'combustivel',
   ARL: 'combustivel',
   LUB: 'lubrificantes',
@@ -28,7 +28,7 @@ const SEGMENTO_MAP: Record<string, Segmento> = {
   LIV: 'conveniencia',
 }
 
-export function deriveSegmento(categoriaCodigo: string): Segmento | null {
+export function deriveSegment(categoryCode: string): Segment | null {
   // Normaliza para maiúsculo para evitar bugs de cadastro no ERP (ex: 'op' vs 'OP')
-  return SEGMENTO_MAP[categoriaCodigo.toUpperCase()] ?? null
+  return SEGMENT_MAP[categoryCode.toUpperCase()] ?? null
 }

@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { and, eq, inArray, sql, sum } from 'drizzle-orm'
 import { db } from '../db.js'
-import { mvDespesaGrupoMensal as dg, despesaClassificacao as dc, auditLog } from '@postoinsight/db'
+import { mvExpenseGroupMonthly as dg, expenseClassification as dc, auditLog } from '@postoinsight/db'
 import { requireTenantSession, requireOwnerRole } from '../lib/auth.js'
 import { ACCOUNTING_TYPES, isAccountingType } from '@postoinsight/shared'
 import { BadQueryError, parseUuidArray, n, round2, pct } from '../lib/queryParsers.js'
@@ -10,7 +10,7 @@ import { BadQueryError, parseUuidArray, n, round2, pct } from '../lib/queryParse
  * Classificação contábil de despesas por grupo financeiro (Plano 2a).
  * Spec: docs/specs/admin-mapping.md
  *
- * Override não-destrutivo: a classificação vive em app.despesa_classificacao;
+ * Override não-destrutivo: a classificação vive em app.expense_classification;
  * canonical/raw nunca são reescritos. Leitura é tenant-scoped; escrita é
  * owner-only e auditada.
  */
@@ -18,11 +18,11 @@ export const adminMappingRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('preHandler', requireTenantSession)
 
   // ---------------------------------------------------------------------
-  // GET /api/v1/admin/despesa-grupos
+  // GET /api/v1/admin/expense-groups
   // Lista grupos financeiros do tenant + estado de classificação,
   // ordenados por valor total desc (prioridade Pareto).
   // ---------------------------------------------------------------------
-  app.get('/despesa-grupos', async (req, reply) => {
+  app.get('/expense-groups', async (req, reply) => {
     const tenantId = req.tenantId!
     let locationIds: string[] | undefined
     try {
@@ -33,118 +33,118 @@ export const adminMappingRoutes: FastifyPluginAsync = async (app) => {
     }
 
     // Agrega despesa por grupo financeiro (todo o histórico — sem filtro de mês no MVP)
-    const grupoRows = await db
+    const groupRows = await db
       .select({
-        codigo:    dg.grupoFinanceiroCodigo,
-        descricao: sql<string>`max(${dg.grupoFinanceiroDescricao})`,
-        total:     sum(dg.totalDespesas).mapWith(Number),
-        qtd:       sql<number>`sum(${dg.qtdLancamentos})`.mapWith(Number),
+        code:  dg.financialGroupCode,
+        name:  sql<string>`max(${dg.financialGroupName})`,
+        total: sum(dg.totalExpenses).mapWith(Number),
+        count: sql<number>`sum(${dg.entryCount})`.mapWith(Number),
       })
       .from(dg)
       .where(and(
         eq(dg.tenantId, tenantId),
         locationIds ? inArray(dg.locationId, locationIds) : undefined,
       ))
-      .groupBy(dg.grupoFinanceiroCodigo)
+      .groupBy(dg.financialGroupCode)
 
     // Mapa de classificação do tenant
     const classRows = await db
       .select({
-        codigo:      dc.grupoFinanceiroCodigo,
+        code:        dc.financialGroupCode,
         accounting:  dc.accountingType,
         customLabel: dc.customLabel,
       })
       .from(dc)
       .where(eq(dc.tenantId, tenantId))
 
-    const classMap = new Map(classRows.map(r => [r.codigo, r]))
+    const classMap = new Map(classRows.map(r => [r.code, r]))
 
-    const totalGeral = round2(grupoRows.reduce((acc, r) => acc + n(r.total), 0))
+    const grandTotal = round2(groupRows.reduce((acc, r) => acc + n(r.total), 0))
 
-    const grupos = grupoRows
+    const groups = groupRows
       .map(r => {
         const total = round2(n(r.total))
-        const cls   = classMap.get(r.codigo)
-        const descricao = r.descricao ?? null
+        const cls   = classMap.get(r.code)
+        const name  = r.name ?? null
         return {
-          grupo_financeiro_codigo:    r.codigo,
-          grupo_financeiro_descricao: descricao,
+          financial_group_code: r.code,
+          financial_group_name: name,
           total,
-          qtd_lancamentos:            n(r.qtd),
-          pct:                        pct(total, totalGeral),
-          accounting_type:            cls?.accounting ?? null,
-          custom_label:               cls?.customLabel ?? null,
-          label:                      cls?.customLabel ?? descricao ?? '(sem grupo)',
+          entry_count:          n(r.count),
+          pct:                  pct(total, grandTotal),
+          accounting_type:      cls?.accounting ?? null,
+          custom_label:         cls?.customLabel ?? null,
+          label:                cls?.customLabel ?? name ?? '(sem grupo)',
         }
       })
       .sort((a, b) => b.total - a.total)
 
-    const classificados = grupos.filter(g => g.accounting_type != null)
-    const valorClassificado = round2(classificados.reduce((acc, g) => acc + g.total, 0))
+    const classified = groups.filter(g => g.accounting_type != null)
+    const classifiedAmount = round2(classified.reduce((acc, g) => acc + g.total, 0))
 
     return reply.send({
-      total_geral: totalGeral,
-      grupos,
-      resumo: {
-        classificados:          classificados.length,
-        nao_classificados:      grupos.length - classificados.length,
-        valor_classificado:     valorClassificado,
-        pct_classificado_valor: pct(valorClassificado, totalGeral),
+      grand_total: grandTotal,
+      groups,
+      summary: {
+        classified:           classified.length,
+        unclassified:         groups.length - classified.length,
+        classified_amount:    classifiedAmount,
+        classified_pct_value: pct(classifiedAmount, grandTotal),
       },
     })
   })
 
   // ---------------------------------------------------------------------
-  // PUT /api/v1/admin/despesa-classificacao
+  // PUT /api/v1/admin/expense-classification
   // Upsert de 1+ grupos. Owner-only. Auditado em app.audit_log.
   // ---------------------------------------------------------------------
-  app.put('/despesa-classificacao', { preHandler: requireOwnerRole }, async (req, reply) => {
+  app.put('/expense-classification', { preHandler: requireOwnerRole }, async (req, reply) => {
     const tenantId = req.tenantId!
     const userId   = req.userId!
-    const body = req.body as { itens?: Array<{ grupo_financeiro_codigo?: unknown; accounting_type?: unknown; custom_label?: unknown }> }
+    const body = req.body as { items?: Array<{ financial_group_code?: unknown; accounting_type?: unknown; custom_label?: unknown }> }
 
-    if (!body || !Array.isArray(body.itens) || body.itens.length === 0) {
-      return reply.status(400).send({ error: 'Body deve conter "itens" (array não vazio)' })
+    if (!body || !Array.isArray(body.items) || body.items.length === 0) {
+      return reply.status(400).send({ error: 'Body deve conter "items" (array não vazio)' })
     }
 
     // Valida e normaliza
-    const itens: Array<{ codigo: string; accounting: string; label: string | null }> = []
-    for (const raw of body.itens) {
-      const codigo = typeof raw.grupo_financeiro_codigo === 'string' ? raw.grupo_financeiro_codigo : null
-      if (codigo == null) {
-        return reply.status(400).send({ error: 'Cada item precisa de "grupo_financeiro_codigo" (string)' })
+    const items: Array<{ code: string; accounting: string; label: string | null }> = []
+    for (const raw of body.items) {
+      const code = typeof raw.financial_group_code === 'string' ? raw.financial_group_code : null
+      if (code == null) {
+        return reply.status(400).send({ error: 'Cada item precisa de "financial_group_code" (string)' })
       }
       if (!isAccountingType(raw.accounting_type)) {
         return reply.status(400).send({
-          error: `"accounting_type" inválido para grupo ${codigo}. Permitidos: ${ACCOUNTING_TYPES.join(', ')}`,
+          error: `"accounting_type" inválido para grupo ${code}. Permitidos: ${ACCOUNTING_TYPES.join(', ')}`,
         })
       }
       const labelRaw = typeof raw.custom_label === 'string' ? raw.custom_label.trim() : ''
-      itens.push({ codigo, accounting: raw.accounting_type, label: labelRaw === '' ? null : labelRaw })
+      items.push({ code, accounting: raw.accounting_type, label: labelRaw === '' ? null : labelRaw })
     }
 
     // Estado anterior (para auditoria)
-    const codigos = itens.map(i => i.codigo)
+    const codes = items.map(i => i.code)
     const beforeRows = await db
-      .select({ codigo: dc.grupoFinanceiroCodigo, accounting: dc.accountingType, customLabel: dc.customLabel })
+      .select({ code: dc.financialGroupCode, accounting: dc.accountingType, customLabel: dc.customLabel })
       .from(dc)
-      .where(and(eq(dc.tenantId, tenantId), inArray(dc.grupoFinanceiroCodigo, codigos)))
-    const beforeMap = new Map(beforeRows.map(r => [r.codigo, r]))
+      .where(and(eq(dc.tenantId, tenantId), inArray(dc.financialGroupCode, codes)))
+    const beforeMap = new Map(beforeRows.map(r => [r.code, r]))
 
     // Upsert em transação + auditoria
     await db.transaction(async (tx) => {
-      for (const item of itens) {
+      for (const item of items) {
         await tx
           .insert(dc)
           .values({
             tenantId,
-            grupoFinanceiroCodigo: item.codigo,
-            accountingType:        item.accounting,
-            customLabel:           item.label,
-            createdBy:             userId,
+            financialGroupCode: item.code,
+            accountingType:     item.accounting,
+            customLabel:        item.label,
+            createdBy:          userId,
           })
           .onConflictDoUpdate({
-            target: [dc.tenantId, dc.grupoFinanceiroCodigo],
+            target: [dc.tenantId, dc.financialGroupCode],
             set: {
               accountingType: item.accounting,
               customLabel:    item.label,
@@ -152,21 +152,21 @@ export const adminMappingRoutes: FastifyPluginAsync = async (app) => {
             },
           })
 
-        const before = beforeMap.get(item.codigo) ?? null
+        const before = beforeMap.get(item.code) ?? null
         await tx.insert(auditLog).values({
           tenantId,
           actorUserId:  userId,
-          action:       before ? 'despesa_classificacao.update' : 'despesa_classificacao.create',
-          targetEntity: 'despesa_classificacao',
+          action:       before ? 'expense_classification.update' : 'expense_classification.create',
+          targetEntity: 'expense_classification',
           payloadBefore: before
-            ? { grupo_financeiro_codigo: item.codigo, accounting_type: before.accounting, custom_label: before.customLabel }
+            ? { financial_group_code: item.code, accounting_type: before.accounting, custom_label: before.customLabel }
             : null,
-          payloadAfter: { grupo_financeiro_codigo: item.codigo, accounting_type: item.accounting, custom_label: item.label },
+          payloadAfter: { financial_group_code: item.code, accounting_type: item.accounting, custom_label: item.label },
           ipAddress: req.ip,
         })
       }
     })
 
-    return reply.send({ ok: true, upserted: itens.length })
+    return reply.send({ ok: true, upserted: items.length })
   })
 }

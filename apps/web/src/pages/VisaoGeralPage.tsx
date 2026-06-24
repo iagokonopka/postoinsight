@@ -38,30 +38,30 @@ export default function VisaoGeralPage() {
   const [drawerKpi, setDrawerKpi] = useState<DrawerKpi | null>(null)
 
   const { data: resumo, isLoading: loadingResumo } = useVendasResumo()
-  const { data: evolucao, isLoading: loadingEvo } = useVendasEvolucao('dia')
+  const { data: evolucao, isLoading: loadingEvo } = useVendasEvolucao('day')
   const { data: byLocation } = useVendasByLocation()
   const { data: combResumo } = useCombustivelResumo()
   const { data: combByLocation } = useCombustivelByLocation()
   const { data: resumoPrev } = useVendasResumoPrev()
   const { data: combPrev } = useCombustivelResumoPrev()
 
-  const t = resumo?.totais
-  const tp = resumoPrev?.totais
+  const t = resumo?.totals
+  const tp = resumoPrev?.totals
   const pctChange = (cur?: number, prev?: number) => (cur != null && prev != null && prev !== 0) ? ((cur - prev) / prev) * 100 : undefined
 
   // ── Volume de combustível por posto (join) ──
   const volByLoc = new Map<string, number>()
-  for (const l of combByLocation?.locations ?? []) volByLoc.set(l.location_id, l.volume_litros)
+  for (const l of combByLocation?.locations ?? []) volByLoc.set(l.location_id, l.volume_liters)
 
   // ── Postos (ranking) ──
   type LocationRow = { id: string; name: string; revenue: number; margin: number; volume: number; qty: number }
   const locationsRaw: LocationRow[] = (byLocation?.locations ?? []).map(l => ({
     id: l.location_id,
-    name: l.location_nome,
-    revenue: l.receita_bruta,
-    margin: l.margem_pct,
+    name: l.location_name,
+    revenue: l.gross_revenue,
+    margin: l.margin_pct,
     volume: volByLoc.get(l.location_id) ?? 0,
-    qty: l.qtd_venda,
+    qty: l.quantity,
   }))
   const margins = locationsRaw.map(p => p.margin)
   const maxMargin = margins.length ? Math.max(...margins) : 0
@@ -80,19 +80,19 @@ export default function VisaoGeralPage() {
   }
 
   // ── Evolução ──
-  const evoData: EvolutionPoint[] = (evolucao?.serie ?? []).map(p => ({
-    label: p.periodo.length === 10 ? fDayMonth(p.periodo) : fMonthShort(p.periodo),
-    receita: p.receita_bruta,
-    margem: p.margem_bruta,
+  const evoData: EvolutionPoint[] = (evolucao?.series ?? []).map(p => ({
+    label: p.period.length === 10 ? fDayMonth(p.period) : fMonthShort(p.period),
+    receita: p.gross_revenue,
+    margem: p.gross_margin,
   }))
 
   // ── Mix por segmento ──
-  const mixData: MixSlice[] = (resumo?.por_segmento ?? [])
-    .map(s => ({ label: segLabel(s.segmento), value: s.receita_bruta, color: SEG_CONFIG[s.segmento]?.color ?? CHART_COLORS.neutral }))
+  const mixData: MixSlice[] = (resumo?.by_segment ?? [])
+    .map(s => ({ label: segLabel(s.segment), value: s.gross_revenue, color: SEG_CONFIG[s.segment]?.color ?? CHART_COLORS.neutral }))
     .sort((a, b) => b.value - a.value)
 
   // ── Insights ──
-  const insights = deriveInsights(resumo?.por_segmento ?? [], locationsRaw, t?.margem_pct ?? 0, avgMargin)
+  const insights = deriveInsights(resumo?.by_segment ?? [], locationsRaw, t?.margin_pct ?? 0, avgMargin)
 
   // ── Drawer ──
   const drawerBars: HBarRow[] = drawerKpi
@@ -103,8 +103,8 @@ export default function VisaoGeralPage() {
         })
         .sort((a, b) => b.value - a.value)
     : []
-  const drawerSpark = (evolucao?.serie ?? []).map(p => (drawerKpi === 'revenue' ? p.receita_bruta : p.margem_bruta))
-  const drawerValue = drawerKpi === 'revenue' ? t?.receita_liquida : t?.margem_bruta
+  const drawerSpark = (evolucao?.series ?? []).map(p => (drawerKpi === 'revenue' ? p.gross_revenue : p.gross_margin))
+  const drawerValue = drawerKpi === 'revenue' ? t?.net_revenue : t?.gross_margin
 
   return (
     <Page>
@@ -112,10 +112,10 @@ export default function VisaoGeralPage() {
 
       {/* KPIs — uniformes; 2 primeiros abrem drawer (hint "ABRIR") */}
       <KpiGrid cols={5}>
-        <KpiCard label="Receita líquida" value={t ? fCompact(t.receita_liquida) : '—'} valueTitle={t ? fCurrency(t.receita_liquida) : undefined} delta={pctChange(t?.receita_liquida, tp?.receita_liquida)} onClick={() => setDrawerKpi('revenue')} />
-        <KpiCard label="Margem bruta" value={t ? fCompact(t.margem_bruta) : '—'} valueTitle={t ? fCurrency(t.margem_bruta) : undefined} delta={pctChange(t?.margem_bruta, tp?.margem_bruta)} onClick={() => setDrawerKpi('margin')} />
-        <KpiCard label="Margem bruta %" value={t ? fPct(t.margem_pct, 1) : '—'} delta={t && tp ? t.margem_pct - tp.margem_pct : undefined} deltaPP />
-        <KpiCard label="Volume de combustível" value={combResumo ? fLiters(combResumo.totais.volume_litros) : '—'} valueTitle={combResumo ? fInt(combResumo.totais.volume_litros) + ' L' : undefined} delta={pctChange(combResumo?.totais.volume_litros, combPrev?.totais.volume_litros)} />
+        <KpiCard label="Receita líquida" value={t ? fCompact(t.net_revenue) : '—'} valueTitle={t ? fCurrency(t.net_revenue) : undefined} delta={pctChange(t?.net_revenue, tp?.net_revenue)} onClick={() => setDrawerKpi('revenue')} />
+        <KpiCard label="Margem bruta" value={t ? fCompact(t.gross_margin) : '—'} valueTitle={t ? fCurrency(t.gross_margin) : undefined} delta={pctChange(t?.gross_margin, tp?.gross_margin)} onClick={() => setDrawerKpi('margin')} />
+        <KpiCard label="Margem bruta %" value={t ? fPct(t.margin_pct, 1) : '—'} delta={t && tp ? t.margin_pct - tp.margin_pct : undefined} deltaPP />
+        <KpiCard label="Volume de combustível" value={combResumo ? fLiters(combResumo.totals.volume_liters) : '—'} valueTitle={combResumo ? fInt(combResumo.totals.volume_liters) + ' L' : undefined} delta={pctChange(combResumo?.totals.volume_liters, combPrev?.totals.volume_liters)} />
         <KpiCard label="Ticket médio" value="—" />
       </KpiGrid>
 
@@ -250,15 +250,15 @@ const SEV_STYLE: Record<Severity, { dot: string; tagBg: string; tagColor: string
   neutro:   { dot: 'hsl(var(--muted-foreground))', tagBg: 'hsl(var(--muted))', tagColor: 'hsl(var(--muted-foreground))' },
 }
 
-interface SegLike { segmento: string; receita_bruta: number; margem_pct: number; participacao_pct: number }
+interface SegLike { segment: string; gross_revenue: number; margin_pct: number; share_pct: number }
 interface LocationLike { name: string; revenue: number; margin: number }
 
 function deriveInsights(segments: SegLike[], locations: LocationLike[], overallMargin: number, avgMargin: number): Insight[] {
   const out: Insight[] = []
-  const withRevenue = segments.filter(s => s.receita_bruta > 0)
+  const withRevenue = segments.filter(s => s.gross_revenue > 0)
 
-  const top = [...withRevenue].sort((a, b) => b.participacao_pct - a.participacao_pct)[0]
-  if (top) out.push({ sev: 'positivo', tag: 'Mix', text: <><b>{segLabel(top.segmento)}</b> responde por <b>{fPct(top.participacao_pct, 0)}</b> da receita do período.</> })
+  const top = [...withRevenue].sort((a, b) => b.share_pct - a.share_pct)[0]
+  if (top) out.push({ sev: 'positivo', tag: 'Mix', text: <><b>{segLabel(top.segment)}</b> responde por <b>{fPct(top.share_pct, 0)}</b> da receita do período.</> })
 
   if (locations.length > 1) {
     const worst = [...locations].sort((a, b) => a.margin - b.margin)[0]
@@ -268,8 +268,8 @@ function deriveInsights(segments: SegLike[], locations: LocationLike[], overallM
     if (best.margin - avgMargin > 0.5) out.push({ sev: 'positivo', tag: 'Postos', text: <><b>{best.name}</b> lidera a rede em rentabilidade: margem <b>{fPct(best.margin, 1)}</b>.</> })
   }
 
-  const worstSeg = [...withRevenue].sort((a, b) => a.margem_pct - b.margem_pct)[0]
-  if (worstSeg && worstSeg.margem_pct < overallMargin) out.push({ sev: 'neutro', tag: 'Margem', text: <><b>{segLabel(worstSeg.segmento)}</b> opera com a menor margem entre os segmentos ({fPct(worstSeg.margem_pct, 1)}).</> })
+  const worstSeg = [...withRevenue].sort((a, b) => a.margin_pct - b.margin_pct)[0]
+  if (worstSeg && worstSeg.margin_pct < overallMargin) out.push({ sev: 'neutro', tag: 'Margem', text: <><b>{segLabel(worstSeg.segment)}</b> opera com a menor margem entre os segmentos ({fPct(worstSeg.margin_pct, 1)}).</> })
 
   return out
 }

@@ -1,4 +1,4 @@
-// TanStack Query hooks for /api/v1/vendas/*
+// TanStack Query hooks for /api/v1/sales/*
 import { useQuery } from '@tanstack/react-query'
 import { useApp } from '@/context/AppContext'
 import { periodToRange, previousRange, buildQS } from '@/lib/periods'
@@ -12,31 +12,31 @@ async function get<T>(url: string): Promise<T> {
 
 function useBaseParams() {
   const { period, locationId } = useApp()
-  const { data_inicio, data_fim } = periodToRange(period)
-  return { data_inicio, data_fim, location_id: locationId ?? undefined }
+  const { start_date, end_date } = periodToRange(period)
+  return { start_date, end_date, location_id: locationId ?? undefined }
 }
 
-// ─── /api/v1/vendas/resumo ────────────────────────────────────────────────────
+// ─── /api/v1/sales/summary ────────────────────────────────────────────────────
 
 export interface VendasResumo {
-  periodo: { inicio: string; fim: string }
-  totais: {
-    receita_bruta: number
-    descontos: number
-    receita_liquida: number
-    cmv: number
-    margem_bruta: number
-    margem_pct: number
-    qtd_itens: number
+  period: { start: string; end: string }
+  totals: {
+    gross_revenue: number
+    discounts: number
+    net_revenue: number
+    cogs: number
+    gross_margin: number
+    margin_pct: number
+    item_count: number
   }
-  por_segmento: {
-    segmento: string
-    receita_bruta: number
-    receita_liquida: number
-    cmv: number
-    margem_bruta: number
-    margem_pct: number
-    participacao_pct: number
+  by_segment: {
+    segment: string
+    gross_revenue: number
+    net_revenue: number
+    cogs: number
+    gross_margin: number
+    margin_pct: number
+    share_pct: number
   }[]
 }
 
@@ -44,69 +44,69 @@ export function useVendasResumo() {
   const params = useBaseParams()
   const qs = buildQS(params)
   return useQuery<VendasResumo>({
-    queryKey: ['vendas', 'resumo', params],
-    queryFn: () => get(`/api/v1/vendas/resumo${qs}`),
+    queryKey: ['sales', 'summary', params],
+    queryFn: () => get(`/api/v1/sales/summary${qs}`),
   })
 }
 
 /** Resumo do período anterior — para deltas dos KPIs. */
 export function useVendasResumoPrev() {
   const { period, locationId } = useApp()
-  const { data_inicio, data_fim } = previousRange(period)
-  const params = { data_inicio, data_fim, location_id: locationId ?? undefined }
+  const { start_date, end_date } = previousRange(period)
+  const params = { start_date, end_date, location_id: locationId ?? undefined }
   const qs = buildQS(params)
   return useQuery<VendasResumo>({
-    queryKey: ['vendas', 'resumo', 'prev', params],
-    queryFn: () => get(`/api/v1/vendas/resumo${qs}`),
+    queryKey: ['sales', 'summary', 'prev', params],
+    queryFn: () => get(`/api/v1/sales/summary${qs}`),
   })
 }
 
-// ─── /api/v1/vendas/evolucao ──────────────────────────────────────────────────
+// ─── /api/v1/sales/evolution ──────────────────────────────────────────────────
 
 export interface EvolucaoPonto {
-  periodo: string
-  receita_bruta: number
-  margem_bruta: number
-  margem_pct: number
+  period: string
+  gross_revenue: number
+  gross_margin: number
+  margin_pct: number
 }
 
-export function useVendasEvolucao(granularidade: 'dia' | 'semana' | 'mes' = 'dia') {
+export function useVendasEvolucao(granularity: 'day' | 'week' | 'month' = 'day') {
   const params = useBaseParams()
-  const qs = buildQS({ ...params, granularidade })
-  return useQuery<{ granularidade: string; serie: EvolucaoPonto[] }>({
-    queryKey: ['vendas', 'evolucao', params, granularidade],
-    queryFn: () => get(`/api/v1/vendas/evolucao${qs}`),
+  const qs = buildQS({ ...params, granularity })
+  return useQuery<{ granularity: string; series: EvolucaoPonto[] }>({
+    queryKey: ['sales', 'evolution', params, granularity],
+    queryFn: () => get(`/api/v1/sales/evolution${qs}`),
   })
 }
 
-// ─── /api/v1/vendas/top-produtos ─────────────────────────────────────────────
+// ─── /api/v1/sales/top-products ──────────────────────────────────────────────
 
 export interface TopProduto {
   rank: number
-  produto: string
-  categoria: string
-  grupo_id: number
-  receita: number
-  cmv: number
-  margem_bruta: number
-  margem_pct: number
-  participacao_pct: number
-  qtd: number
+  product: string
+  category: string
+  group_id: number
+  revenue: number
+  cogs: number
+  gross_margin: number
+  margin_pct: number
+  share_pct: number
+  quantity: number
 }
 
 export function useTopProdutos(limit = 10) {
   const params = useBaseParams()
   const qs = buildQS({ ...params, limit: String(limit) })
-  return useQuery<{ produtos: TopProduto[] }>({
-    queryKey: ['vendas', 'top-produtos', params, limit],
-    queryFn: () => get(`/api/v1/vendas/top-produtos${qs}`),
+  return useQuery<{ products: TopProduto[] }>({
+    queryKey: ['sales', 'top-products', params, limit],
+    queryFn: () => get(`/api/v1/sales/top-products${qs}`),
   })
 }
 
-// ─── /api/v1/vendas/padrao-semanal ───────────────────────────────────────────
+// ─── /api/v1/sales/weekly-pattern ────────────────────────────────────────────
 
 export interface PadraoSemanal {
-  semanas: string[]
+  weeks: string[]
   data: number[][]
 }
 
@@ -114,134 +114,134 @@ export function usePadraoSemanal() {
   const params = useBaseParams()
   const qs = buildQS(params)
   return useQuery<PadraoSemanal>({
-    queryKey: ['vendas', 'padrao-semanal', params],
-    queryFn: () => get(`/api/v1/vendas/padrao-semanal${qs}`),
+    queryKey: ['sales', 'weekly-pattern', params],
+    queryFn: () => get(`/api/v1/sales/weekly-pattern${qs}`),
   })
 }
 
-// ─── /api/v1/vendas/drill/subgrupos ──────────────────────────────────────────
+// ─── /api/v1/sales/drill/subgroups ───────────────────────────────────────────
 
 export interface DrillSubgrupo {
-  subgrupo_id: number
-  subgrupo_descricao: string
-  receita_bruta: number
-  receita_liquida: number
-  cmv: number
-  margem_bruta: number
-  margem_pct: number
-  qtd_itens: number
-  participacao_pct: number
+  subgroup_id: number
+  subgroup_name: string
+  gross_revenue: number
+  net_revenue: number
+  cogs: number
+  gross_margin: number
+  margin_pct: number
+  item_count: number
+  share_pct: number
 }
 
-export function useDrillSubgrupos(grupoId: number | null, segmento: string) {
+export function useDrillSubgrupos(grupoId: number | null, segment: string) {
   const params = useBaseParams()
-  const qs = buildQS({ ...params, grupo_id: grupoId != null ? String(grupoId) : undefined, segmento })
-  return useQuery<{ segmento: string; grupo_id: number; subgrupos: DrillSubgrupo[] }>({
-    queryKey: ['vendas', 'drill', 'subgrupos', params, grupoId, segmento],
-    queryFn: () => get(`/api/v1/vendas/drill/subgrupos${qs}`),
+  const qs = buildQS({ ...params, group_id: grupoId != null ? String(grupoId) : undefined, segment })
+  return useQuery<{ segment: string; group_id: number; subgroups: DrillSubgrupo[] }>({
+    queryKey: ['sales', 'drill', 'subgroups', params, grupoId, segment],
+    queryFn: () => get(`/api/v1/sales/drill/subgroups${qs}`),
     enabled: grupoId != null,
   })
 }
 
-// ─── /api/v1/vendas/drill/produtos ───────────────────────────────────────────
+// ─── /api/v1/sales/drill/products ────────────────────────────────────────────
 
 export interface DrillProduto {
-  source_produto_id: string
-  descricao_produto: string
-  segmento: string | null
-  receita_bruta: number
-  receita_liquida: number
-  cmv: number
-  margem_bruta: number
-  margem_pct: number
-  qtd_venda: number
-  qtd_itens: number
-  participacao_pct: number
+  source_product_id: string
+  product_name: string
+  segment: string | null
+  gross_revenue: number
+  net_revenue: number
+  cogs: number
+  gross_margin: number
+  margin_pct: number
+  quantity: number
+  item_count: number
+  share_pct: number
 }
 
 export function useDrillProdutos(subgrupoId: number | null) {
   const params = useBaseParams()
-  const qs = buildQS({ ...params, subgrupo_id: subgrupoId != null ? String(subgrupoId) : undefined })
-  return useQuery<{ subgrupo_id: number; produtos: DrillProduto[] }>({
-    queryKey: ['vendas', 'drill', 'produtos', params, subgrupoId],
-    queryFn: () => get(`/api/v1/vendas/drill/produtos${qs}`),
+  const qs = buildQS({ ...params, subgroup_id: subgrupoId != null ? String(subgrupoId) : undefined })
+  return useQuery<{ subgroup_id: number; products: DrillProduto[] }>({
+    queryKey: ['sales', 'drill', 'products', params, subgrupoId],
+    queryFn: () => get(`/api/v1/sales/drill/products${qs}`),
     enabled: subgrupoId != null,
   })
 }
 
-// ─── /api/v1/vendas/produto/:id/evolucao ─────────────────────────────────────
+// ─── /api/v1/sales/product/:id/evolution ─────────────────────────────────────
 
 export interface ProdutoEvolucaoPonto {
-  periodo: string
-  receita_bruta: number
-  margem_bruta: number
-  margem_pct: number
-  qtd_venda: number
-  ticket_medio: number
+  period: string
+  gross_revenue: number
+  gross_margin: number
+  margin_pct: number
+  quantity: number
+  avg_ticket: number
 }
 
 export interface ProdutoInfo {
-  source_produto_id: string
-  descricao: string | null
-  subgrupo: string | null
-  grupo: string | null
+  source_product_id: string
+  name: string | null
+  subgroup: string | null
+  group: string | null
 }
 
 export function useProdutoEvolucao(
   sourceProdutoId: string | null,
-  granularidade: 'dia' | 'semana' | 'mes' = 'dia',
+  granularity: 'day' | 'week' | 'month' = 'day',
 ) {
   const params = useBaseParams()
-  const qs = buildQS({ ...params, granularidade })
-  return useQuery<{ produto: ProdutoInfo; granularidade: string; serie: ProdutoEvolucaoPonto[] }>({
-    queryKey: ['vendas', 'produto', 'evolucao', params, sourceProdutoId, granularidade],
-    queryFn: () => get(`/api/v1/vendas/produto/${encodeURIComponent(sourceProdutoId!)}/evolucao${qs}`),
+  const qs = buildQS({ ...params, granularity })
+  return useQuery<{ product: ProdutoInfo; granularity: string; series: ProdutoEvolucaoPonto[] }>({
+    queryKey: ['sales', 'product', 'evolution', params, sourceProdutoId, granularity],
+    queryFn: () => get(`/api/v1/sales/product/${encodeURIComponent(sourceProdutoId!)}/evolution${qs}`),
     enabled: sourceProdutoId != null,
   })
 }
 
-// ─── /api/v1/vendas/produto/:id/por-location ─────────────────────────────────
+// ─── /api/v1/sales/product/:id/by-location ───────────────────────────────────
 
 export interface ProdutoLocation {
   location_id: string
-  location_nome: string
-  receita_bruta: number
-  margem_bruta: number
-  margem_pct: number
-  qtd_venda: number
-  participacao_pct: number
+  location_name: string
+  gross_revenue: number
+  gross_margin: number
+  margin_pct: number
+  quantity: number
+  share_pct: number
 }
 
-// ─── /api/v1/vendas/by-location ──────────────────────────────────────────────
+// ─── /api/v1/sales/by-location ───────────────────────────────────────────────
 
 export interface VendasByLocation {
   location_id: string
-  location_nome: string
-  receita_bruta: number
-  margem_bruta: number
-  margem_pct: number
-  qtd_venda: number
-  participacao_pct: number
+  location_name: string
+  gross_revenue: number
+  gross_margin: number
+  margin_pct: number
+  quantity: number
+  share_pct: number
   [key: string]: unknown
 }
 
 export function useVendasByLocation() {
   const { period } = useApp()
-  const { data_inicio, data_fim } = periodToRange(period)
-  const params = { data_inicio, data_fim }
+  const { start_date, end_date } = periodToRange(period)
+  const params = { start_date, end_date }
   const qs = buildQS(params)
   return useQuery<{ locations: VendasByLocation[] }>({
-    queryKey: ['vendas', 'by-location', params],
-    queryFn: () => get(`/api/v1/vendas/by-location${qs}`),
+    queryKey: ['sales', 'by-location', params],
+    queryFn: () => get(`/api/v1/sales/by-location${qs}`),
   })
 }
 
 export function useProdutoPorLocation(sourceProdutoId: string | null) {
   const params = useBaseParams()
   const qs = buildQS(params)
-  return useQuery<{ produto: { source_produto_id: string; descricao: string | null }; locations: ProdutoLocation[] }>({
-    queryKey: ['vendas', 'produto', 'por-location', params, sourceProdutoId],
-    queryFn: () => get(`/api/v1/vendas/produto/${encodeURIComponent(sourceProdutoId!)}/por-location${qs}`),
+  return useQuery<{ product: { source_product_id: string; name: string | null }; locations: ProdutoLocation[] }>({
+    queryKey: ['sales', 'product', 'by-location', params, sourceProdutoId],
+    queryFn: () => get(`/api/v1/sales/product/${encodeURIComponent(sourceProdutoId!)}/by-location${qs}`),
     enabled: sourceProdutoId != null,
   })
 }

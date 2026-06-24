@@ -11,130 +11,130 @@ async function get<T>(url: string): Promise<T> {
 
 function useBaseParams() {
   const { period, locationId } = useApp()
-  const { data_inicio, data_fim } = periodToRange(period)
-  return { data_inicio, data_fim, location_id: locationId ?? undefined }
+  const { start_date, end_date } = periodToRange(period)
+  return { start_date, end_date, location_id: locationId ?? undefined }
 }
 
-// ─── /api/v1/combustivel/resumo ───────────────────────────────────────────────
+// ─── /api/v1/fuel/summary ─────────────────────────────────────────────────────
 
 export interface CombustivelProduto {
-  grupo_id: number
-  grupo_descricao: string | null
-  volume_litros: number
-  receita_bruta: number
-  receita_liquida: number
-  cmv: number
-  margem_bruta: number
-  margem_pct: number
-  preco_medio_litro: number | null
-  custo_medio_litro: number | null
-  participacao_volume_pct: number
-  participacao_receita_pct: number
+  group_id: number
+  group_name: string | null
+  volume_liters: number
+  gross_revenue: number
+  net_revenue: number
+  cogs: number
+  gross_margin: number
+  margin_pct: number
+  avg_price_liter: number | null
+  avg_cost_liter: number | null
+  volume_share_pct: number
+  revenue_share_pct: number
 }
 
 export interface CombustivelResumo {
-  totais: {
-    volume_litros: number
-    receita_bruta: number
-    receita_liquida: number
-    cmv: number
-    margem_bruta: number
-    margem_pct: number
+  totals: {
+    volume_liters: number
+    gross_revenue: number
+    net_revenue: number
+    cogs: number
+    gross_margin: number
+    margin_pct: number
   }
-  por_produto: CombustivelProduto[]
+  by_product: CombustivelProduto[]
 }
 
 export function useCombustivelResumo() {
   const params = useBaseParams()
   const qs = buildQS(params)
   return useQuery<CombustivelResumo>({
-    queryKey: ['combustivel', 'resumo', params],
-    queryFn: () => get(`/api/v1/combustivel/resumo${qs}`),
+    queryKey: ['fuel', 'summary', params],
+    queryFn: () => get(`/api/v1/fuel/summary${qs}`),
   })
 }
 
 /** Resumo do período anterior — para deltas dos KPIs. */
 export function useCombustivelResumoPrev() {
   const { period, locationId } = useApp()
-  const { data_inicio, data_fim } = previousRange(period)
-  const params = { data_inicio, data_fim, location_id: locationId ?? undefined }
+  const { start_date, end_date } = previousRange(period)
+  const params = { start_date, end_date, location_id: locationId ?? undefined }
   const qs = buildQS(params)
   return useQuery<CombustivelResumo>({
-    queryKey: ['combustivel', 'resumo', 'prev', params],
-    queryFn: () => get(`/api/v1/combustivel/resumo${qs}`),
+    queryKey: ['fuel', 'summary', 'prev', params],
+    queryFn: () => get(`/api/v1/fuel/summary${qs}`),
   })
 }
 
-// ─── /api/v1/combustivel/evolucao?por_produto=true ────────────────────────────
+// ─── /api/v1/fuel/evolution?by_product=true ───────────────────────────────────
 
 export interface CombEvolucaoProduto {
-  grupo_id: number
-  grupo_descricao: string
-  serie: {
-    periodo: string
-    volume_litros: number
-    receita_bruta: number
-    margem_bruta: number
+  group_id: number
+  group_name: string
+  series: {
+    period: string
+    volume_liters: number
+    gross_revenue: number
+    gross_margin: number
   }[]
 }
 
-export function useCombustivelEvolucaoPorProduto(granularidade: 'dia' | 'semana' | 'mes' = 'dia') {
+export function useCombustivelEvolucaoPorProduto(granularity: 'day' | 'week' | 'month' = 'day') {
   const params = useBaseParams()
-  const qs = buildQS({ ...params, granularidade, por_produto: 'true' })
-  return useQuery<{ granularidade: string; por_produto: true; produtos: CombEvolucaoProduto[] }>({
-    queryKey: ['combustivel', 'evolucao', 'por_produto', params, granularidade],
-    queryFn: () => get(`/api/v1/combustivel/evolucao${qs}`),
+  const qs = buildQS({ ...params, granularity, by_product: 'true' })
+  return useQuery<{ granularity: string; by_product: true; products: CombEvolucaoProduto[] }>({
+    queryKey: ['fuel', 'evolution', 'by_product', params, granularity],
+    queryFn: () => get(`/api/v1/fuel/evolution${qs}`),
   })
 }
 
-// ─── /api/v1/combustivel/subgrupos ───────────────────────────────────────────
+// ─── /api/v1/fuel/subgroups ──────────────────────────────────────────────────
 // Nível subgrupo = produtos reais (Gasolina Comum, Diesel S10, Etanol, …).
 // Inclui CB e ARL; o frontend filtra Arla (descrição ~ /arla/i) na aba Combustível.
 
 export interface CombustivelSubgrupo {
-  subgrupo_id: number
-  subgrupo_descricao: string
-  volume_litros: number
-  receita_bruta: number
-  receita_liquida: number
-  cmv: number
-  margem_bruta: number
-  margem_pct: number
-  preco_medio_litro: number | null
-  custo_medio_litro: number | null
-  participacao_volume_pct: number
-  participacao_receita_pct: number
+  subgroup_id: number
+  subgroup_name: string
+  volume_liters: number
+  gross_revenue: number
+  net_revenue: number
+  cogs: number
+  gross_margin: number
+  margin_pct: number
+  avg_price_liter: number | null
+  avg_cost_liter: number | null
+  volume_share_pct: number
+  revenue_share_pct: number
 }
 
 export function useCombustivelSubgrupos() {
   const params = useBaseParams()
   const qs = buildQS(params)
-  return useQuery<{ subgrupos: CombustivelSubgrupo[] }>({
-    queryKey: ['combustivel', 'subgrupos', params],
-    queryFn: () => get(`/api/v1/combustivel/subgrupos${qs}`),
+  return useQuery<{ subgroups: CombustivelSubgrupo[] }>({
+    queryKey: ['fuel', 'subgroups', params],
+    queryFn: () => get(`/api/v1/fuel/subgroups${qs}`),
   })
 }
 
-// ─── /api/v1/combustivel/by-location ─────────────────────────────────────────
+// ─── /api/v1/fuel/by-location ────────────────────────────────────────────────
 
 export interface CombustivelByLocation {
   location_id: string
-  location_nome: string
-  receita_bruta: number
-  volume_litros: number
-  preco_medio: number | null
-  participacao_pct: number
-  participacao_volume_pct: number
+  location_name: string
+  gross_revenue: number
+  volume_liters: number
+  avg_price: number | null
+  share_pct: number
+  volume_share_pct: number
   [key: string]: unknown
 }
 
 export function useCombustivelByLocation() {
   const { period } = useApp()
-  const { data_inicio, data_fim } = periodToRange(period)
-  const params = { data_inicio, data_fim }
+  const { start_date, end_date } = periodToRange(period)
+  const params = { start_date, end_date }
   const qs = buildQS(params)
   return useQuery<{ locations: CombustivelByLocation[] }>({
-    queryKey: ['combustivel', 'by-location', params],
-    queryFn: () => get(`/api/v1/combustivel/by-location${qs}`),
+    queryKey: ['fuel', 'by-location', params],
+    queryFn: () => get(`/api/v1/fuel/by-location${qs}`),
   })
 }

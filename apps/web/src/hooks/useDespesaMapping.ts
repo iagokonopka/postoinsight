@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiUrl } from '@/lib/api'
 
 // Espelha o enum de apps/api / packages/shared (accounting_type).
+// Valores persistidos — mantidos em português (ADR-018, exceção de valores enum).
 export type AccountingType =
   | 'despesa_operacional'
   | 'despesa_financeira'
@@ -23,10 +24,10 @@ export const ACCOUNTING_TYPE_LABELS: Record<AccountingType, string> = {
 export const OPERATIONAL_TYPE: AccountingType = 'despesa_operacional'
 
 export interface DespesaGrupoRow {
-  grupo_financeiro_codigo: string
-  grupo_financeiro_descricao: string | null
+  financial_group_code: string
+  financial_group_name: string | null
   total: number
-  qtd_lancamentos: number
+  entry_count: number
   pct: number
   accounting_type: AccountingType | null
   custom_label: string | null
@@ -34,18 +35,18 @@ export interface DespesaGrupoRow {
 }
 
 export interface DespesaGruposResponse {
-  total_geral: number
-  grupos: DespesaGrupoRow[]
-  resumo: {
-    classificados: number
-    nao_classificados: number
-    valor_classificado: number
-    pct_classificado_valor: number
+  grand_total: number
+  groups: DespesaGrupoRow[]
+  summary: {
+    classified: number
+    unclassified: number
+    classified_amount: number
+    classified_pct_value: number
   }
 }
 
 export interface ClassificacaoItem {
-  grupo_financeiro_codigo: string
+  financial_group_code: string
   accounting_type: AccountingType
   custom_label?: string | null
 }
@@ -58,8 +59,8 @@ async function getJson<T>(url: string): Promise<T> {
 
 export function useDespesaGrupos() {
   return useQuery<DespesaGruposResponse>({
-    queryKey: ['admin', 'despesa-grupos'],
-    queryFn: () => getJson('/api/v1/admin/despesa-grupos'),
+    queryKey: ['admin', 'expense-groups'],
+    queryFn: () => getJson('/api/v1/admin/expense-groups'),
     staleTime: 60 * 1000,
   })
 }
@@ -67,12 +68,12 @@ export function useDespesaGrupos() {
 export function useDespesaClassificacaoMutation() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (itens: ClassificacaoItem[]) => {
-      const res = await fetch(apiUrl('/api/v1/admin/despesa-classificacao'), {
+    mutationFn: async (items: ClassificacaoItem[]) => {
+      const res = await fetch(apiUrl('/api/v1/admin/expense-classification'), {
         method: 'PUT',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ itens }),
+        body: JSON.stringify({ items }),
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
@@ -81,7 +82,7 @@ export function useDespesaClassificacaoMutation() {
       return res.json() as Promise<{ ok: boolean; upserted: number }>
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['admin', 'despesa-grupos'] })
+      qc.invalidateQueries({ queryKey: ['admin', 'expense-groups'] })
       qc.invalidateQueries({ queryKey: ['dre'] })
     },
   })

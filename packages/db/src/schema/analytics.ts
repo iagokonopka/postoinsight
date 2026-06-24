@@ -9,141 +9,141 @@ export const analyticsSchema = pgSchema('analytics')
  * (drizzle-kit não emite DDL de MV — declaramos aqui só os tipos).
  *
  * Convenção de naming: campos em snake_case no banco → camelCase em TS.
- * Todas as MVs filtram categorias internas (segmento IS NOT NULL).
+ * Todas as MVs filtram categorias internas (segment IS NOT NULL).
  */
 
 // ---------------------------------------------------------------------------
-// mv_vendas_diario — Dashboard Vendas
+// mv_sales_daily — Dashboard Vendas
 // Grão: 1 linha = 1 dia × 1 location × 1 segmento × 1 grupo
 // ---------------------------------------------------------------------------
-export const mvVendasDiario = analyticsSchema.materializedView('mv_vendas_diario', {
+export const mvSalesDaily = analyticsSchema.materializedView('mv_sales_daily', {
   tenantId:           uuid('tenant_id').notNull(),
   locationId:         uuid('location_id').notNull(),
-  dataVenda:          date('data_venda').notNull(),
-  ano:                smallint('ano').notNull(),
-  mes:                smallint('mes').notNull(),
-  anoMes:             text('ano_mes').notNull(),
-  semanaAno:          smallint('semana_ano').notNull(),
-  diaSemana:          smallint('dia_semana').notNull(),
-  isFimDeSemana:      boolean('is_fim_de_semana').notNull(),
-  segmento:           text('segmento').notNull(),
-  categoriaCodigo:    text('categoria_codigo').notNull(),
-  categoriaDescricao: text('categoria_descricao'),
-  grupoId:            integer('grupo_id').notNull(),
-  grupoDescricao:     text('grupo_descricao'),
-  qtdItens:           bigint('qtd_itens', { mode: 'number' }).notNull(),
-  qtdTotal:           numeric('qtd_total', { precision: 18, scale: 4 }).notNull(),
-  receitaBruta:       numeric('receita_bruta', { precision: 18, scale: 4 }).notNull(),
-  descontos:          numeric('descontos', { precision: 18, scale: 4 }).notNull(),
-  receitaLiquida:     numeric('receita_liquida', { precision: 18, scale: 4 }).notNull(),
-  cmv:                numeric('cmv', { precision: 18, scale: 4 }).notNull(),
-  margemBruta:        numeric('margem_bruta', { precision: 18, scale: 4 }).notNull(),
+  saleDate:           date('sale_date').notNull(),
+  year:               smallint('year').notNull(),
+  month:              smallint('month').notNull(),
+  yearMonth:          text('year_month').notNull(),
+  weekOfYear:         smallint('week_of_year').notNull(),
+  dayOfWeek:          smallint('day_of_week').notNull(),
+  isWeekend:          boolean('is_weekend').notNull(),
+  segment:            text('segment').notNull(),
+  categoryCode:       text('category_code').notNull(),
+  categoryName:       text('category_name'),
+  groupId:            integer('group_id').notNull(),
+  groupName:          text('group_name'),
+  itemCount:          bigint('item_count', { mode: 'number' }).notNull(),
+  totalQuantity:      numeric('total_quantity', { precision: 18, scale: 4 }).notNull(),
+  grossRevenue:       numeric('gross_revenue', { precision: 18, scale: 4 }).notNull(),
+  discounts:          numeric('discounts', { precision: 18, scale: 4 }).notNull(),
+  netRevenue:         numeric('net_revenue', { precision: 18, scale: 4 }).notNull(),
+  cogs:               numeric('cogs', { precision: 18, scale: 4 }).notNull(),
+  grossMargin:        numeric('gross_margin', { precision: 18, scale: 4 }).notNull(),
 }).existing()
 
 // ---------------------------------------------------------------------------
-// mv_combustivel_diario — Dashboard Combustível
+// mv_fuel_daily — Dashboard Combustível
 // Grão: 1 linha = 1 dia × 1 location × 1 produto combustível
-// Filtro: segmento = 'combustivel'
+// Filtro: segment = 'combustivel'
 // ---------------------------------------------------------------------------
-export const mvCombustivelDiario = analyticsSchema.materializedView('mv_combustivel_diario', {
+export const mvFuelDaily = analyticsSchema.materializedView('mv_fuel_daily', {
   tenantId:           uuid('tenant_id').notNull(),
   locationId:         uuid('location_id').notNull(),
-  dataVenda:          date('data_venda').notNull(),
-  ano:                smallint('ano').notNull(),
-  mes:                smallint('mes').notNull(),
-  anoMes:             text('ano_mes').notNull(),
-  semanaAno:          smallint('semana_ano').notNull(),
-  diaSemana:          smallint('dia_semana').notNull(),
-  isFimDeSemana:      boolean('is_fim_de_semana').notNull(),
-  categoriaCodigo:    text('categoria_codigo').notNull(),
-  grupoId:            integer('grupo_id').notNull(),
-  grupoDescricao:     text('grupo_descricao'),
-  qtdAbastecimentos:  bigint('qtd_abastecimentos', { mode: 'number' }).notNull(),
-  volumeLitros:       numeric('volume_litros', { precision: 18, scale: 4 }).notNull(),
-  receitaBruta:       numeric('receita_bruta', { precision: 18, scale: 4 }).notNull(),
-  descontos:          numeric('descontos', { precision: 18, scale: 4 }).notNull(),
-  receitaLiquida:     numeric('receita_liquida', { precision: 18, scale: 4 }).notNull(),
-  cmv:                numeric('cmv', { precision: 18, scale: 4 }).notNull(),
-  margemBruta:        numeric('margem_bruta', { precision: 18, scale: 4 }).notNull(),
-  precoMedioLitro:    numeric('preco_medio_litro', { precision: 18, scale: 4 }),
-  custoMedioLitro:    numeric('custo_medio_litro', { precision: 18, scale: 4 }),
+  saleDate:           date('sale_date').notNull(),
+  year:               smallint('year').notNull(),
+  month:              smallint('month').notNull(),
+  yearMonth:          text('year_month').notNull(),
+  weekOfYear:         smallint('week_of_year').notNull(),
+  dayOfWeek:          smallint('day_of_week').notNull(),
+  isWeekend:          boolean('is_weekend').notNull(),
+  categoryCode:       text('category_code').notNull(),
+  groupId:            integer('group_id').notNull(),
+  groupName:          text('group_name'),
+  refuelCount:        bigint('refuel_count', { mode: 'number' }).notNull(),
+  volumeLiters:       numeric('volume_liters', { precision: 18, scale: 4 }).notNull(),
+  grossRevenue:       numeric('gross_revenue', { precision: 18, scale: 4 }).notNull(),
+  discounts:          numeric('discounts', { precision: 18, scale: 4 }).notNull(),
+  netRevenue:         numeric('net_revenue', { precision: 18, scale: 4 }).notNull(),
+  cogs:               numeric('cogs', { precision: 18, scale: 4 }).notNull(),
+  grossMargin:        numeric('gross_margin', { precision: 18, scale: 4 }).notNull(),
+  avgPriceLiter:      numeric('avg_price_liter', { precision: 18, scale: 4 }),
+  avgCostLiter:       numeric('avg_cost_liter', { precision: 18, scale: 4 }),
 }).existing()
 
 // ---------------------------------------------------------------------------
-// mv_conveniencia_diario — Dashboard Conveniência (loja)
+// mv_convenience_daily — Dashboard Conveniência (loja)
 // Grão: 1 linha = 1 dia × 1 location × 1 segmento × 1 grupo
-// Filtro: segmento IN ('conveniencia','lubrificantes','servicos')
+// Filtro: segment IN ('conveniencia','lubrificantes','servicos')
 // ---------------------------------------------------------------------------
-export const mvConvenienciaDiario = analyticsSchema.materializedView('mv_conveniencia_diario', {
+export const mvConvenienceDaily = analyticsSchema.materializedView('mv_convenience_daily', {
   tenantId:           uuid('tenant_id').notNull(),
   locationId:         uuid('location_id').notNull(),
-  dataVenda:          date('data_venda').notNull(),
-  ano:                smallint('ano').notNull(),
-  mes:                smallint('mes').notNull(),
-  anoMes:             text('ano_mes').notNull(),
-  semanaAno:          smallint('semana_ano').notNull(),
-  diaSemana:          smallint('dia_semana').notNull(),
-  isFimDeSemana:      boolean('is_fim_de_semana').notNull(),
-  segmento:           text('segmento').notNull(),
-  categoriaCodigo:    text('categoria_codigo').notNull(),
-  categoriaDescricao: text('categoria_descricao'),
-  grupoId:            integer('grupo_id').notNull(),
-  grupoDescricao:     text('grupo_descricao'),
-  qtdItens:           bigint('qtd_itens', { mode: 'number' }).notNull(),
-  qtdTotal:           numeric('qtd_total', { precision: 18, scale: 4 }).notNull(),
-  receitaBruta:       numeric('receita_bruta', { precision: 18, scale: 4 }).notNull(),
-  descontos:          numeric('descontos', { precision: 18, scale: 4 }).notNull(),
-  receitaLiquida:     numeric('receita_liquida', { precision: 18, scale: 4 }).notNull(),
-  cmv:                numeric('cmv', { precision: 18, scale: 4 }).notNull(),
-  margemBruta:        numeric('margem_bruta', { precision: 18, scale: 4 }).notNull(),
+  saleDate:           date('sale_date').notNull(),
+  year:               smallint('year').notNull(),
+  month:              smallint('month').notNull(),
+  yearMonth:          text('year_month').notNull(),
+  weekOfYear:         smallint('week_of_year').notNull(),
+  dayOfWeek:          smallint('day_of_week').notNull(),
+  isWeekend:          boolean('is_weekend').notNull(),
+  segment:            text('segment').notNull(),
+  categoryCode:       text('category_code').notNull(),
+  categoryName:       text('category_name'),
+  groupId:            integer('group_id').notNull(),
+  groupName:          text('group_name'),
+  itemCount:          bigint('item_count', { mode: 'number' }).notNull(),
+  totalQuantity:      numeric('total_quantity', { precision: 18, scale: 4 }).notNull(),
+  grossRevenue:       numeric('gross_revenue', { precision: 18, scale: 4 }).notNull(),
+  discounts:          numeric('discounts', { precision: 18, scale: 4 }).notNull(),
+  netRevenue:         numeric('net_revenue', { precision: 18, scale: 4 }).notNull(),
+  cogs:               numeric('cogs', { precision: 18, scale: 4 }).notNull(),
+  grossMargin:        numeric('gross_margin', { precision: 18, scale: 4 }).notNull(),
 }).existing()
 
 // ---------------------------------------------------------------------------
-// mv_dre_mensal — DRE Mensal
+// mv_income_statement_monthly — DRE Mensal
 // Grão: 1 linha = 1 mês × 1 location × 1 segmento
 // ---------------------------------------------------------------------------
-export const mvDreMensal = analyticsSchema.materializedView('mv_dre_mensal', {
+export const mvIncomeStatementMonthly = analyticsSchema.materializedView('mv_income_statement_monthly', {
   tenantId:        uuid('tenant_id').notNull(),
   locationId:      uuid('location_id').notNull(),
-  ano:             smallint('ano').notNull(),
-  mes:             smallint('mes').notNull(),
-  anoMes:          text('ano_mes').notNull(),
-  segmento:        text('segmento').notNull(),
-  qtdItens:        bigint('qtd_itens', { mode: 'number' }).notNull(),
-  qtdTotal:        numeric('qtd_total', { precision: 18, scale: 4 }).notNull(),
-  receitaBruta:    numeric('receita_bruta', { precision: 18, scale: 4 }).notNull(),
-  descontos:       numeric('descontos', { precision: 18, scale: 4 }).notNull(),
-  receitaLiquida:  numeric('receita_liquida', { precision: 18, scale: 4 }).notNull(),
-  cmv:             numeric('cmv', { precision: 18, scale: 4 }).notNull(),
-  margemBruta:     numeric('margem_bruta', { precision: 18, scale: 4 }).notNull(),
+  year:            smallint('year').notNull(),
+  month:           smallint('month').notNull(),
+  yearMonth:       text('year_month').notNull(),
+  segment:         text('segment').notNull(),
+  itemCount:       bigint('item_count', { mode: 'number' }).notNull(),
+  totalQuantity:   numeric('total_quantity', { precision: 18, scale: 4 }).notNull(),
+  grossRevenue:    numeric('gross_revenue', { precision: 18, scale: 4 }).notNull(),
+  discounts:       numeric('discounts', { precision: 18, scale: 4 }).notNull(),
+  netRevenue:      numeric('net_revenue', { precision: 18, scale: 4 }).notNull(),
+  cogs:            numeric('cogs', { precision: 18, scale: 4 }).notNull(),
+  grossMargin:     numeric('gross_margin', { precision: 18, scale: 4 }).notNull(),
 }).existing()
 
 // ---------------------------------------------------------------------------
-// mv_despesa_mensal — total de despesas por mês (anexo do DRE)
+// mv_expense_monthly — total de despesas por mês (anexo do DRE)
 // Grão: 1 linha = 1 mês × 1 location (sem segmento)
 // ---------------------------------------------------------------------------
-export const mvDespesaMensal = analyticsSchema.materializedView('mv_despesa_mensal', {
+export const mvExpenseMonthly = analyticsSchema.materializedView('mv_expense_monthly', {
   tenantId:        uuid('tenant_id').notNull(),
   locationId:      uuid('location_id').notNull(),
-  ano:             smallint('ano').notNull(),
-  mes:             smallint('mes').notNull(),
-  anoMes:          text('ano_mes').notNull(),
-  qtdLancamentos:  bigint('qtd_lancamentos', { mode: 'number' }).notNull(),
-  totalDespesas:   numeric('total_despesas', { precision: 18, scale: 2 }).notNull(),
+  year:            smallint('year').notNull(),
+  month:           smallint('month').notNull(),
+  yearMonth:       text('year_month').notNull(),
+  entryCount:      bigint('entry_count', { mode: 'number' }).notNull(),
+  totalExpenses:   numeric('total_expenses', { precision: 18, scale: 2 }).notNull(),
 }).existing()
 
 // ---------------------------------------------------------------------------
-// mv_despesa_grupo_mensal — despesas por grupo financeiro (breakdown do DRE)
+// mv_expense_group_monthly — despesas por grupo financeiro (breakdown do DRE)
 // Grão: 1 linha = 1 mês × 1 location × 1 grupo financeiro
 // ---------------------------------------------------------------------------
-export const mvDespesaGrupoMensal = analyticsSchema.materializedView('mv_despesa_grupo_mensal', {
+export const mvExpenseGroupMonthly = analyticsSchema.materializedView('mv_expense_group_monthly', {
   tenantId:                  uuid('tenant_id').notNull(),
   locationId:                uuid('location_id').notNull(),
-  ano:                       smallint('ano').notNull(),
-  mes:                       smallint('mes').notNull(),
-  anoMes:                    text('ano_mes').notNull(),
-  grupoFinanceiroCodigo:     text('grupo_financeiro_codigo').notNull(),
-  grupoFinanceiroDescricao:  text('grupo_financeiro_descricao'),
-  qtdLancamentos:            bigint('qtd_lancamentos', { mode: 'number' }).notNull(),
-  totalDespesas:             numeric('total_despesas', { precision: 18, scale: 2 }).notNull(),
+  year:                      smallint('year').notNull(),
+  month:                     smallint('month').notNull(),
+  yearMonth:                 text('year_month').notNull(),
+  financialGroupCode:        text('financial_group_code').notNull(),
+  financialGroupName:        text('financial_group_name'),
+  entryCount:                bigint('entry_count', { mode: 'number' }).notNull(),
+  totalExpenses:             numeric('total_expenses', { precision: 18, scale: 2 }).notNull(),
 }).existing()

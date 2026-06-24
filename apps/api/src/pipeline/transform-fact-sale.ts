@@ -1,4 +1,4 @@
-import { deriveSegmento } from '@postoinsight/shared'
+import { deriveSegment } from '@postoinsight/shared'
 
 export interface StatusVendaRow {
   CD_ESTAB: string
@@ -29,37 +29,37 @@ export interface StatusVendaRow {
   FormasRecebimento: number | null
 }
 
-export interface FatoVendaInsert {
+export interface FactSaleInsert {
   tenantId:         string
   locationId:       string
   sourceLocationId: string
-  dataVenda:           string
-  horaVenda:           string | null
-  turno:               string | null
-  nrNota:              string | null
-  sourceProdutoId:     string
-  descricaoProduto:    string
-  categoriaCodigo:     string
-  categoriaDescricao:  string | null
-  grupoId:             number
-  grupoDescricao:      string | null
-  subgrupoId:          number | null
-  subgrupoDescricao:   string | null
-  isCombustivel:       boolean
-  segmento:            string | null
-  qtdVenda:            string
-  vlrUnitario:         string
-  vlrTotal:            string
-  custoUnitario:       string | null
-  descontoTotal:       string | null
-  acrescimoTotal:      string | null
-  bicoCodigo:          number | null
-  bicoDescricao:       string | null
-  tanqueCodigo:        string | null
-  tanqueDescricao:     string | null
-  sourceClienteId:     string | null
-  sourceFuncionarioId: string | null
-  formaPagamentoTipo:  null
+  saleDate:            string
+  saleTime:            string | null
+  shift:               string | null
+  invoiceNumber:       string | null
+  sourceProductId:     string
+  productName:         string
+  categoryCode:        string
+  categoryName:        string | null
+  groupId:             number
+  groupName:           string | null
+  subgroupId:          number | null
+  subgroupName:        string | null
+  isFuel:              boolean
+  segment:             string | null
+  quantity:            string
+  unitValue:           string
+  totalValue:          string
+  unitCost:            string | null
+  discountTotal:       string | null
+  surchargeTotal:      string | null
+  nozzleCode:          number | null
+  nozzleName:          string | null
+  tankCode:            string | null
+  tankName:            string | null
+  sourceCustomerId:    string | null
+  sourceEmployeeId:    string | null
+  paymentMethodType:   null
   source:              'status'
   sourceId:            string
 }
@@ -68,8 +68,8 @@ export function transformStatusVenda(
   row: StatusVendaRow,
   tenantId: string,
   locationId: string,
-): FatoVendaInsert {
-  const categoriaCodigo = row.CODIGO_CATEGORIA_ITEM.trim().toUpperCase()
+): FactSaleInsert {
+  const categoryCode = row.CODIGO_CATEGORIA_ITEM.trim().toUpperCase()
 
   // Tanque: "03 - GASOLINA" → codigo="03", descricao="03 - GASOLINA"
   const tanqueRaw = row.TANQUE?.trim() || null
@@ -84,33 +84,33 @@ export function transformStatusVenda(
     tenantId,
     locationId,
     sourceLocationId:    row.CD_ESTAB.trim(),
-    dataVenda:           row.DATA_EMISSAO.split('T')[0] ?? row.DATA_EMISSAO,
-    horaVenda:           row.HORA_COMPLETA_EMISSAO?.trim() || null,
-    turno:               row.TURNO?.trim() || null,
-    nrNota:              row.NR_NOTA && Number(row.NR_NOTA) !== 0 ? row.NR_NOTA : null,
-    sourceProdutoId:     row.CODIGO_ITEM.trim().toUpperCase(),
-    descricaoProduto:    row.DESCRICAO_ITEM.trim(),
-    categoriaCodigo,
-    categoriaDescricao:  row.DESCRICAO_CATEGORIA_ITEM?.trim() || null,
-    grupoId:             row.CODIGO_GRUPO_ITEM,
-    grupoDescricao:      row.DESCRICAO_GRUPO_ITEM?.trim() || null,
-    subgrupoId:          row.CODIGO_SUBGRUPO_ITEM || null,
-    subgrupoDescricao:   row.DESCRICAO_SUBGRUPO_ITEM?.trim() || null,
-    isCombustivel:       categoriaCodigo === 'CB' || categoriaCodigo === 'ARL',
-    segmento:            deriveSegmento(categoriaCodigo),
-    qtdVenda:            row.QTD_VENDA,
-    vlrUnitario:         row.VLR_UNIT,
-    vlrTotal:            row.TOT_VLRITEM,
-    custoUnitario:       row.CUSTO_UNIT && Number(row.CUSTO_UNIT) !== 0 ? row.CUSTO_UNIT : null,
-    descontoTotal:       row.TOT_DESCONTO_UNIT && Number(row.TOT_DESCONTO_UNIT) !== 0 ? row.TOT_DESCONTO_UNIT : null,
-    acrescimoTotal:      row.TOT_ACRESCIMO_UNIT && Number(row.TOT_ACRESCIMO_UNIT) !== 0 ? row.TOT_ACRESCIMO_UNIT : null,
-    bicoCodigo:          row.BICO && row.BICO !== 0 ? row.BICO : null,
-    bicoDescricao:       (row.BICO && row.BICO !== 0 && row.BICO_COMBUSTIVEL?.trim()) ? row.BICO_COMBUSTIVEL.trim() : null,
-    tanqueCodigo,
-    tanqueDescricao:     tanqueRaw,
-    sourceClienteId:     row.CODIGO_CLIENTE && row.CODIGO_CLIENTE !== 1 ? String(row.CODIGO_CLIENTE) : null,
-    sourceFuncionarioId: row.CODIGO_VENDEDOR && row.CODIGO_VENDEDOR !== 0 ? String(row.CODIGO_VENDEDOR) : null,
-    formaPagamentoTipo:  null,
+    saleDate:            row.DATA_EMISSAO.split('T')[0] ?? row.DATA_EMISSAO,
+    saleTime:            row.HORA_COMPLETA_EMISSAO?.trim() || null,
+    shift:               row.TURNO?.trim() || null,
+    invoiceNumber:       row.NR_NOTA && Number(row.NR_NOTA) !== 0 ? row.NR_NOTA : null,
+    sourceProductId:     row.CODIGO_ITEM.trim().toUpperCase(),
+    productName:         row.DESCRICAO_ITEM.trim(),
+    categoryCode,
+    categoryName:        row.DESCRICAO_CATEGORIA_ITEM?.trim() || null,
+    groupId:             row.CODIGO_GRUPO_ITEM,
+    groupName:           row.DESCRICAO_GRUPO_ITEM?.trim() || null,
+    subgroupId:          row.CODIGO_SUBGRUPO_ITEM || null,
+    subgroupName:        row.DESCRICAO_SUBGRUPO_ITEM?.trim() || null,
+    isFuel:              categoryCode === 'CB' || categoryCode === 'ARL',
+    segment:             deriveSegment(categoryCode),
+    quantity:            row.QTD_VENDA,
+    unitValue:           row.VLR_UNIT,
+    totalValue:          row.TOT_VLRITEM,
+    unitCost:            row.CUSTO_UNIT && Number(row.CUSTO_UNIT) !== 0 ? row.CUSTO_UNIT : null,
+    discountTotal:       row.TOT_DESCONTO_UNIT && Number(row.TOT_DESCONTO_UNIT) !== 0 ? row.TOT_DESCONTO_UNIT : null,
+    surchargeTotal:      row.TOT_ACRESCIMO_UNIT && Number(row.TOT_ACRESCIMO_UNIT) !== 0 ? row.TOT_ACRESCIMO_UNIT : null,
+    nozzleCode:          row.BICO && row.BICO !== 0 ? row.BICO : null,
+    nozzleName:          (row.BICO && row.BICO !== 0 && row.BICO_COMBUSTIVEL?.trim()) ? row.BICO_COMBUSTIVEL.trim() : null,
+    tankCode:            tanqueCodigo,
+    tankName:            tanqueRaw,
+    sourceCustomerId:    row.CODIGO_CLIENTE && row.CODIGO_CLIENTE !== 1 ? String(row.CODIGO_CLIENTE) : null,
+    sourceEmployeeId:    row.CODIGO_VENDEDOR && row.CODIGO_VENDEDOR !== 0 ? String(row.CODIGO_VENDEDOR) : null,
+    paymentMethodType:   null,
     source:              'status',
     sourceId,
   }

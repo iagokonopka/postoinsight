@@ -55,8 +55,11 @@ O founder opera solo. Para economizar tokens e contexto:
 
 ## 3. Idioma
 
-- **Código:** inglês (variáveis, funções, classes, comentários inline, commits)
+- **Código:** inglês en-US (variáveis, funções, classes, comentários inline, commits)
+- **Backend e contrato de dados que nós controlamos:** sempre en-US — tabelas/colunas de `canonical` e `analytics`, MVs, chaves JSON da API, paths de URL, tipos compartilhados. Ver **ADR-018**.
 - **Documentação:** português (docs/, comentários de bloco explicativos, mensagens de erro para o usuário)
+- **Textos de UI** visíveis ao usuário: português (camada de apresentação, não código)
+- **Exceções** (não traduzir): nomes de origem ERP (`CD_ESTAB`, `DATA_EMISSAO`, views `TMPBI_*`) e **valores** enum persistidos (`segmento`/`segment` = `'combustivel'`, accounting types). Ver ADR-008 e ADR-018.
 - **Commits:** inglês, semânticos — padrão: `feat:`, `fix:`, `docs:`, `refactor:`, `chore:`, `test:`
 
 ---
@@ -360,6 +363,7 @@ Decisões já tomadas que devem ser respeitadas:
 | ADR-011 | Charts | **Recharts** (não ECharts/Tremor) — revisado 2026-05-18 |
 | ADR-012 | Auth SPA | **Cookie HttpOnly** emitido pelo Fastify |
 | ADR-013 | Estilização | **Tailwind CSS v4 + Shadcn/ui** (não CSS manual) |
+| ADR-018 | Idioma de código | **Backend e contrato de dados em en-US** — glossário normativo no ADR |
 
 ---
 

@@ -5,7 +5,13 @@
 > Todo conhecimento de ERP fica isolado no conector. A aplicação nunca conhece o schema de nenhum ERP.
 >
 > Status: ✅ completo para MVP
-> Última atualização: 2026-05-02
+> Última atualização: 2026-06-23
+>
+> ⚠️ **Migração en-US em andamento (ADR-018):** os nomes de tabelas/colunas deste documento
+> estão sendo padronizados para inglês (ex: `fato_venda` → `fact_sale`, `qtd_venda` → `quantity`).
+> O **glossário normativo de tradução** está em `docs/architecture/decisions/ADR-018-codigo-en-US.md`.
+> Enquanto este doc não é reescrito campo a campo, a fonte de verdade dos nomes novos é o ADR-018
+> e o schema Drizzle em `packages/db/src/schema/`.
 
 ---
 

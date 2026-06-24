@@ -253,18 +253,18 @@ export const auditLog = appSchema.table('audit_log', {
 // mv_despesa_grupo_mensal já faz COALESCE(codigo, '')).
 // Spec: docs/specs/admin-mapping.md
 // ---------------------------------------------------------------------------
-export const despesaClassificacao = appSchema.table('despesa_classificacao', {
+export const expenseClassification = appSchema.table('expense_classification', {
   id:                    uuid('id').primaryKey().defaultRandom(),
   tenantId:              uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
-  grupoFinanceiroCodigo: text('grupo_financeiro_codigo').notNull(),
+  financialGroupCode:    text('financial_group_code').notNull(),
   accountingType:        text('accounting_type').notNull(),
   customLabel:           text('custom_label'),
   createdBy:             uuid('created_by').notNull(),
   createdAt:             timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt:             timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t): PgTableExtraConfig => ({
-  uqDespesaClassificacao: unique('uq_despesa_classificacao').on(t.tenantId, t.grupoFinanceiroCodigo),
-  idxDespesaClassificacaoTenant: index('idx_despesa_classificacao_tenant').on(t.tenantId),
+  uqExpenseClassification: unique('uq_expense_classification').on(t.tenantId, t.financialGroupCode),
+  idxExpenseClassificationTenant: index('idx_expense_classification_tenant').on(t.tenantId),
 }))
 
 // ---------------------------------------------------------------------------

@@ -27,23 +27,23 @@ export interface StatusDespesaRow {
   CGC: string | null
 }
 
-export interface FatoDespesaInsert {
-  tenantId:                  string
-  locationId:                string
-  sourceLocationId:          string
-  dataDespesa:               string
-  descricao:                 string | null
-  grupoFinanceiroCodigo:     string | null
-  grupoFinanceiroDescricao:  string | null
-  centroCustoCodigo:         string | null
-  centroCustoDescricao:      string | null
-  operacao:                  string | null
-  tipoLancamento:            string | null
-  fornecedorNome:            string | null
-  fornecedorDoc:             string | null
-  valor:                     string
-  source:                    'status'
-  sourceId:                  string
+export interface FactExpenseInsert {
+  tenantId:             string
+  locationId:           string
+  sourceLocationId:     string
+  expenseDate:          string
+  description:          string | null
+  financialGroupCode:   string | null
+  financialGroupName:   string | null
+  costCenterCode:       string | null
+  costCenterName:       string | null
+  operation:            string | null
+  entryType:            string | null
+  supplierName:         string | null
+  supplierDoc:          string | null
+  amount:               string
+  source:               'status'
+  sourceId:             string
 }
 
 function clean(v: string | null | undefined): string | null {
@@ -61,8 +61,8 @@ export function transformStatusDespesa(
   row: StatusDespesaRow,
   tenantId: string,
   locationId: string,
-): FatoDespesaInsert {
-  const grupoCodigo = row.CD_GRPFOPER !== null && row.CD_GRPFOPER !== undefined
+): FactExpenseInsert {
+  const groupCode = row.CD_GRPFOPER !== null && row.CD_GRPFOPER !== undefined
     ? String(row.CD_GRPFOPER).trim()
     : null
 
@@ -73,24 +73,24 @@ export function transformStatusDespesa(
   ].join('-')
 
   // VALOR_MOV pode vir negativo (estorno/sinal). Normaliza para positivo.
-  const valorNum = Math.abs(Number(row.VALOR_MOV ?? 0))
+  const amountNum = Math.abs(Number(row.VALOR_MOV ?? 0))
 
   return {
     tenantId,
     locationId,
-    sourceLocationId:         row.CD_ESTAB.trim(),
-    dataDespesa:              row.DATA_MOV.split('T')[0] ?? row.DATA_MOV,
-    descricao:                clean(row.DESCR_LOP) ?? clean(row.TIPO_MOVTO),
-    grupoFinanceiroCodigo:    grupoCodigo && grupoCodigo !== '0' ? grupoCodigo : null,
-    grupoFinanceiroDescricao: clean(row.DESCR_GF),
-    centroCustoCodigo:        clean(row.CD_CENTRO),
-    centroCustoDescricao:     clean(row.DESCR_CENTRO),
-    operacao:                 clean(row.OPERACAO),
-    tipoLancamento:           clean(row.TIPO_LANCAMENTO),
-    fornecedorNome:           clean(row.NOME),
-    fornecedorDoc:            clean(row.CGC),
-    valor:                    valorNum.toFixed(2),
-    source:                   'status',
+    sourceLocationId:    row.CD_ESTAB.trim(),
+    expenseDate:         row.DATA_MOV.split('T')[0] ?? row.DATA_MOV,
+    description:         clean(row.DESCR_LOP) ?? clean(row.TIPO_MOVTO),
+    financialGroupCode:  groupCode && groupCode !== '0' ? groupCode : null,
+    financialGroupName:  clean(row.DESCR_GF),
+    costCenterCode:      clean(row.CD_CENTRO),
+    costCenterName:      clean(row.DESCR_CENTRO),
+    operation:           clean(row.OPERACAO),
+    entryType:           clean(row.TIPO_LANCAMENTO),
+    supplierName:        clean(row.NOME),
+    supplierDoc:         clean(row.CGC),
+    amount:              amountNum.toFixed(2),
+    source:              'status',
     sourceId,
   }
 }

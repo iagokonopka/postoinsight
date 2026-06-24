@@ -15,13 +15,13 @@ export function parseDate(value: unknown, field: string): string {
   return value
 }
 
-export function parseDateRange(qs: Record<string, unknown>): { dataInicio: string; dataFim: string } {
-  const dataInicio = parseDate(qs.data_inicio, 'data_inicio')
-  const dataFim    = parseDate(qs.data_fim,    'data_fim')
-  if (dataInicio > dataFim) {
-    throw new BadQueryError('"data_inicio" deve ser anterior ou igual a "data_fim"')
+export function parseDateRange(qs: Record<string, unknown>): { startDate: string; endDate: string } {
+  const startDate = parseDate(qs.start_date, 'start_date')
+  const endDate   = parseDate(qs.end_date,   'end_date')
+  if (startDate > endDate) {
+    throw new BadQueryError('"start_date" deve ser anterior ou igual a "end_date"')
   }
-  return { dataInicio, dataFim }
+  return { startDate, endDate }
 }
 
 export function parseUuidArray(value: unknown, field: string): string[] | undefined {
@@ -68,7 +68,7 @@ export function parseEnum<T extends string>(
   return value as T
 }
 
-export function parseAnoMesArray(value: unknown, field: string): string[] {
+export function parseYearMonthArray(value: unknown, field: string): string[] {
   if (value == null || value === '') {
     throw new BadQueryError(`Parâmetro "${field}" é obrigatório`)
   }

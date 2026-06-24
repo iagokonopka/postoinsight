@@ -54,11 +54,11 @@ export default function DrePage() {
   const { data: dreData, isLoading } = useDreMensal(meses)
 
   // ── Helper: get total line ──
-  const total = dreData?.linhas.find(l => l.segmento === '_total')
+  const total = dreData?.lines.find(l => l.segment === '_total')
 
   // ── Current and prev month totals ──
-  const cur  = total?.periodos[curMes]
-  const prev = total?.periodos[prevMes]
+  const cur  = total?.periods[curMes]
+  const prev = total?.periods[prevMes]
 
   // ── KPI deltas (vs previous month) ──
   function delta(getter: (p: DrePeriodo) => number): number | undefined {
@@ -68,19 +68,19 @@ export default function DrePage() {
   }
 
   const deltaMargemPP = (cur && prev)
-    ? cur.margem_pct - prev.margem_pct
+    ? cur.margin_pct - prev.margin_pct
     : undefined
 
   // ── Spark series (6 months) ──
   const sparkFor = (getter: (p: DrePeriodo) => number) =>
-    meses.map(m => getter(total?.periodos[m] ?? { receita_bruta: 0, descontos: 0, receita_liquida: 0, cmv: 0, margem_bruta: 0, margem_pct: 0 }))
+    meses.map(m => getter(total?.periods[m] ?? { gross_revenue: 0, discounts: 0, net_revenue: 0, cogs: 0, gross_margin: 0, margin_pct: 0 }))
 
   // ── Waterfall items for current month ──
   const waterfallItems: WaterfallItem[] = cur ? [
-    { label: 'Receita Bruta', type: 'start', value: cur.receita_bruta },
-    { label: '(−) Descontos', type: 'minus', value: cur.descontos },
-    { label: '(−) CMV',       type: 'minus', value: cur.cmv },
-    { label: 'Margem Bruta',  type: 'total', value: cur.margem_bruta },
+    { label: 'Receita Bruta', type: 'start', value: cur.gross_revenue },
+    { label: '(−) Descontos', type: 'minus', value: cur.discounts },
+    { label: '(−) CMV',       type: 'minus', value: cur.cogs },
+    { label: 'Margem Bruta',  type: 'total', value: cur.gross_margin },
   ] : []
 
   // ── Multi-line margem% por segmento ──
@@ -88,8 +88,8 @@ export default function DrePage() {
   const marginChartData = meses.map(m => {
     const row: Record<string, unknown> = { label: fMonthShort(m + '-01') }
     for (const seg of segmentos) {
-      const p = dreData?.linhas.find(l => l.segmento === seg)?.periodos[m]
-      row[seg] = p?.margem_pct ?? 0
+      const p = dreData?.lines.find(l => l.segment === seg)?.periods[m]
+      row[seg] = p?.margin_pct ?? 0
     }
     return row
   })
@@ -105,17 +105,17 @@ export default function DrePage() {
     prefix?: string
     isPercent?: boolean
   }[] = [
-    { label: 'Receita Bruta',    getter: p => p.receita_bruta,   style: ROW_NORMAL },
-    { label: '(−) Descontos',    getter: p => p.descontos,       style: ROW_NORMAL, prefix: '−' },
-    { label: 'Receita Líquida',  getter: p => p.receita_liquida, style: ROW_TOTAL },
-    { label: '(−) CMV',          getter: p => p.cmv,             style: ROW_NORMAL, prefix: '−' },
-    { label: 'Margem Bruta',     getter: p => p.margem_bruta,    style: ROW_RESULT },
-    { label: 'Margem %',         getter: p => p.margem_pct,      style: ROW_NORMAL, isPercent: true },
+    { label: 'Receita Bruta',    getter: p => p.gross_revenue, style: ROW_NORMAL },
+    { label: '(−) Descontos',    getter: p => p.discounts,     style: ROW_NORMAL, prefix: '−' },
+    { label: 'Receita Líquida',  getter: p => p.net_revenue,   style: ROW_TOTAL },
+    { label: '(−) CMV',          getter: p => p.cogs,          style: ROW_NORMAL, prefix: '−' },
+    { label: 'Margem Bruta',     getter: p => p.gross_margin,  style: ROW_RESULT },
+    { label: 'Margem %',         getter: p => p.margin_pct,    style: ROW_NORMAL, isPercent: true },
   ]
 
   // YTD sums (all months for money rows; '—' for pct)
   const ytd = (getter: (p: DrePeriodo) => number) =>
-    meses.reduce((s, m) => s + getter(total?.periodos[m] ?? { receita_bruta:0, descontos:0, receita_liquida:0, cmv:0, margem_bruta:0, margem_pct:0 }), 0)
+    meses.reduce((s, m) => s + getter(total?.periods[m] ?? { gross_revenue:0, discounts:0, net_revenue:0, cogs:0, gross_margin:0, margin_pct:0 }), 0)
 
   return (
     <Page>
@@ -128,31 +128,31 @@ export default function DrePage() {
       <KpiGrid cols={4}>
         <KpiCard
           label="Receita Bruta"
-          value={cur ? fCurrency(cur.receita_bruta) : '—'}
-          deltaMonth={delta(p => p.receita_bruta)}
-          sparkData={sparkFor(p => p.receita_bruta)}
+          value={cur ? fCurrency(cur.gross_revenue) : '—'}
+          deltaMonth={delta(p => p.gross_revenue)}
+          sparkData={sparkFor(p => p.gross_revenue)}
           sparkColor={CHART_COLORS.combustivel}
         />
         <KpiCard
           label="CMV"
-          value={cur ? fCurrency(cur.cmv) : '—'}
-          deltaMonth={delta(p => p.cmv)}
-          sparkData={sparkFor(p => p.cmv)}
+          value={cur ? fCurrency(cur.cogs) : '—'}
+          deltaMonth={delta(p => p.cogs)}
+          sparkData={sparkFor(p => p.cogs)}
           sparkColor={CHART_COLORS.neg}
         />
         <KpiCard
           label="Margem Bruta"
-          value={cur ? fCurrency(cur.margem_bruta) : '—'}
-          deltaMonth={delta(p => p.margem_bruta)}
-          sparkData={sparkFor(p => p.margem_bruta)}
+          value={cur ? fCurrency(cur.gross_margin) : '—'}
+          deltaMonth={delta(p => p.gross_margin)}
+          sparkData={sparkFor(p => p.gross_margin)}
           sparkColor={CHART_COLORS.pos}
         />
         <KpiCard
           label="Margem %"
-          value={cur ? fPct(cur.margem_pct, 2) : '—'}
+          value={cur ? fPct(cur.margin_pct, 2) : '—'}
           deltaMonth={deltaMargemPP}
           deltaPP
-          sparkData={sparkFor(p => p.margem_pct)}
+          sparkData={sparkFor(p => p.margin_pct)}
           sparkColor={CHART_COLORS.combustivel}
         />
       </KpiGrid>
@@ -222,8 +222,8 @@ export default function DrePage() {
                   {dreRows.map(row => {
                     const isResult = row.style === ROW_RESULT
                     // delta vs previous month
-                    const curVal  = row.getter(cur  ?? { receita_bruta:0, descontos:0, receita_liquida:0, cmv:0, margem_bruta:0, margem_pct:0 })
-                    const prevVal = row.getter(prev ?? { receita_bruta:0, descontos:0, receita_liquida:0, cmv:0, margem_bruta:0, margem_pct:0 })
+                    const curVal  = row.getter(cur  ?? { gross_revenue:0, discounts:0, net_revenue:0, cogs:0, gross_margin:0, margin_pct:0 })
+                    const prevVal = row.getter(prev ?? { gross_revenue:0, discounts:0, net_revenue:0, cogs:0, gross_margin:0, margin_pct:0 })
                     const rowDelta = prev
                       ? row.isPercent
                         ? curVal - prevVal          // pp
@@ -236,7 +236,7 @@ export default function DrePage() {
                           {row.label}
                         </td>
                         {meses.map((m, _i) => {
-                          const p = total?.periodos[m] ?? { receita_bruta:0, descontos:0, receita_liquida:0, cmv:0, margem_bruta:0, margem_pct:0 }
+                          const p = total?.periods[m] ?? { gross_revenue:0, discounts:0, net_revenue:0, cogs:0, gross_margin:0, margin_pct:0 }
                           const val = row.getter(p)
                           const isCurrent = m === curMes
                           return (
@@ -277,12 +277,12 @@ export default function DrePage() {
           {isLoading
             ? <LoadingBox />
             : (() => {
-                const ro = dreData?.resultado_operacional?.[curMes]
-                const dp = dreData?.despesas?.[curMes]
+                const ro = dreData?.operating_result?.[curMes]
+                const dp = dreData?.expenses?.[curMes]
                 if (!ro) {
                   return <EmptyState title="Sem dados" description="Nenhum dado para o mês selecionado." />
                 }
-                const naoClass = dp?.nao_classificado.total ?? 0
+                const naoClass = dp?.unclassified.total ?? 0
                 return (
                   <>
                     {naoClass > 0 && (
@@ -306,19 +306,19 @@ export default function DrePage() {
                       <tbody>
                         <tr>
                           <td style={{ ...TD_FIRST, ...ROW_NORMAL, textAlign: 'left' }}>Margem Bruta</td>
-                          <td style={{ ...TD_RIGHT, ...ROW_NORMAL, paddingRight: '20px' }}>{fCurrency(ro.margem_bruta)}</td>
+                          <td style={{ ...TD_RIGHT, ...ROW_NORMAL, paddingRight: '20px' }}>{fCurrency(ro.gross_margin)}</td>
                         </tr>
                         <tr>
                           <td style={{ ...TD_FIRST, ...ROW_NORMAL, textAlign: 'left' }}>(−) Despesa Operacional</td>
-                          <td style={{ ...TD_RIGHT, ...ROW_NORMAL, paddingRight: '20px' }}>−{fCurrency(ro.despesa_operacional)}</td>
+                          <td style={{ ...TD_RIGHT, ...ROW_NORMAL, paddingRight: '20px' }}>−{fCurrency(ro.operating_expenses)}</td>
                         </tr>
                         <tr>
                           <td style={{ ...TD_FIRST, ...ROW_RESULT, textAlign: 'left', color: 'hsl(var(--success))' }}>(=) Resultado Operacional</td>
-                          <td style={{ ...TD_RIGHT, ...ROW_RESULT, paddingRight: '20px', color: 'hsl(var(--success))' }}>{fCurrency(ro.resultado_operacional)}</td>
+                          <td style={{ ...TD_RIGHT, ...ROW_RESULT, paddingRight: '20px', color: 'hsl(var(--success))' }}>{fCurrency(ro.operating_result)}</td>
                         </tr>
                         <tr>
                           <td style={{ ...TD_FIRST, ...ROW_NORMAL, textAlign: 'left' }}>Margem Operacional %</td>
-                          <td style={{ ...TD_RIGHT, ...ROW_NORMAL, paddingRight: '20px' }}>{fPct(ro.margem_operacional_pct, 2)}</td>
+                          <td style={{ ...TD_RIGHT, ...ROW_NORMAL, paddingRight: '20px' }}>{fPct(ro.operating_margin_pct, 2)}</td>
                         </tr>
                       </tbody>
                     </table>
@@ -336,16 +336,16 @@ export default function DrePage() {
           {isLoading
             ? <LoadingBox />
             : (() => {
-                const dp = dreData?.despesas?.[curMes]
+                const dp = dreData?.expenses?.[curMes]
                 if (!dp) return <EmptyState title="Sem despesas" description="Nenhuma despesa para o mês selecionado." />
                 const order: { key: DespesaBucketKey; label: string }[] = [
-                  { key: 'operacional',      label: 'Despesa operacional (entra no resultado)' },
-                  { key: 'financeira',       label: 'Despesa financeira' },
-                  { key: 'imposto',          label: 'Impostos' },
-                  { key: 'investimento',     label: 'Investimentos' },
-                  { key: 'cmv',              label: 'CMV (compras — já no custo da venda)' },
-                  { key: 'nao_operacional',  label: 'Não-operacional' },
-                  { key: 'nao_classificado', label: 'Não classificado' },
+                  { key: 'operating',     label: 'Despesa operacional (entra no resultado)' },
+                  { key: 'financial',     label: 'Despesa financeira' },
+                  { key: 'tax',           label: 'Impostos' },
+                  { key: 'investment',    label: 'Investimentos' },
+                  { key: 'cogs',          label: 'CMV (compras — já no custo da venda)' },
+                  { key: 'non_operating', label: 'Não-operacional' },
+                  { key: 'unclassified',  label: 'Não classificado' },
                 ]
                 const visible = order.filter(o => dp[o.key].total > 0)
                 if (visible.length === 0) return <EmptyState title="Sem despesas" description="Nenhuma despesa para o mês selecionado." />
@@ -361,10 +361,10 @@ export default function DrePage() {
                                 <td style={{ ...TD_FIRST, fontWeight: 600 }}>{o.label}</td>
                                 <td style={{ ...TD_RIGHT, fontWeight: 600, paddingRight: '20px' }}>{fCurrency(bucket.total)}</td>
                               </tr>
-                              {bucket.porGrupo.map(g => (
-                                <tr key={o.key + g.codigo}>
+                              {bucket.by_group.map(g => (
+                                <tr key={o.key + g.code}>
                                   <td style={{ ...TD_FIRST, ...ROW_NORMAL, textAlign: 'left', paddingLeft: '36px', color: 'hsl(var(--muted-foreground))' }}>{g.label}</td>
-                                  <td style={{ ...TD_RIGHT, ...ROW_NORMAL, paddingRight: '20px' }}>{fCurrency(g.valor)}</td>
+                                  <td style={{ ...TD_RIGHT, ...ROW_NORMAL, paddingRight: '20px' }}>{fCurrency(g.amount)}</td>
                                 </tr>
                               ))}
                             </Fragment>

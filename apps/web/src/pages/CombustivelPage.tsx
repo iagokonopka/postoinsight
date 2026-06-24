@@ -39,7 +39,7 @@ export default function CombustivelPage() {
   const [metric, setMetric] = useState<Metric>('volume')
 
   const { data: resumo } = useCombustivelResumo()
-  const { data: evo, isLoading: loadingEvo } = useCombustivelEvolucaoPorProduto('dia')
+  const { data: evo, isLoading: loadingEvo } = useCombustivelEvolucaoPorProduto('day')
   const { data: byLocation } = useCombustivelByLocation()
   const { data: resumoPrev } = useCombustivelResumoPrev()
   const { data: subgrupos, isLoading: loadingSub } = useCombustivelSubgrupos()
@@ -51,75 +51,75 @@ export default function CombustivelPage() {
   const isArla = (s?: string | null) => /arla/i.test(s ?? '')
 
   // ── Totais CB-only (combustível menos Arla) ──
-  type CbTot = { volume_litros: number; receita_bruta: number; cmv: number; margem_bruta: number; margem_pct: number }
-  const cbOnly = (tot?: { volume_litros: number; receita_bruta: number; cmv: number; margem_bruta: number }, a?: { volume_litros: number; receita_bruta: number; cmv: number; margem_bruta: number }): CbTot | undefined => {
+  type CbTot = { volume_liters: number; gross_revenue: number; cogs: number; gross_margin: number; margin_pct: number }
+  const cbOnly = (tot?: { volume_liters: number; gross_revenue: number; cogs: number; gross_margin: number }, a?: { volume_liters: number; gross_revenue: number; cogs: number; gross_margin: number }): CbTot | undefined => {
     if (!tot) return undefined
-    const volume_litros = tot.volume_litros - (a?.volume_litros ?? 0)
-    const receita_bruta = tot.receita_bruta - (a?.receita_bruta ?? 0)
-    const cmv = tot.cmv - (a?.cmv ?? 0)
-    const margem_bruta = tot.margem_bruta - (a?.margem_bruta ?? 0)
-    return { volume_litros, receita_bruta, cmv, margem_bruta, margem_pct: receita_bruta > 0 ? (margem_bruta / receita_bruta) * 100 : 0 }
+    const volume_liters = tot.volume_liters - (a?.volume_liters ?? 0)
+    const gross_revenue = tot.gross_revenue - (a?.gross_revenue ?? 0)
+    const cogs = tot.cogs - (a?.cogs ?? 0)
+    const gross_margin = tot.gross_margin - (a?.gross_margin ?? 0)
+    return { volume_liters, gross_revenue, cogs, gross_margin, margin_pct: gross_revenue > 0 ? (gross_margin / gross_revenue) * 100 : 0 }
   }
-  const t  = cbOnly(resumo?.totais, arla?.totais)
-  const tp = cbOnly(resumoPrev?.totais, arlaPrev?.totais)
+  const t  = cbOnly(resumo?.totals, arla?.totals)
+  const tp = cbOnly(resumoPrev?.totals, arlaPrev?.totals)
 
   const fmtV = valueFmt(metric)
   const fmtA = axisFmt(metric)
 
   // ── Produtos reais de combustível (subgrupos), excluindo Arla ──
-  const produtos = (subgrupos?.subgrupos ?? []).filter(s => !isArla(s.subgrupo_descricao))
-  const prodVal = (p: { volume_litros: number; receita_bruta: number; cmv: number; margem_bruta: number }) =>
-    metric === 'volume' ? p.volume_litros : metric === 'receita' ? p.receita_bruta : metric === 'cmv' ? p.cmv : p.margem_bruta
+  const produtos = (subgrupos?.subgroups ?? []).filter(s => !isArla(s.subgroup_name))
+  const prodVal = (p: { volume_liters: number; gross_revenue: number; cogs: number; gross_margin: number }) =>
+    metric === 'volume' ? p.volume_liters : metric === 'receita' ? p.gross_revenue : metric === 'cmv' ? p.cogs : p.gross_margin
 
   // ── Evolução por período (CB-only: exclui série do grupo Arla) ──
-  const evoProdutos = (evo?.produtos ?? []).filter(p => !isArla(p.grupo_descricao))
+  const evoProdutos = (evo?.products ?? []).filter(p => !isArla(p.group_name))
   const evoMap = new Map<string, number>()
   for (const prod of evoProdutos) {
-    for (const pt of prod.serie) {
-      const val = metric === 'volume' ? pt.volume_litros
-        : metric === 'receita' ? pt.receita_bruta
-        : metric === 'cmv' ? (pt.receita_bruta - pt.margem_bruta)
-        : pt.margem_bruta
-      evoMap.set(pt.periodo, (evoMap.get(pt.periodo) ?? 0) + val)
+    for (const pt of prod.series) {
+      const val = metric === 'volume' ? pt.volume_liters
+        : metric === 'receita' ? pt.gross_revenue
+        : metric === 'cmv' ? (pt.gross_revenue - pt.gross_margin)
+        : pt.gross_margin
+      evoMap.set(pt.period, (evoMap.get(pt.period) ?? 0) + val)
     }
   }
   const evoData: FuelLinePoint[] = Array.from(evoMap.entries())
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([periodo, value]) => ({ label: periodo.length === 10 ? fDayMonth(periodo) : fMonthShort(periodo), value }))
+    .map(([period, value]) => ({ label: period.length === 10 ? fDayMonth(period) : fMonthShort(period), value }))
 
   // ── Spread por período (real, CB-only: margem ÷ volume por período) ──
   const spreadMap = new Map<string, { m: number; v: number }>()
   for (const prod of evoProdutos) {
-    for (const pt of prod.serie) {
-      const agg = spreadMap.get(pt.periodo) ?? { m: 0, v: 0 }
-      agg.m += pt.margem_bruta
-      agg.v += pt.volume_litros
-      spreadMap.set(pt.periodo, agg)
+    for (const pt of prod.series) {
+      const agg = spreadMap.get(pt.period) ?? { m: 0, v: 0 }
+      agg.m += pt.gross_margin
+      agg.v += pt.volume_liters
+      spreadMap.set(pt.period, agg)
     }
   }
   const spreadData: FuelLinePoint[] = Array.from(spreadMap.entries())
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([periodo, { m, v }]) => ({ label: periodo.length === 10 ? fDayMonth(periodo) : fMonthShort(periodo), value: v > 0 ? m / v : 0 }))
+    .map(([period, { m, v }]) => ({ label: period.length === 10 ? fDayMonth(period) : fMonthShort(period), value: v > 0 ? m / v : 0 }))
   const spreadFmt = (v: number) => 'R$ ' + v.toFixed(2).replace('.', ',')
 
   // ── Por produto (barras) ──
   const prodBars: HBarRow[] = produtos
-    .map(p => ({ name: p.subgrupo_descricao, value: prodVal(p), label: fmtV(prodVal(p)) }))
+    .map(p => ({ name: p.subgroup_name, value: prodVal(p), label: fmtV(prodVal(p)) }))
     .sort((a, b) => b.value - a.value)
 
   // ── Por posto (barras), CB-only: subtrai Arla por location ──
-  const arlaByLoc = new Map<string, { volume_litros: number; receita_bruta: number }>()
-  for (const l of arlaByLocation?.locations ?? []) arlaByLoc.set(l.location_id, { volume_litros: l.volume_litros, receita_bruta: l.receita_bruta })
+  const arlaByLoc = new Map<string, { volume_liters: number; gross_revenue: number }>()
+  for (const l of arlaByLocation?.locations ?? []) arlaByLoc.set(l.location_id, { volume_liters: l.volume_liters, gross_revenue: l.gross_revenue })
   const locBars: HBarRow[] = (byLocation?.locations ?? [])
     .map(l => {
       const a = arlaByLoc.get(l.location_id)
-      const v = metric === 'volume' ? l.volume_litros - (a?.volume_litros ?? 0) : l.receita_bruta - (a?.receita_bruta ?? 0)
-      return { name: l.location_nome, value: v, label: metric === 'volume' ? fLiters(v) : fCompact(v) }
+      const v = metric === 'volume' ? l.volume_liters - (a?.volume_liters ?? 0) : l.gross_revenue - (a?.gross_revenue ?? 0)
+      return { name: l.location_name, value: v, label: metric === 'volume' ? fLiters(v) : fCompact(v) }
     })
     .sort((a, b) => b.value - a.value)
 
   // ── Tabela por produto ──
-  const prodTable = [...produtos].sort((a, b) => b.volume_litros - a.volume_litros)
+  const prodTable = [...produtos].sort((a, b) => b.volume_liters - a.volume_liters)
   const metricLabel = METRIC_OPTS.find(m => m.value === metric)!.label
 
   return (
@@ -128,11 +128,11 @@ export default function CombustivelPage() {
 
       {/* KPIs — uniformes (CB-only, sem Arla) */}
       <KpiGrid cols={5}>
-        <KpiCard label="Volume" value={t ? fLiters(t.volume_litros) : '—'} valueTitle={t ? fInt(t.volume_litros) + ' L' : undefined} delta={pctChange(t?.volume_litros, tp?.volume_litros)} />
-        <KpiCard label="Receita" value={t ? fCompact(t.receita_bruta) : '—'} valueTitle={t ? fCurrency(t.receita_bruta) : undefined} delta={pctChange(t?.receita_bruta, tp?.receita_bruta)} />
-        <KpiCard label="CMV" value={t ? fCompact(t.cmv) : '—'} valueTitle={t ? fCurrency(t.cmv) : undefined} delta={pctChange(t?.cmv, tp?.cmv)} />
-        <KpiCard label="Margem bruta" value={t ? fCompact(t.margem_bruta) : '—'} valueTitle={t ? fCurrency(t.margem_bruta) : undefined} delta={pctChange(t?.margem_bruta, tp?.margem_bruta)} />
-        <KpiCard label="Margem" value={t ? fPct(t.margem_pct, 1) : '—'} delta={t && tp ? t.margem_pct - tp.margem_pct : undefined} deltaPP />
+        <KpiCard label="Volume" value={t ? fLiters(t.volume_liters) : '—'} valueTitle={t ? fInt(t.volume_liters) + ' L' : undefined} delta={pctChange(t?.volume_liters, tp?.volume_liters)} />
+        <KpiCard label="Receita" value={t ? fCompact(t.gross_revenue) : '—'} valueTitle={t ? fCurrency(t.gross_revenue) : undefined} delta={pctChange(t?.gross_revenue, tp?.gross_revenue)} />
+        <KpiCard label="CMV" value={t ? fCompact(t.cogs) : '—'} valueTitle={t ? fCurrency(t.cogs) : undefined} delta={pctChange(t?.cogs, tp?.cogs)} />
+        <KpiCard label="Margem bruta" value={t ? fCompact(t.gross_margin) : '—'} valueTitle={t ? fCurrency(t.gross_margin) : undefined} delta={pctChange(t?.gross_margin, tp?.gross_margin)} />
+        <KpiCard label="Margem" value={t ? fPct(t.margin_pct, 1) : '—'} delta={t && tp ? t.margin_pct - tp.margin_pct : undefined} deltaPP />
       </KpiGrid>
 
       {/* Controles */}
@@ -215,13 +215,13 @@ export default function CombustivelPage() {
                 </Thead>
                 <Tbody>
                   {prodTable.map(p => {
-                    const spread = p.preco_medio_litro != null && p.custo_medio_litro != null ? p.preco_medio_litro - p.custo_medio_litro : null
+                    const spread = p.avg_price_liter != null && p.avg_cost_liter != null ? p.avg_price_liter - p.avg_cost_liter : null
                     return (
-                      <Tr key={p.subgrupo_id}>
-                        <Td first><b style={{ fontWeight: 550 }}>{p.subgrupo_descricao}</b></Td>
-                        <Td right>{fLiters(p.volume_litros)}</Td>
-                        <Td right>{fCompact(p.receita_bruta)}</Td>
-                        <Td right><b style={{ color: p.margem_pct >= 0 ? 'hsl(var(--success))' : 'hsl(var(--danger))' }}>{fPct(p.margem_pct, 1)}</b></Td>
+                      <Tr key={p.subgroup_id}>
+                        <Td first><b style={{ fontWeight: 550 }}>{p.subgroup_name}</b></Td>
+                        <Td right>{fLiters(p.volume_liters)}</Td>
+                        <Td right>{fCompact(p.gross_revenue)}</Td>
+                        <Td right><b style={{ color: p.margin_pct >= 0 ? 'hsl(var(--success))' : 'hsl(var(--danger))' }}>{fPct(p.margin_pct, 1)}</b></Td>
                         <Td right last>{spread != null ? 'R$ ' + spread.toFixed(2).replace('.', ',') : '—'}</Td>
                       </Tr>
                     )

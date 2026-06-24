@@ -2,11 +2,11 @@ import PgBoss from 'pg-boss'
 import { eq, and } from 'drizzle-orm'
 import { db } from './db.js'
 import { env } from './env.js'
-import { rawIngest, fatoVenda, fatoDespesa, locations, syncState } from '@postoinsight/db'
-import { transformStatusVenda, type StatusVendaRow } from './pipeline/transform-fato-venda.js'
-import { transformStatusDespesa, isRateioNoise, type StatusDespesaRow } from './pipeline/transform-despesa.js'
-import { transformDimProduto, type DimProdutoPayload } from './pipeline/transform-dim-produto.js'
-import { dimProduto } from '@postoinsight/db'
+import { rawIngest, factSale, factExpense, locations, syncState } from '@postoinsight/db'
+import { transformStatusVenda, type StatusVendaRow } from './pipeline/transform-fact-sale.js'
+import { transformStatusDespesa, isRateioNoise, type StatusDespesaRow } from './pipeline/transform-expense.js'
+import { transformDimProduto, type DimProdutoPayload } from './pipeline/transform-dim-product.js'
+import { dimProduct } from '@postoinsight/db'
 import { refreshAnalyticsMvs } from './pipeline/refresh-analytics.js'
 import { enqueueAnalyticsRefresh } from './pipeline/ingest.js'
 
@@ -75,10 +75,10 @@ await boss.work('pipeline:fato_venda', { teamSize: 4, teamConcurrency: 4 }, asyn
       const transformed = transformStatusVenda(row, tenantId, locationId)
 
       // Validações
-      if (!transformed.dataVenda) { rejected++; continue }
-      if (Number(transformed.vlrTotal) < 0) { rejected++; continue }
-      if (Number(transformed.qtdVenda) <= 0) { rejected++; continue }
-      if (!transformed.sourceProdutoId) { rejected++; continue }
+      if (!transformed.saleDate) { rejected++; continue }
+      if (Number(transformed.totalValue) < 0) { rejected++; continue }
+      if (Number(transformed.quantity) <= 0) { rejected++; continue }
+      if (!transformed.sourceProductId) { rejected++; continue }
 
       validRows.push(transformed)
     } catch {
@@ -91,7 +91,7 @@ await boss.work('pipeline:fato_venda', { teamSize: 4, teamConcurrency: 4 }, asyn
   for (let i = 0; i < validRows.length; i += BATCH) {
     const chunk = validRows.slice(i, i + BATCH)
     await db
-      .insert(fatoVenda)
+      .insert(factSale)
       .values(chunk)
       .onConflictDoNothing()
   }
@@ -165,8 +165,8 @@ await boss.work('pipeline:despesa', { teamSize: 2, teamConcurrency: 2 }, async (
       if (isRateioNoise(row)) { rejected++; continue }
       const transformed = transformStatusDespesa(row, tenantId, locationId)
 
-      if (!transformed.dataDespesa) { rejected++; continue }
-      if (!(Number(transformed.valor) > 0)) { rejected++; continue }
+      if (!transformed.expenseDate) { rejected++; continue }
+      if (!(Number(transformed.amount) > 0)) { rejected++; continue }
       if (!transformed.sourceId || transformed.sourceId === '--') { rejected++; continue }
 
       validRows.push({ ...transformed, rawIngestId } as typeof transformed)
@@ -179,7 +179,7 @@ await boss.work('pipeline:despesa', { teamSize: 2, teamConcurrency: 2 }, async (
   for (let i = 0; i < validRows.length; i += BATCH) {
     const chunk = validRows.slice(i, i + BATCH)
     await db
-      .insert(fatoDespesa)
+      .insert(factExpense)
       .values(chunk)
       .onConflictDoNothing()
   }
@@ -256,41 +256,41 @@ await boss.work('pipeline:dim_produto', { teamSize: 2, teamConcurrency: 2 }, asy
     // Busca versão atual
     const [current] = await db
       .select()
-      .from(dimProduto)
+      .from(dimProduct)
       .where(and(
-        eq(dimProduto.tenantId, tenantId),
-        eq(dimProduto.source, 'status'),
-        eq(dimProduto.sourceProdutoId, row.sourceProdutoId),
-        eq(dimProduto.isCurrent, true),
+        eq(dimProduct.tenantId, tenantId),
+        eq(dimProduct.source, 'status'),
+        eq(dimProduct.sourceProductId, row.sourceProductId),
+        eq(dimProduct.isCurrent, true),
       ))
       .limit(1)
 
     if (!current) {
       // Novo produto
-      await db.insert(dimProduto).values({ ...row, isCurrent: true, validTo: null })
+      await db.insert(dimProduct).values({ ...row, isCurrent: true, validTo: null })
       inserted++
       continue
     }
 
     // Verifica se algum campo SCD2 mudou
     const changed =
-      current.nome !== row.nome ||
-      current.categoriaCodigo !== row.categoriaCodigo ||
-      current.grupoId !== row.grupoId ||
-      current.subgrupoId !== row.subgrupoId ||
-      current.isCombustivel !== row.isCombustivel ||
-      current.ativo !== row.ativo
+      current.name !== row.name ||
+      current.categoryCode !== row.categoryCode ||
+      current.groupId !== row.groupId ||
+      current.subgroupId !== row.subgroupId ||
+      current.isFuel !== row.isFuel ||
+      current.active !== row.active
 
     if (!changed) continue
 
     // Fecha versão atual
     await db
-      .update(dimProduto)
+      .update(dimProduct)
       .set({ validTo: today, isCurrent: false })
-      .where(eq(dimProduto.id, current.id))
+      .where(eq(dimProduct.id, current.id))
 
     // Insere nova versão
-    await db.insert(dimProduto).values({ ...row, isCurrent: true, validTo: null })
+    await db.insert(dimProduct).values({ ...row, isCurrent: true, validTo: null })
     versioned++
   }
 

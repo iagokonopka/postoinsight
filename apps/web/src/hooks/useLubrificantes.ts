@@ -11,77 +11,77 @@ async function get<T>(url: string): Promise<T> {
 
 function useBaseParams() {
   const { period, locationId } = useApp()
-  const { data_inicio, data_fim } = periodToRange(period)
-  return { data_inicio, data_fim, location_id: locationId ?? undefined }
+  const { start_date, end_date } = periodToRange(period)
+  return { start_date, end_date, location_id: locationId ?? undefined }
 }
 
 export interface LubrificantesGrupo {
-  grupo_id: number
-  grupo_descricao: string | null
-  receita_bruta: number
-  receita_liquida: number
-  cmv: number
-  margem_bruta: number
-  margem_pct: number
-  qtd_itens: number
-  participacao_pct: number
+  group_id: number
+  group_name: string | null
+  gross_revenue: number
+  net_revenue: number
+  cogs: number
+  gross_margin: number
+  margin_pct: number
+  item_count: number
+  share_pct: number
 }
 
 export interface LubrificantesResumo {
-  totais: {
-    receita_bruta: number
-    receita_liquida: number
-    cmv: number
-    margem_bruta: number
-    margem_pct: number
-    qtd_itens: number
+  totals: {
+    gross_revenue: number
+    net_revenue: number
+    cogs: number
+    gross_margin: number
+    margin_pct: number
+    item_count: number
   }
-  por_grupo: LubrificantesGrupo[]
+  by_group: LubrificantesGrupo[]
 }
 
 export function useLubrificantesResumo() {
   const params = useBaseParams()
   const qs = buildQS(params)
   return useQuery<LubrificantesResumo>({
-    queryKey: ['lubrificantes', 'resumo', params],
-    queryFn: () => get(`/api/v1/lubrificantes/resumo${qs}`),
+    queryKey: ['lubricants', 'summary', params],
+    queryFn: () => get(`/api/v1/lubricants/summary${qs}`),
   })
 }
 
 export interface LubEvolucaoPonto {
-  periodo: string
-  receita_bruta: number
-  margem_bruta: number
-  margem_pct: number
+  period: string
+  gross_revenue: number
+  gross_margin: number
+  item_count: number
 }
 
-export function useLubrificantesEvolucao(granularidade: 'dia' | 'semana' | 'mes' = 'dia') {
+export function useLubrificantesEvolucao(granularity: 'day' | 'week' | 'month' = 'day') {
   const params = useBaseParams()
-  const qs = buildQS({ ...params, granularidade })
-  return useQuery<{ serie: LubEvolucaoPonto[] }>({
-    queryKey: ['lubrificantes', 'evolucao', params, granularidade],
-    queryFn: () => get(`/api/v1/lubrificantes/evolucao${qs}`),
+  const qs = buildQS({ ...params, granularity })
+  return useQuery<{ series: LubEvolucaoPonto[] }>({
+    queryKey: ['lubricants', 'evolution', params, granularity],
+    queryFn: () => get(`/api/v1/lubricants/evolution${qs}`),
   })
 }
 
-// ─── /api/v1/lubrificantes/by-location ───────────────────────────────────────
+// ─── /api/v1/lubricants/by-location ──────────────────────────────────────────
 
 export interface LubrificantesByLocation {
   location_id: string
-  location_nome: string
-  receita_bruta: number
-  margem_bruta: number
-  margem_pct: number
-  participacao_pct: number
+  location_name: string
+  gross_revenue: number
+  gross_margin: number
+  margin_pct: number
+  share_pct: number
 }
 
 export function useLubrificantesByLocation() {
   const { period } = useApp()
-  const { data_inicio, data_fim } = periodToRange(period)
-  const params = { data_inicio, data_fim }
+  const { start_date, end_date } = periodToRange(period)
+  const params = { start_date, end_date }
   const qs = buildQS(params)
   return useQuery<{ locations: LubrificantesByLocation[] }>({
-    queryKey: ['lubrificantes', 'by-location', params],
-    queryFn: () => get(`/api/v1/lubrificantes/by-location${qs}`),
+    queryKey: ['lubricants', 'by-location', params],
+    queryFn: () => get(`/api/v1/lubricants/by-location${qs}`),
   })
 }

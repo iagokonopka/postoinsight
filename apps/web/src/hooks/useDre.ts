@@ -27,62 +27,62 @@ export function lastNMonths(year: number, monthIdx: number, n: number): string[]
 }
 
 export interface DrePeriodo {
-  receita_bruta: number
-  descontos: number
-  receita_liquida: number
-  cmv: number
-  margem_bruta: number
-  margem_pct: number
+  gross_revenue: number
+  discounts: number
+  net_revenue: number
+  cogs: number
+  gross_margin: number
+  margin_pct: number
 }
 
 export interface DreLinhaAPI {
-  segmento: 'combustivel' | 'lubrificantes' | 'servicos' | 'conveniencia' | '_total'
-  periodos: Record<string, DrePeriodo>
+  segment: 'combustivel' | 'lubrificantes' | 'servicos' | 'conveniencia' | '_total'
+  periods: Record<string, DrePeriodo>
 }
 
 export interface DespesaGrupoItem {
   label: string
-  codigo: string
-  valor: number
+  code: string
+  amount: number
 }
 
 export interface DespesaBucket {
   total: number
-  porGrupo: DespesaGrupoItem[]
+  by_group: DespesaGrupoItem[]
 }
 
 /** Baldes de despesa por tipo contábil (Plano 2a). */
 export type DespesaBucketKey =
-  | 'operacional' | 'financeira' | 'imposto' | 'investimento'
-  | 'cmv' | 'nao_operacional' | 'nao_classificado'
+  | 'operating' | 'financial' | 'tax' | 'investment'
+  | 'cogs' | 'non_operating' | 'unclassified'
 
 export type DespesaBuckets = Record<DespesaBucketKey, DespesaBucket>
 
 export interface ResultadoOperacional {
-  margem_bruta: number
-  despesa_operacional: number
-  resultado_operacional: number
-  margem_operacional_pct: number
+  gross_margin: number
+  operating_expenses: number
+  operating_result: number
+  operating_margin_pct: number
 }
 
 export interface DreMensal {
-  meses: string[]
-  linhas: DreLinhaAPI[]
+  months: string[]
+  lines: DreLinhaAPI[]
   /** Despesas classificadas por tipo contábil (Plano 2a). */
-  despesas?: Record<string, DespesaBuckets>
-  /** Resultado Operacional = Margem Bruta − despesa_operacional (Plano 2a). */
-  resultado_operacional?: Record<string, ResultadoOperacional>
+  expenses?: Record<string, DespesaBuckets>
+  /** Resultado Operacional = Margem Bruta − operating_expenses (Plano 2a). */
+  operating_result?: Record<string, ResultadoOperacional>
 }
 
 export function useDreMensal(meses: string[]) {
   const { locationId } = useApp()
   const qs = buildQS({
-    meses: meses.join(','),
+    months: meses.join(','),
     location_id: locationId ?? undefined,
   })
   return useQuery<DreMensal>({
-    queryKey: ['dre', 'mensal', meses, locationId],
-    queryFn: () => get(`/api/v1/dre/mensal${qs}`),
+    queryKey: ['dre', 'monthly', meses, locationId],
+    queryFn: () => get(`/api/v1/dre/monthly${qs}`),
     enabled: meses.length > 0,
   })
 }
@@ -90,9 +90,9 @@ export function useDreMensal(meses: string[]) {
 export function useDreMesesDisponiveis() {
   const { locationId } = useApp()
   const qs = buildQS({ location_id: locationId ?? undefined })
-  return useQuery<{ meses: string[] }>({
-    queryKey: ['dre', 'meses-disponiveis', locationId],
-    queryFn: () => get(`/api/v1/dre/meses-disponiveis${qs}`),
+  return useQuery<{ months: string[] }>({
+    queryKey: ['dre', 'available-months', locationId],
+    queryFn: () => get(`/api/v1/dre/available-months${qs}`),
     staleTime: 5 * 60 * 1000,
   })
 }
