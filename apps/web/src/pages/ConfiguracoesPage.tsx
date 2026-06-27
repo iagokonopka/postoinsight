@@ -8,6 +8,7 @@ import { SegControl } from '@/components/ui/SegControl'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Spinner } from '@/components/ui/Spinner'
 import { AdminMapeamentoPanel } from './AdminMapeamentoPage'
+import { ProductMapeamentoPanel } from './ProductMapeamentoPage'
 
 // ─── Hook: locations ──────────────────────────────────────────────────────────
 
@@ -113,10 +114,13 @@ function CfgRow({ label, value, last }: { label: string; value: ReactNode; last?
 export default function ConfiguracoesPage() {
   const { user } = useAuth()
   const isOwner = user?.role === 'owner' || !!user?.platformRole
-  const [tab, setTab] = useState<'geral' | 'classificacao'>('geral')
+  const [tab, setTab] = useState<'geral' | 'classificacao' | 'produtos'>('geral')
   const tabOptions = [
     { value: 'geral' as const, label: 'Geral' },
-    ...(isOwner ? [{ value: 'classificacao' as const, label: 'Classificação' }] : []),
+    ...(isOwner ? [
+      { value: 'classificacao' as const, label: 'Despesas' },
+      { value: 'produtos' as const, label: 'Produtos' },
+    ] : []),
   ]
   const { data: locData,       isLoading: loadingLocs }        = useConfigLocations()
   const { data: usersData,     isLoading: loadingUsers }       = useConfigUsers()
@@ -146,6 +150,8 @@ export default function ConfiguracoesPage() {
       )}
 
       {tab === 'classificacao' && isOwner && <AdminMapeamentoPanel />}
+
+      {tab === 'produtos' && isOwner && <ProductMapeamentoPanel />}
 
       {tab === 'geral' && (<>
       {/* Tenant + Integração */}

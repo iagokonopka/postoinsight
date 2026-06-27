@@ -268,6 +268,32 @@ export const expenseClassification = appSchema.table('expense_classification', {
 }))
 
 // ---------------------------------------------------------------------------
+// productClassification — curadoria de apresentação de produtos (tenant-scoped).
+// Override NÃO-DESTRUTIVO aplicado em tempo de leitura nas telas Combustível e
+// Conveniência; canonical/raw nunca são reescritos. Re-sync do ERP nunca apaga.
+//
+// classification_key = "<nível>:<código>" (ex "product:6", "group:154").
+// segment_override é validado na aplicação (reusa Segment), não como enum nativo.
+// Spec: docs/specs/produto-classificacao.md (Plano 2b).
+// ---------------------------------------------------------------------------
+export const productClassification = appSchema.table('product_classification', {
+  id:                 uuid('id').primaryKey().defaultRandom(),
+  tenantId:           uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  classificationKey:  text('classification_key').notNull(),
+  segmentOverride:    text('segment_override'),
+  displayGroup:       text('display_group'),
+  customLabel:        text('custom_label'),
+  visible:            boolean('visible').notNull().default(true),
+  sortOrder:          integer('sort_order'),
+  createdBy:          uuid('created_by').notNull(),
+  createdAt:          timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt:          timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t): PgTableExtraConfig => ({
+  uqProductClassification: unique('uq_product_classification').on(t.tenantId, t.classificationKey),
+  idxProductClassificationTenant: index('idx_product_classification_tenant').on(t.tenantId),
+}))
+
+// ---------------------------------------------------------------------------
 // loginHistory
 // ---------------------------------------------------------------------------
 export const loginHistory = appSchema.table('login_history', {

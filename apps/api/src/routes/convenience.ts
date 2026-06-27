@@ -6,6 +6,7 @@ import { requireTenantSession } from '../lib/auth.js'
 import {
   BadQueryError, parseDateRange, parseUuidArray, parseEnum, n, pct, round2,
 } from '../lib/queryParsers.js'
+import { loadProductClassification, classificationKey } from '../lib/productClassification.js'
 
 const STORE_SEGMENTS = ['conveniencia', 'lubrificantes', 'servicos'] as const
 const GRANULARITIES = ['day', 'week', 'month'] as const
@@ -245,24 +246,46 @@ export const convenienceRoutes: FastifyPluginAsync = async (app) => {
       ))
       .groupBy(mv.groupId)
 
-    const total = rows.reduce((acc, r) => acc + n(r.gross_revenue), 0)
+    const classMap = await loadProductClassification(tenantId)
 
-    const groups = rows
-      .map(r => {
-        const gross_revenue = n(r.gross_revenue)
-        const net_revenue   = n(r.net_revenue)
-        const gross_margin  = n(r.gross_margin)
-        return {
-          group_id:      r.group_id,
-          group_name:    r.group_name,
-          gross_revenue: round2(gross_revenue),
-          cogs:          round2(n(r.cogs)),
-          gross_margin:  round2(gross_margin),
-          margin_pct:    pct(gross_margin, net_revenue),
-          share_pct:     pct(gross_revenue, total),
-        }
+    // Curadoria (Plano 2b): esconde visible=false, renomeia via custom_label,
+    // faz rollup de grupos que compartilham o mesmo display_group.
+    type Acc = { id: number | string; name: string; sort: number | null; gross: number; net: number; cogs: number; margin: number }
+    const buckets = new Map<string, Acc>()
+    for (const r of rows) {
+      const cls = classMap.get(classificationKey('group', r.group_id))
+      if (cls && cls.visible === false) continue
+      const label = cls?.customLabel ?? r.group_name ?? `Grupo ${r.group_id}`
+      const bucketKey = cls?.displayGroup ?? `group:${r.group_id}`
+      const bucketName = cls?.displayGroup ?? label
+      const acc = buckets.get(bucketKey) ?? { id: cls?.displayGroup ?? r.group_id, name: bucketName, sort: cls?.sortOrder ?? null, gross: 0, net: 0, cogs: 0, margin: 0 }
+      acc.gross += n(r.gross_revenue)
+      acc.net   += n(r.net_revenue)
+      acc.cogs  += n(r.cogs)
+      acc.margin += n(r.gross_margin)
+      buckets.set(bucketKey, acc)
+    }
+
+    const list = Array.from(buckets.values())
+    const total = list.reduce((acc, b) => acc + b.gross, 0)
+
+    const groups = list
+      .map(b => ({
+        group_id:      b.id,
+        group_name:    b.name,
+        sort_order:    b.sort,
+        gross_revenue: round2(b.gross),
+        cogs:          round2(b.cogs),
+        gross_margin:  round2(b.margin),
+        margin_pct:    pct(b.margin, b.net),
+        share_pct:     pct(b.gross, total),
+      }))
+      .sort((a, b) => {
+        if (a.sort_order != null && b.sort_order != null) return a.sort_order - b.sort_order
+        if (a.sort_order != null) return -1
+        if (b.sort_order != null) return 1
+        return b.gross_revenue - a.gross_revenue
       })
-      .sort((a, b) => b.gross_revenue - a.gross_revenue)
 
     return reply.send({ category_code: categoryCode, groups })
   })
@@ -308,8 +331,17 @@ export const convenienceRoutes: FastifyPluginAsync = async (app) => {
       .orderBy(desc(sum(mv.grossRevenue)))
       .limit(limit)
 
-    const total = rows.reduce((acc, r) => acc + n(r.gross_revenue), 0)
-    const groupIds = rows.map(r => r.group_id).filter((id): id is number => id !== null)
+    // Curadoria (Plano 2b): esconde grupos visible=false e renomeia via custom_label.
+    const classMap = await loadProductClassification(tenantId)
+    const rowsVisible = rows.filter(r => {
+      const cls = classMap.get(classificationKey('group', r.group_id ?? -1))
+      return !(cls && cls.visible === false)
+    })
+    const labelFor = (groupId: number | null, fallback: string | number) =>
+      classMap.get(classificationKey('group', groupId ?? -1))?.customLabel ?? fallback
+
+    const total = rowsVisible.reduce((acc, r) => acc + n(r.gross_revenue), 0)
+    const groupIds = rowsVisible.map(r => r.group_id).filter((id): id is number => id !== null)
 
     // Busca categorias de cada grupo para o Accordion aninhado
     const catRows = groupIds.length > 0
@@ -357,14 +389,14 @@ export const convenienceRoutes: FastifyPluginAsync = async (app) => {
     }
 
     return reply.send({
-      groups: rows.map((r, i) => {
+      groups: rowsVisible.map((r, i) => {
         const gross_revenue = n(r.gross_revenue)
         const net_revenue   = n(r.net_revenue)
         const gross_margin  = n(r.gross_margin)
         return {
           rank:          i + 1,
           group_id:      r.group_id,
-          group_name:    r.group_name ?? r.group_id,
+          group_name:    labelFor(r.group_id, r.group_name ?? r.group_id ?? ''),
           segment:       r.segment,
           gross_revenue: round2(gross_revenue),
           cogs:          round2(n(r.cogs)),

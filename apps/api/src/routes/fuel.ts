@@ -6,6 +6,7 @@ import { requireTenantSession } from '../lib/auth.js'
 import {
   BadQueryError, parseDateRange, parseUuidArray, parseIntArray, parseEnum, n, pct, round2,
 } from '../lib/queryParsers.js'
+import { loadProductClassification, classificationKey } from '../lib/productClassification.js'
 
 const GRANULARITIES = ['day', 'week', 'month'] as const
 
@@ -274,8 +275,11 @@ export const fuelRoutes: FastifyPluginAsync = async (app) => {
 
   // ---------------------------------------------------------------------
   // GET /api/v1/fuel/subgroups
-  // Breakdown por subgrupo (Diesel / Gasolina etc.) via fact_sale.
-  // Mais granular que /products, que agrupa por grupo da MV (1 linha só).
+  // Breakdown "Por produto" via fact_sale, agregado por PRODUTO
+  // (source_product_id) — não mais por subgrupo cru do ERP (que escondia
+  // Diesel S-10 × S-500 sob "Diseis"). Aplica a curadoria de produto
+  // (Plano 2b): custom_label, rollup por display_group, esconde visible=false.
+  // Mantém a chave de resposta `subgroups` para compatibilidade do frontend.
   // Query params: start_date, end_date, location_id?
   // ---------------------------------------------------------------------
   app.get('/subgroups', async (req, reply) => {
@@ -289,40 +293,66 @@ export const fuelRoutes: FastifyPluginAsync = async (app) => {
       throw err
     }
 
-    const rows = await db
-      .select({
-        subgroup_id:   factSale.subgroupId,
-        subgroup_name: sql<string | null>`MAX(${factSale.subgroupName})`,
-        gross_revenue: sum(factSale.totalValue).mapWith(Number),
-        cogs: sql<number>`COALESCE(SUM(${factSale.unitCost} * ${factSale.quantity}), 0)`.mapWith(Number),
-        discount:      sum(factSale.discountTotal).mapWith(Number),
-        quantity:      sum(factSale.quantity).mapWith(Number),
-      })
-      .from(factSale)
-      .where(and(
-        eq(factSale.tenantId, tenantId),
-        inArray(factSale.categoryCode, ['CB', 'ARL']),
-        gte(factSale.saleDate, startDate),
-        lte(factSale.saleDate, endDate),
-        locationIds ? inArray(factSale.locationId, locationIds) : undefined,
-      ))
-      .groupBy(factSale.subgroupId)
-      .orderBy(desc(sum(factSale.totalValue)))
+    const [rows, classMap] = await Promise.all([
+      db
+        .select({
+          product_id:    factSale.sourceProductId,
+          product_name:  sql<string | null>`MAX(${factSale.productName})`,
+          subgroup_name: sql<string | null>`MAX(${factSale.subgroupName})`,
+          gross_revenue: sum(factSale.totalValue).mapWith(Number),
+          cogs: sql<number>`COALESCE(SUM(${factSale.unitCost} * ${factSale.quantity}), 0)`.mapWith(Number),
+          discount:      sum(factSale.discountTotal).mapWith(Number),
+          quantity:      sum(factSale.quantity).mapWith(Number),
+        })
+        .from(factSale)
+        .where(and(
+          eq(factSale.tenantId, tenantId),
+          inArray(factSale.categoryCode, ['CB', 'ARL']),
+          gte(factSale.saleDate, startDate),
+          lte(factSale.saleDate, endDate),
+          locationIds ? inArray(factSale.locationId, locationIds) : undefined,
+        ))
+        .groupBy(factSale.sourceProductId),
+      loadProductClassification(tenantId),
+    ])
 
-    const totalRevenue = rows.reduce((acc, r) => acc + n(r.gross_revenue), 0)
-    const totalVolume  = rows.reduce((acc, r) => acc + n(r.quantity), 0)
+    // Acumulador por "bucket" de display: display_group (rollup) ou o próprio produto.
+    type Acc = { id: string; name: string; sort: number | null; gross: number; cogs: number; disc: number; qty: number }
+    const buckets = new Map<string, Acc>()
 
-    return reply.send({
-      subgroups: rows.map(r => {
-        const gross_revenue = n(r.gross_revenue)
-        const cogs          = n(r.cogs)
-        const discount      = n(r.discount)
-        const net_revenue   = gross_revenue - discount
+    for (const r of rows) {
+      const cls = classMap.get(classificationKey('product', r.product_id))
+      if (cls && cls.visible === false) continue // esconde lixo/inativo
+
+      const label = cls?.customLabel ?? r.product_name ?? r.subgroup_name ?? `Produto ${r.product_id}`
+      // rollup: produtos com mesmo display_group somam numa barra só
+      const bucketKey = cls?.displayGroup ?? `product:${r.product_id}`
+      const bucketName = cls?.displayGroup ?? label
+
+      const acc = buckets.get(bucketKey) ?? { id: bucketKey, name: bucketName, sort: cls?.sortOrder ?? null, gross: 0, cogs: 0, disc: 0, qty: 0 }
+      acc.gross += n(r.gross_revenue)
+      acc.cogs  += n(r.cogs)
+      acc.disc  += n(r.discount)
+      acc.qty   += n(r.quantity)
+      if (acc.sort == null && cls?.sortOrder != null) acc.sort = cls.sortOrder
+      buckets.set(bucketKey, acc)
+    }
+
+    const list = Array.from(buckets.values())
+    const totalRevenue = list.reduce((acc, r) => acc + r.gross, 0)
+    const totalVolume  = list.reduce((acc, r) => acc + r.qty, 0)
+
+    const subgroups = list
+      .map(b => {
+        const gross_revenue = b.gross
+        const cogs          = b.cogs
+        const net_revenue   = gross_revenue - b.disc
         const gross_margin  = net_revenue - cogs
-        const quantity      = n(r.quantity)
+        const quantity      = b.qty
         return {
-          subgroup_id:     r.subgroup_id,
-          subgroup_name:   r.subgroup_name ?? `Subgrupo ${r.subgroup_id}`,
+          subgroup_id:     b.id,
+          subgroup_name:   b.name,
+          sort_order:      b.sort,
           gross_revenue:   round2(gross_revenue),
           net_revenue:     round2(net_revenue),
           cogs:            round2(cogs),
@@ -334,8 +364,16 @@ export const fuelRoutes: FastifyPluginAsync = async (app) => {
           revenue_share_pct: pct(gross_revenue, totalRevenue),
           volume_share_pct:  pct(quantity, totalVolume),
         }
-      }),
-    })
+      })
+      // ordena por sort_order quando definido, senão por volume desc
+      .sort((a, b2) => {
+        if (a.sort_order != null && b2.sort_order != null) return a.sort_order - b2.sort_order
+        if (a.sort_order != null) return -1
+        if (b2.sort_order != null) return 1
+        return b2.volume_liters - a.volume_liters
+      })
+
+    return reply.send({ subgroups })
   })
 
   // ---------------------------------------------------------------------
