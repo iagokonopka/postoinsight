@@ -25,6 +25,7 @@
     "pg-boss": "^9.0.0",
     "pino-pretty": "^11.0.0",
     "postgres": "^3.4.0",
+    "resend": "^6.16.0",
     "zod": "^3.23.0"
   },
   "devDependencies": {

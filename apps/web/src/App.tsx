@@ -6,6 +6,8 @@ import { AppShell } from '@/components/layout/AppShell'
 import { ToastProvider } from '@/components/ui/Toast'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import LoginPage from '@/pages/LoginPage'
+import DefinirSenhaPage from '@/pages/DefinirSenhaPage'
+import RecuperarSenhaPage from '@/pages/RecuperarSenhaPage'
 import VisaoGeralPage from '@/pages/VisaoGeralPage'
 import CombustivelPage from '@/pages/CombustivelPage'
 import ArlaPage from '@/pages/ArlaPage'
@@ -36,6 +38,10 @@ export default function App() {
             <BrowserRouter>
               <Routes>
                 <Route path="/login" element={<GuestRoute />} />
+                {/* Rotas públicas de ativação/recuperação — fora do ProtectedShell */}
+                <Route path="/ativar" element={<DefinirSenhaPage />} />
+                <Route path="/redefinir-senha" element={<DefinirSenhaPage />} />
+                <Route path="/recuperar" element={<RecuperarSenhaPage />} />
                 <Route element={<ProtectedShell />}>
                   <Route path="/" element={<VisaoGeralPage />} />
                   <Route path="/combustivel" element={<CombustivelPage />} />

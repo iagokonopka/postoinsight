@@ -7,12 +7,22 @@ import { db } from '../db.js'
 import { users, tenants, tenantUsers, platformUsers, loginHistory, auditLog } from '@postoinsight/db'
 import { requireTenantSession } from '../lib/auth.js'
 import { env } from '../env.js'
+import {
+  createOneTimeToken,
+  consumeOneTimeToken,
+  getTokenContext,
+  invalidateUserTokens,
+} from '../lib/one-time-tokens.js'
+import { sendAuthEmail } from '../lib/auth-email.js'
 
 /**
  * Tempo de vida da sessão em segundos — 8 horas.
  * Alinhado com o padrão Auth.js v5.
  */
 const SESSION_MAX_AGE = 8 * 60 * 60
+
+/** Tempo de vida da sessão com "Manter conectado" — 30 dias. */
+const REMEMBER_ME_MAX_AGE = 30 * 24 * 60 * 60
 
 /**
  * Número máximo de tentativas de login antes do bloqueio temporário.
@@ -33,12 +43,15 @@ const COOKIE_NAME = env.NODE_ENV === 'production'
  * Emite o JWE de sessão usando o mesmo mecanismo do Auth.js v5.
  * O salt = nome do cookie — idêntico ao usado em decodeWithFallback().
  */
-async function issueSessionToken(claims: Record<string, unknown>): Promise<string> {
+async function issueSessionToken(
+  claims: Record<string, unknown>,
+  maxAge: number = SESSION_MAX_AGE,
+): Promise<string> {
   return encode({
     token:  { ...claims, iat: Math.floor(Date.now() / 1000) },
     secret: env.AUTH_SECRET,
     salt:   COOKIE_NAME,
-    maxAge: SESSION_MAX_AGE,
+    maxAge,
   })
 }
 
@@ -49,14 +62,18 @@ async function issueSessionToken(claims: Record<string, unknown>): Promise<strin
  *   distintos do Railway, que estão na Public Suffix List e são tratados como sites separados)
  * - Em dev: SameSite=Lax sem Secure para funcionar via http://localhost
  */
-function setSessionCookie(reply: FastifyReply, token: string): void {
+function setSessionCookie(
+  reply: FastifyReply,
+  token: string,
+  maxAge: number = SESSION_MAX_AGE,
+): void {
   const isProd = env.NODE_ENV === 'production'
   reply.setCookie(COOKIE_NAME, token, {
     httpOnly:  true,
     sameSite:  isProd ? 'none' : 'lax',
     secure:    isProd,
     path:      '/',
-    maxAge:    SESSION_MAX_AGE,
+    maxAge,
   })
 }
 
@@ -65,6 +82,87 @@ function getClientIp(req: FastifyRequest): string {
   const forwarded = req.headers['x-forwarded-for']
   if (typeof forwarded === 'string') return forwarded.split(',')[0]?.trim() ?? req.ip
   return req.ip
+}
+
+interface SessionUser {
+  id: string
+  name: string | null
+  email: string
+}
+
+interface ResolvedSession {
+  claims: Record<string, unknown>
+  user: {
+    id: string
+    name: string | null
+    email: string
+    role: string | null
+    platformRole: string | null
+    tenantId: string | null
+    locationId: string | null
+  }
+}
+
+/**
+ * Resolve claims e payload de resposta para um usuário — mesma lógica usada pelo
+ * login. Reutilizado por set-password e login-link. Retorna null se o usuário não
+ * é platform user nem tem tenant ativo (estado inválido para sessão).
+ */
+async function resolveSession(user: SessionUser): Promise<ResolvedSession | null> {
+  const [platform] = await db
+    .select({ platformRole: platformUsers.platformRole })
+    .from(platformUsers)
+    .where(eq(platformUsers.userId, user.id))
+    .limit(1)
+
+  let tenantId:   string | undefined
+  let role:       string | undefined
+  let locationId: string | undefined
+
+  if (!platform) {
+    const [tu] = await db
+      .select({
+        tenantId:   tenantUsers.tenantId,
+        role:       tenantUsers.role,
+        locationId: tenantUsers.locationId,
+      })
+      .from(tenantUsers)
+      .where(and(
+        eq(tenantUsers.userId, user.id),
+        eq(tenantUsers.active, true),
+        isNull(tenantUsers.deletedAt),
+      ))
+      .limit(1)
+
+    if (!tu) return null
+
+    tenantId   = tu.tenantId
+    role       = tu.role
+    locationId = tu.locationId ?? undefined
+  }
+
+  const claims: Record<string, unknown> = {
+    id:    user.id,
+    email: user.email,
+    name:  user.name,
+    ...(platform
+      ? { platformRole: platform.platformRole }
+      : { tenantId, role, ...(locationId ? { locationId } : {}) }
+    ),
+  }
+
+  return {
+    claims,
+    user: {
+      id:           user.id,
+      name:         user.name,
+      email:        user.email,
+      role:         role ?? null,
+      platformRole: platform?.platformRole ?? null,
+      tenantId:     tenantId ?? null,
+      locationId:   locationId ?? null,
+    },
+  }
 }
 
 /**
@@ -82,14 +180,16 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
   // POST /auth/login
   // -------------------------------------------------------------------------
   app.post('/login', async (req, reply) => {
-    const body = req.body as { email?: unknown; password?: unknown }
+    const body = req.body as { email?: unknown; password?: unknown; rememberMe?: unknown }
 
     if (typeof body?.email !== 'string' || typeof body?.password !== 'string') {
       return reply.status(400).send({ error: 'email e password são obrigatórios' })
     }
 
-    const email    = body.email.trim().toLowerCase()
-    const password = body.password
+    const email      = body.email.trim().toLowerCase()
+    const password   = body.password
+    const rememberMe = body.rememberMe === true
+    const maxAge     = rememberMe ? REMEMBER_ME_MAX_AGE : SESSION_MAX_AGE
     const ipAddress = getClientIp(req)
     const userAgent = req.headers['user-agent'] ?? null
 
@@ -214,10 +314,10 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
       ),
     }
 
-    const token = await issueSessionToken(claims)
+    const token = await issueSessionToken(claims, maxAge)
 
     // 8. Seta o cookie HttpOnly e retorna dados do usuário (sem o token)
-    setSessionCookie(reply, token)
+    setSessionCookie(reply, token, maxAge)
     return reply.send({
       user: {
         id:           user.id,
@@ -329,4 +429,218 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
 
     return reply.send({ ok: true })
   })
+
+  // -------------------------------------------------------------------------
+  // GET /auth/set-password/context?token= — preview NÃO-consumidor
+  // -------------------------------------------------------------------------
+  app.get('/set-password/context', async (req, reply) => {
+    const token = (req.query as { token?: unknown })?.token
+    if (typeof token !== 'string' || !token) {
+      return reply.send({ valid: false })
+    }
+    const ctx = await getTokenContext(token)
+    return reply.send(ctx)
+  })
+
+  // -------------------------------------------------------------------------
+  // POST /auth/set-password — consome activation|reset, grava senha, loga
+  // -------------------------------------------------------------------------
+  app.post('/set-password', async (req, reply) => {
+    const body = req.body as { token?: unknown; password?: unknown }
+
+    if (typeof body?.token !== 'string' || typeof body?.password !== 'string') {
+      return reply.status(400).send({ error: 'token e password são obrigatórios' })
+    }
+    if (body.password.length < 8) {
+      return reply.status(400).send({ error: 'A senha deve ter no mínimo 8 caracteres' })
+    }
+
+    // Consumo atômico (uso único) — aceita activation ou reset.
+    const result = await consumeOneTimeToken(body.token, ['activation', 'reset'])
+    if (!result.ok || !result.userId) {
+      return reply.status(410).send({ error: 'Link expirado ou já utilizado' })
+    }
+
+    const [user] = await db
+      .select({ id: users.id, name: users.name, email: users.email })
+      .from(users)
+      .where(eq(users.id, result.userId))
+      .limit(1)
+
+    if (!user) {
+      return reply.status(410).send({ error: 'Link expirado ou já utilizado' })
+    }
+
+    const now = new Date()
+    const passwordHash = await bcrypt.hash(body.password, 12)
+
+    await db.update(users)
+      .set({
+        passwordHash,
+        passwordChangedAt:   now,
+        active:              true,
+        failedLoginAttempts: 0,
+        lockedUntil:         null,
+        updatedAt:           now,
+      })
+      .where(eq(users.id, user.id))
+
+    // Invalida quaisquer outros tokens pendentes do usuário (reset/login/activation).
+    await invalidateUserTokens(user.id)
+
+    const session = await resolveSession(user)
+    if (!session) {
+      return reply.status(403).send({ error: 'Usuário sem tenant ativo' })
+    }
+
+    const ipAddress = getClientIp(req)
+    const userAgent = req.headers['user-agent'] ?? null
+
+    await db.insert(loginHistory).values({
+      userId:   user.id,
+      tenantId: session.user.tenantId,
+      ipAddress,
+      userAgent,
+      success:  true,
+    })
+
+    await db.insert(auditLog).values({
+      tenantId:     session.user.tenantId,
+      actorUserId:  user.id,
+      action:       'user.password_set_via_token',
+      targetEntity: 'users',
+      targetId:     user.id,
+      ipAddress,
+    })
+
+    const token = await issueSessionToken(session.claims)
+    setSessionCookie(reply, token)
+    return reply.send({ user: session.user })
+  })
+
+  // -------------------------------------------------------------------------
+  // POST /auth/forgot-password — sempre 200 (anti-enumeração)
+  // -------------------------------------------------------------------------
+  app.post('/forgot-password', async (req, reply) => {
+    const email = (req.body as { email?: unknown })?.email
+    if (typeof email !== 'string' || !email) {
+      return reply.status(400).send({ error: 'email é obrigatório' })
+    }
+    await emitTokenEmail(req, email.trim().toLowerCase(), 'reset')
+    return reply.send({ ok: true })
+  })
+
+  // -------------------------------------------------------------------------
+  // POST /auth/login-link — sempre 200 (anti-enumeração)
+  // -------------------------------------------------------------------------
+  app.post('/login-link', async (req, reply) => {
+    const email = (req.body as { email?: unknown })?.email
+    if (typeof email !== 'string' || !email) {
+      return reply.status(400).send({ error: 'email é obrigatório' })
+    }
+    await emitTokenEmail(req, email.trim().toLowerCase(), 'login')
+    return reply.send({ ok: true })
+  })
+
+  // -------------------------------------------------------------------------
+  // GET /auth/login-link/consume?token= — consome login, emite sessão
+  // -------------------------------------------------------------------------
+  app.get('/login-link/consume', async (req, reply) => {
+    const token = (req.query as { token?: unknown })?.token
+    const fail = () => reply.redirect(`${env.WEB_APP_URL}/recuperar?erro=link`)
+
+    if (typeof token !== 'string' || !token) return fail()
+
+    const result = await consumeOneTimeToken(token, ['login'])
+    if (!result.ok || !result.userId) return fail()
+
+    const [user] = await db
+      .select({ id: users.id, name: users.name, email: users.email })
+      .from(users)
+      .where(eq(users.id, result.userId))
+      .limit(1)
+    if (!user) return fail()
+
+    const session = await resolveSession(user)
+    if (!session) return fail()
+
+    await db.insert(loginHistory).values({
+      userId:   user.id,
+      tenantId: session.user.tenantId,
+      ipAddress: getClientIp(req),
+      userAgent: req.headers['user-agent'] ?? null,
+      success:  true,
+    })
+
+    const sessionToken = await issueSessionToken(session.claims)
+    setSessionCookie(reply, sessionToken)
+    return reply.redirect(`${env.WEB_APP_URL}/`)
+  })
+
+  // -------------------------------------------------------------------------
+  // POST /auth/activation-token — (re)emite link de ativação (superadmin)
+  // -------------------------------------------------------------------------
+  app.post('/activation-token', { preHandler: requireTenantSession }, async (req, reply) => {
+    if (req.platformRole !== 'superadmin') {
+      return reply.status(403).send({ error: 'Apenas superadmin pode emitir links de ativação' })
+    }
+
+    const userId = (req.body as { userId?: unknown })?.userId
+    if (typeof userId !== 'string' || !userId) {
+      return reply.status(400).send({ error: 'userId é obrigatório' })
+    }
+
+    const [user] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1)
+    if (!user) {
+      return reply.status(404).send({ error: 'Usuário não encontrado' })
+    }
+
+    const raw = await createOneTimeToken({
+      userId:    user.id,
+      purpose:   'activation',
+      createdBy: req.userId!,
+      requestIp: getClientIp(req),
+      requestUserAgent: req.headers['user-agent'] ?? null,
+    })
+
+    const link = `${env.WEB_APP_URL}/ativar?token=${raw}`
+    const expiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000)
+    return reply.send({ link, expiresAt: expiresAt.toISOString() })
+  })
+
+  /**
+   * Emite token + e-mail para um e-mail informado. Sempre silencioso:
+   * se o usuário não existe ou está inativo, não faz nada (anti-enumeração).
+   */
+  async function emitTokenEmail(
+    req: FastifyRequest,
+    email: string,
+    purpose: 'reset' | 'login',
+  ): Promise<void> {
+    const [user] = await db
+      .select({ id: users.id, name: users.name, email: users.email, active: users.active })
+      .from(users)
+      .where(eq(users.email, email))
+      .limit(1)
+
+    if (!user || !user.active) return
+
+    const raw = await createOneTimeToken({
+      userId:    user.id,
+      purpose,
+      requestIp: getClientIp(req),
+      requestUserAgent: req.headers['user-agent'] ?? null,
+    })
+
+    // reset → tela do SPA; login → endpoint da API (consome + redireciona ao SPA).
+    const link = purpose === 'reset'
+      ? `${env.WEB_APP_URL}/redefinir-senha?token=${raw}`
+      : `${env.API_PUBLIC_URL}/auth/login-link/consume?token=${raw}`
+
+    await sendAuthEmail({ to: user.email, purpose, link, name: user.name })
+  }
 }

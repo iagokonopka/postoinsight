@@ -1,6 +1,6 @@
 import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
-import { randomUUID } from 'crypto'
+import { randomUUID, randomBytes, createHash } from 'crypto'
 import bcrypt from 'bcryptjs'
 import * as schema from './schema/index.js'
 import { eq, and } from 'drizzle-orm'
@@ -177,8 +177,10 @@ console.log(`  dim_date: ${dimDateRows[0]?.count ?? '0'} dias`)
 // Usuário admin do tenant JAM
 // ---------------------------------------------------------------------------
 const adminEmail = process.env['JAM_ADMIN_EMAIL'] ?? 'admin@postosjam.com.br'
-const adminPassword = process.env['JAM_ADMIN_PASSWORD'] ?? 'admin123'
-const passwordHash = await bcrypt.hash(adminPassword, 12)
+// Padrão (paridade com produção): owner SEM senha + link de ativação.
+// Atalho de dev: defina SEED_DEV_PASSWORD para criar uma senha direta (apenas local).
+const devPassword = process.env['SEED_DEV_PASSWORD']
+const passwordHash = devPassword ? await bcrypt.hash(devPassword, 12) : null
 
 const [existingUser] = await db
   .select({ id: schema.users.id })
@@ -206,6 +208,33 @@ await db.insert(schema.tenantUsers).values({
   userId,
   role: 'owner',
 }).onConflictDoNothing()
+
+// Token de ativação (somente quando não há senha de dev) — owner define a
+// primeira senha pelo link. Token bruto só aqui; no banco, apenas sha256(raw).
+if (!passwordHash) {
+  const webAppUrl = process.env['WEB_APP_URL'] ?? 'http://localhost:3001'
+  const rawToken = randomBytes(32).toString('base64url')
+  const tokenHash = createHash('sha256').update(rawToken).digest('hex')
+  // Invalida tokens de ativação pendentes anteriores deste usuário.
+  await db.update(schema.oneTimeTokens)
+    .set({ consumedAt: new Date() })
+    .where(and(
+      eq(schema.oneTimeTokens.userId, userId),
+      eq(schema.oneTimeTokens.purpose, 'activation'),
+    ))
+  await db.insert(schema.oneTimeTokens).values({
+    userId,
+    purpose:   'activation',
+    tokenHash,
+    expiresAt: new Date(Date.now() + 72 * 60 * 60 * 1000),
+  })
+  console.log('\n  ──────────────────────────────────────────────')
+  console.log('  Link de ativação do owner (válido por 72h):')
+  console.log(`  ${webAppUrl}/ativar?token=${rawToken}`)
+  console.log('  ──────────────────────────────────────────────\n')
+} else {
+  console.log('  Owner criado com SEED_DEV_PASSWORD (modo dev).')
+}
 
 // ---------------------------------------------------------------------------
 // Platform superadmin
@@ -256,7 +285,11 @@ console.log(`  Superadmin: ${superadminEmail}`)
 console.log('\n─────────────────────────────────────────')
 console.log('Seed concluído com sucesso.')
 console.log(`  Admin email:    ${adminEmail}`)
-console.log(`  Admin senha:    ${adminPassword}  <- TROCAR EM PRODUCAO`)
+console.log(
+  devPassword
+    ? `  Admin senha:    ${devPassword}  <- SEED_DEV_PASSWORD, apenas dev`
+    : '  Admin senha:    (nenhuma — use o link de ativação impresso acima)'
+)
 console.log('\nLOCATIONS env var (copiar para o .env do agente):')
 const locationsParts = agentTokens.map(({ sourceLocationId, token }) => `${sourceLocationId}:${token}`)
 console.log(`  LOCATIONS=${locationsParts.join(',')}`)

@@ -3,6 +3,7 @@ import { and, eq, gte, lte, inArray, sql, sum, desc } from 'drizzle-orm'
 import { db } from '../db.js'
 import { mvSalesDaily as mv, factSale, locations } from '@postoinsight/db'
 import { requireTenantSession } from '../lib/auth.js'
+import { markDashboardFirstView } from '../lib/activation-event.js'
 import {
   BadQueryError, parseDateRange, parseUuidArray, parseEnum, n, pct, round2,
 } from '../lib/queryParsers.js'
@@ -25,6 +26,8 @@ export const salesRoutes: FastifyPluginAsync = async (app) => {
   // ---------------------------------------------------------------------
   app.get('/summary', async (req, reply) => {
     const tenantId = req.tenantId!
+    // Evento de ativação: primeira carga do painel por um usuário real do tenant.
+    await markDashboardFirstView(tenantId, req.userId!, !!req.platformRole)
     let startDate: string, endDate: string, locationIds: string[] | undefined
     try {
       ({ startDate, endDate } = parseDateRange(req.query as Record<string, unknown>))

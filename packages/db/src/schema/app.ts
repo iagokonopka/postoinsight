@@ -15,6 +15,7 @@ export const erpSourceEnum = appSchema.enum('erp_source', ['status', 'webposto']
 export const syncJobStatusEnum = appSchema.enum('sync_job_status', ['pending', 'running', 'success', 'error'])
 export const syncJobTypeEnum = appSchema.enum('sync_job_type', ['incremental', 'backfill', 'full_sync'])
 export const syncJobTriggerEnum = appSchema.enum('sync_job_trigger', ['scheduler', 'user', 'backfill'])
+export const tokenPurposeEnum = appSchema.enum('token_purpose', ['activation', 'reset', 'login'])
 
 // ---------------------------------------------------------------------------
 // tenants
@@ -357,4 +358,26 @@ export const usageEvents = appSchema.table('usage_events', {
 }, (t): PgTableExtraConfig => ({
   idxUsageEventsTenant: index('idx_usage_events_tenant').on(t.tenantId, t.occurredAt),
   idxUsageEventsUser:   index('idx_usage_events_user').on(t.userId, t.occurredAt),
+}))
+
+// ---------------------------------------------------------------------------
+// oneTimeTokens — token de uso único para ativação, reset e login por link.
+// O token bruto (32 bytes base64url) só existe no link; aqui guarda-se apenas
+// sha256(raw) em hex. Uso único garantido por UPDATE condicional em consumed_at.
+// Spec: docs/specs/auth-ativacao.md · ADR-019.
+// ---------------------------------------------------------------------------
+export const oneTimeTokens = appSchema.table('one_time_tokens', {
+  id:                uuid('id').primaryKey().defaultRandom(),
+  userId:            uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  purpose:           tokenPurposeEnum('purpose').notNull(),
+  tokenHash:         text('token_hash').notNull().unique(),
+  expiresAt:         timestamp('expires_at', { withTimezone: true }).notNull(),
+  consumedAt:        timestamp('consumed_at', { withTimezone: true }),
+  createdBy:         uuid('created_by'),
+  requestIp:         text('request_ip'),
+  requestUserAgent:  text('request_user_agent'),
+  createdAt:         timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t): PgTableExtraConfig => ({
+  idxOneTimeTokensUserPurpose: index('idx_one_time_tokens_user_purpose').on(t.userId, t.purpose),
+  idxOneTimeTokensExpires:     index('idx_one_time_tokens_expires').on(t.expiresAt),
 }))

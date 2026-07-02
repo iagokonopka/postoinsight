@@ -87,6 +87,7 @@ export default function LoginPage() {
 
   const [email,    setEmail]    = useState('')
   const [password, setPassword] = useState('')
+  const [rememberMe, setRememberMe] = useState(false)
   const [loading,  setLoading]  = useState(false)
   const [error,    setError]    = useState<string | null>(null)
 
@@ -105,7 +106,7 @@ export default function LoginPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
+        body: JSON.stringify({ email: email.trim().toLowerCase(), password, rememberMe }),
       })
 
       if (res.ok) {
@@ -203,6 +204,22 @@ export default function LoginPage() {
             </div>
           )}
 
+          {/* Remember me */}
+          <label style={{
+            display: 'flex', alignItems: 'center', gap: '8px',
+            fontSize: '12px', color: 'hsl(var(--muted-foreground))', cursor: 'pointer',
+            userSelect: 'none',
+          }}>
+            <input
+              type="checkbox"
+              checked={rememberMe}
+              onChange={e => setRememberMe(e.target.checked)}
+              disabled={loading}
+              style={{ width: '14px', height: '14px', accentColor: 'hsl(var(--primary))', cursor: 'pointer' }}
+            />
+            Manter conectado
+          </label>
+
           {/* Submit */}
           <button
             type="submit"
@@ -242,8 +259,8 @@ export default function LoginPage() {
         {/* Forgot password */}
         <div style={{ marginTop: '16px', textAlign: 'center' }}>
           <a
-            href="#"
-            onClick={e => e.preventDefault()}
+            href="/recuperar"
+            onClick={e => { e.preventDefault(); navigate('/recuperar') }}
             style={{
               fontSize: '12px',
               color: 'hsl(var(--muted-foreground))',
